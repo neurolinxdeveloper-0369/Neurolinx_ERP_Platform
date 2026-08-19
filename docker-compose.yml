@@ -10,7 +10,7 @@ services:
     ports:
       - "5435:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata_new:/var/lib/postgresql/data
     restart: unless-stopped
 
   redis:
@@ -61,4 +61,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  pgdata:
+  pgdata_new:
+  redis_data:
