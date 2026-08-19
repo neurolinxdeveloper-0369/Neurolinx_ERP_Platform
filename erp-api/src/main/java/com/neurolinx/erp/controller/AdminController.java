@@ -30,6 +30,23 @@ public class AdminController {
         return ResponseEntity.ok(menuItemRepository.save(menuItem));
     }
 
+    @PutMapping("/menu-items/{id}")
+    public ResponseEntity<MenuItem> updateMenuItem(@PathVariable Long id, @RequestBody MenuItem updatedItem) {
+        return menuItemRepository.findById(id).map(item -> {
+            item.setName(updatedItem.getName());
+            item.setFrontendRoute(updatedItem.getFrontendRoute());
+            item.setIcon(updatedItem.getIcon());
+            item.setIsMasterEnabled(updatedItem.getIsMasterEnabled());
+            return ResponseEntity.ok(menuItemRepository.save(item));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/menu-items/{id}")
+    public ResponseEntity<?> deleteMenuItem(@PathVariable Long id) {
+        menuItemRepository.deleteById(id);
+        return ResponseEntity.ok().build();
+    }
+
     // --- COMPANIES (Clients) ---
 
     @Autowired private UserRepository userRepository;
@@ -38,6 +55,22 @@ public class AdminController {
     @GetMapping("/companies")
     public ResponseEntity<List<Company>> getAllCompanies() {
         return ResponseEntity.ok(companyRepository.findAll());
+    }
+
+    @PutMapping("/companies/{id}")
+    public ResponseEntity<Company> updateCompany(@PathVariable Long id, @RequestBody Company updatedCompany) {
+        return companyRepository.findById(id).map(company -> {
+            company.setName(updatedCompany.getName());
+            company.setIndustryType(updatedCompany.getIndustryType());
+            company.setIsActive(updatedCompany.getIsActive());
+            return ResponseEntity.ok(companyRepository.save(company));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/companies/{id}")
+    public ResponseEntity<?> deleteCompany(@PathVariable Long id) {
+        companyRepository.deleteById(id);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/companies")
