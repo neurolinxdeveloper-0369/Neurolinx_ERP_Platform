@@ -1,51 +1,91 @@
 import { useState, useEffect } from 'react';
-import { Plus, Users, Settings, Building2, X } from 'lucide-react';
+import { Plus, Users, Settings, Building2, X, Edit2, Trash2 } from 'lucide-react';
 
 export default function ClientProvisioning() {
   const [companies, setCompanies] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   
   // Form State
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [companyName, setCompanyName] = useState('');
   const [industryType, setIndustryType] = useState('Restaurant');
+  const [isActive, setIsActive] = useState(true);
+  
+  // For new clients only
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    fetchCompanies();
+  }, []);
+
+  const fetchCompanies = () => {
     fetch('http://50.6.45.177:8088/api/admin/companies')
       .then(res => res.json())
       .then(data => setCompanies(data))
       .catch(err => console.error("Failed to load companies", err));
-  }, []);
+  };
 
-  const handleCreateClient = async (e: React.FormEvent) => {
+  const openCreateModal = () => {
+    setEditingId(null);
+    setCompanyName('');
+    setIndustryType('Restaurant');
+    setUsername('');
+    setPassword('');
+    setConfirmPassword('');
+    setShowModal(true);
+  };
+
+  const openEditModal = (comp: any) => {
+    setEditingId(comp.id);
+    setCompanyName(comp.name);
+    setIndustryType(comp.industryType);
+    setIsActive(comp.isActive);
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this client? This cannot be undone!")) return;
+    try {
+      const res = await fetch(`http://50.6.45.177:8088/api/admin/companies/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchCompanies();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
+    if (!editingId && password !== confirmPassword) {
       alert("Passwords do not match!");
       return;
     }
     
     setIsSubmitting(true);
     
+    const url = editingId 
+      ? `http://50.6.45.177:8088/api/admin/companies/${editingId}`
+      : 'http://50.6.45.177:8088/api/admin/companies';
+      
+    const method = editingId ? 'PUT' : 'POST';
+    const payload = editingId 
+      ? { name: companyName, industryType, isActive }
+      : { companyName, industryType, username, password };
+    
     try {
-      const res = await fetch('http://50.6.45.177:8088/api/admin/companies', {
-        method: 'POST',
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyName, industryType, username, password })
+        body: JSON.stringify(payload)
       });
       
       if (res.ok) {
-        const newClient = await res.json();
-        setCompanies([...companies, newClient]);
+        fetchCompanies();
         setShowModal(false);
-        setCompanyName('');
-        setUsername('');
-        setPassword('');
-        setConfirmPassword('');
       } else {
-        alert('Failed to create client');
+        alert('Failed to save client');
       }
     } catch (err) {
       console.error(err);
@@ -63,7 +103,7 @@ export default function ClientProvisioning() {
           <p style={{ margin: '0.5rem 0 0 0', color: '#6b7280' }}>Manage client companies, roles, and module access.</p>
         </div>
         <button 
-          onClick={() => setShowModal(true)}
+          onClick={openCreateModal}
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6', color: 'white', padding: '0.75rem 1.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }}>
           <Plus size={18} />
           Create Client
@@ -72,13 +112,18 @@ export default function ClientProvisioning() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
         {companies.map((company, index) => (
-          <div key={index} style={{ backgroundColor: 'white', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb' }}>
+          <div key={index} style={{ backgroundColor: 'white', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem' }}>
+              <button onClick={() => openEditModal(company)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}><Edit2 size={16} /></button>
+              <button onClick={() => handleDelete(company.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={16} /></button>
+            </div>
+            
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-              <div style={{ backgroundColor: '#eff6ff', padding: '0.75rem', borderRadius: '8px', color: '#3b82f6' }}>
+              <div style={{ backgroundColor: company.isActive ? '#eff6ff' : '#f3f4f6', padding: '0.75rem', borderRadius: '8px', color: company.isActive ? '#3b82f6' : '#9ca3af' }}>
                 <Building2 size={24} />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.125rem', color: '#111827' }}>{company.name}</h3>
+                <h3 style={{ margin: 0, fontSize: '1.125rem', color: '#111827', textDecoration: company.isActive ? 'none' : 'line-through' }}>{company.name}</h3>
                 <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>{company.industryType}</span>
               </div>
             </div>
@@ -103,13 +148,15 @@ export default function ClientProvisioning() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
           <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '400px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#111827' }}>Create New Client</h2>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#111827' }}>
+                {editingId ? 'Edit Client' : 'Create New Client'}
+              </h2>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
                 <X size={20} />
               </button>
             </div>
             
-            <form onSubmit={handleCreateClient} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <form onSubmit={handleSaveClient} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Company Name</label>
                 <input 
@@ -138,50 +185,62 @@ export default function ClientProvisioning() {
                 </select>
               </div>
 
-              <div style={{ marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
-                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#374151' }}>Client Admin Account</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Username</label>
-                    <input 
-                      type="text" 
-                      value={username}
-                      onChange={e => setUsername(e.target.value)}
-                      placeholder="e.g. joe_admin"
-                      required
-                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Password</label>
-                    <input 
-                      type="password" 
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      placeholder="Enter a secure password"
-                      required
-                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Confirm Password</label>
-                    <input 
-                      type="password" 
-                      value={confirmPassword}
-                      onChange={e => setConfirmPassword(e.target.value)}
-                      placeholder="Re-type password"
-                      required
-                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
-                    />
+              {editingId ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={isActive} 
+                    onChange={e => setIsActive(e.target.checked)} 
+                    id="isActive"
+                  />
+                  <label htmlFor="isActive" style={{ fontSize: '0.875rem', color: '#374151', fontWeight: '500', cursor: 'pointer' }}>Active Client (Can log in)</label>
+                </div>
+              ) : (
+                <div style={{ marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
+                  <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#374151' }}>Client Admin Account</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Username</label>
+                      <input 
+                        type="text" 
+                        value={username}
+                        onChange={e => setUsername(e.target.value)}
+                        placeholder="e.g. joe_admin"
+                        required
+                        style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Password</label>
+                      <input 
+                        type="password" 
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        placeholder="Enter a secure password"
+                        required
+                        style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Confirm Password</label>
+                      <input 
+                        type="password" 
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        placeholder="Re-type password"
+                        required
+                        style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <button 
                 type="submit" 
                 disabled={isSubmitting}
                 style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
-                {isSubmitting ? 'Creating...' : 'Save Client'}
+                {isSubmitting ? 'Saving...' : 'Save Client'}
               </button>
             </form>
           </div>
