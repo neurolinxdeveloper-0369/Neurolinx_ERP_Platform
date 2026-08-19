@@ -1,0 +1,78 @@
+import { useEffect, useState } from 'react';
+import { Outlet, useNavigate, Link } from 'react-router-dom';
+import * as Icons from 'lucide-react';
+
+export default function MasterLayout() {
+  const [menus, setMenus] = useState<any[]>([]);
+  const navigate = useNavigate();
+  const username = localStorage.getItem('username');
+
+  useEffect(() => {
+    if (!localStorage.getItem('token')) {
+      navigate('/');
+      return;
+    }
+
+    fetch(`http://50.6.45.177:8088/api/menus/my-menus/${username}`)
+      .then(res => res.json())
+      .then(data => setMenus(data))
+      .catch(err => console.error("Failed to load menus", err));
+  }, [navigate, username]);
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/');
+  };
+
+  const renderIcon = (iconName: string) => {
+    // Basic mapping for lucide-react icons based on string names from DB
+    const IconComponent = (Icons as any)[
+      iconName.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('')
+    ] || Icons.Circle;
+    return <IconComponent size={20} />;
+  };
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb' }}>
+      {/* Sidebar */}
+      <div style={{ width: '250px', backgroundColor: '#1f2937', color: 'white', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: '1px solid #374151' }}>
+          Neurolinx ERP
+        </div>
+        <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {menus.map((menu, index) => (
+            <Link 
+              key={index} 
+              to={menu.route}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', color: '#d1d5db', textDecoration: 'none', borderRadius: '4px' }}
+              onMouseOver={e => e.currentTarget.style.backgroundColor = '#374151'}
+              onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              {renderIcon(menu.icon)}
+              {menu.name}
+            </Link>
+          ))}
+        </nav>
+        <div style={{ padding: '1rem', borderTop: '1px solid #374151' }}>
+          <div style={{ marginBottom: '1rem', color: '#9ca3af' }}>Logged in as: {username}</div>
+          <button 
+            onClick={handleLogout}
+            style={{ width: '100%', padding: '0.5rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <header style={{ height: '60px', backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', padding: '0 2rem' }}>
+          <h2 style={{ margin: 0, color: '#111827', fontSize: '1.25rem' }}>Dashboard</h2>
+        </header>
+        <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
