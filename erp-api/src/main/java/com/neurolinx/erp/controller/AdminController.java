@@ -32,14 +32,31 @@ public class AdminController {
 
     // --- COMPANIES (Clients) ---
 
+    @Autowired private UserRepository userRepository;
+    @Autowired private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
     @GetMapping("/companies")
     public ResponseEntity<List<Company>> getAllCompanies() {
         return ResponseEntity.ok(companyRepository.findAll());
     }
 
     @PostMapping("/companies")
-    public ResponseEntity<Company> createCompany(@RequestBody Company company) {
-        return ResponseEntity.ok(companyRepository.save(company));
+    public ResponseEntity<?> createCompany(@RequestBody CompanyProvisionDTO dto) {
+        // 1. Create Company
+        Company company = new Company(dto.getCompanyName(), dto.getIndustryType());
+        company = companyRepository.save(company);
+
+        // 2. Create Default "Company Admin" Role for this client
+        Role clientAdminRole = new Role("Company Admin", company);
+        clientAdminRole = roleRepository.save(clientAdminRole);
+
+        // 3. Create the Admin User
+        User adminUser = new User(dto.getUsername(), passwordEncoder.encode(dto.getPassword()));
+        adminUser.setCompany(company);
+        adminUser.setRole(clientAdminRole);
+        userRepository.save(adminUser);
+
+        return ResponseEntity.ok(company);
     }
 
     // --- ROLES & PRIVILEGES (Client Provisioning) ---
