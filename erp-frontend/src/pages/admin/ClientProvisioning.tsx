@@ -6,8 +6,11 @@ export default function ClientProvisioning() {
   const [showModal, setShowModal] = useState(false);
   
   // Form State
-  const [name, setName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [industryType, setIndustryType] = useState('Restaurant');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -19,20 +22,28 @@ export default function ClientProvisioning() {
 
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
       const res = await fetch('http://50.6.45.177:8088/api/admin/companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, industryType, isActive: true })
+        body: JSON.stringify({ companyName, industryType, username, password })
       });
       
       if (res.ok) {
         const newClient = await res.json();
         setCompanies([...companies, newClient]);
         setShowModal(false);
-        setName('');
+        setCompanyName('');
+        setUsername('');
+        setPassword('');
+        setConfirmPassword('');
       } else {
         alert('Failed to create client');
       }
@@ -103,8 +114,8 @@ export default function ClientProvisioning() {
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Company Name</label>
                 <input 
                   type="text" 
-                  value={name}
-                  onChange={e => setName(e.target.value)}
+                  value={companyName}
+                  onChange={e => setCompanyName(e.target.value)}
                   placeholder="e.g. Joe's Cafe"
                   required
                   style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
@@ -125,6 +136,45 @@ export default function ClientProvisioning() {
                   <option value="Hybrid (Software & Hardware)">Hybrid (Software & Hardware)</option>
                   <option value="Electronics (Manufacturing & Assembly)">Electronics (Manufacturing & Assembly)</option>
                 </select>
+              </div>
+
+              <div style={{ marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
+                <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#374151' }}>Client Admin Account</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Username</label>
+                    <input 
+                      type="text" 
+                      value={username}
+                      onChange={e => setUsername(e.target.value)}
+                      placeholder="e.g. joe_admin"
+                      required
+                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Password</label>
+                    <input 
+                      type="password" 
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="Enter a secure password"
+                      required
+                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Confirm Password</label>
+                    <input 
+                      type="password" 
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="Re-type password"
+                      required
+                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <button 
