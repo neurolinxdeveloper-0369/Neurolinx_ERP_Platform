@@ -1,0 +1,1006 @@
+UNIFIED MULTI-INDUSTRY ERP PLATFORM
+Project Development Portfolio & Requirements Document
+Covering Software Services, Electronics Manufacturing & Assembly, and Hospitality (Restaurants / Cafés / Hotels) on a Single Modular, Role-Based, Multi-Tenant Platform
+Prepared for: Investors, Stakeholders & Development Team
+Document Version 1.0  |  August 2026
+Classification: Confidential
+Table of Contents
+1. Executive Summary
+1.1 Vision
+The platform is a single, modular, role-based, multi-tenant Enterprise Resource Planning (ERP) system designed to run three structurally different types of businesses — technology/professional services, electronics manufacturing & assembly, and hospitality (restaurants, cafés, cloud kitchens and hotels) — on one common core (finance, inventory, procurement, sales, HR/attendance, user management, dashboards) with deep, purpose-built modules for each vertical. Rather than forcing a group of companies to run three or four disconnected point solutions (a project-management tool, a manufacturing MRP system, a POS system, and a separate HR/payroll tool), the platform gives ownership and finance one consolidated, real-time view of the entire business, while each operational team still gets a screen and workflow tailored to how they actually work.
+1.2 Target Users and Industries
+Software / IT services and consulting companies that need project delivery, timesheets, project accounting/revenue recognition, and optionally SaaS/subscription billing.
+Electronics manufacturers and assemblers that need BOM/routing-driven production, MRP, shop-floor data capture, quality management, and costing.
+Restaurants, cafés, cloud kitchens, banquet operators and hotels that need POS billing, kitchen operations, reservations, and (for hotels) room and folio management.
+Business groups that operate more than one of the above under a single legal umbrella or holding structure, and want consolidated financial and HR visibility across all of them.
+Primary buyer personas: founders/owners of multi-vertical business groups, group CFOs, and operations leaders who are currently stitching together multiple disconnected SaaS tools and spreadsheets.
+1.3 Key Differentiators
+Genuinely multi-industry on one data model: a single Item, Party, GL Account, Employee and User model underpins software, manufacturing and hospitality operations — not three separate products bolted together.
+Modular and tenant-configurable: each vertical module (Software, Electronics, Hospitality) can be switched on or off per tenant/business unit; a tenant only pays for and sees what it uses.
+Role-based, persona-driven UX: over 20 defined roles (Owner, Plant Head, Restaurant Manager, HR Manager, Cashier, Shop-Floor Operator, etc.) each get a purpose-built dashboard and permission set, not a generic admin screen.
+End-to-end coverage including HRMS, Attendance, Staff Scheduling and User/Access Management as first-class core modules shared by every vertical, not an afterthought bolted onto one module.
+Offline-first design for the parts of the business that cannot depend on connectivity: POS billing, warehouse scanning, and field/biometric attendance capture, with local queuing and sync.
+Built for Indian and international compliance from day one: GST/e-invoicing, TDS, PF/ESI, Ind AS 115 / ASC 606 revenue recognition, and multi-currency/multi-entity consolidation.
+Group-level consolidation: a holding company can see one P&L, one cash position, and one headcount report across all its software, manufacturing and hospitality units.
+This document is the master reference for investors evaluating the opportunity, stakeholders defining scope and priorities, and the development team building the system. It is self-contained and assumes no prior knowledge of the business beyond what is described here.
+2. Business Context & Objectives
+2.1 Problem Statement
+Business groups that operate across software services, manufacturing and hospitality today typically run three (or more) unrelated systems, plus spreadsheets and WhatsApp, to fill the gaps. This produces the following recurring pain points:
+Fragmented finance: separate books or separate charts of accounts per vertical make consolidated P&L, cash flow and balance sheet reporting a manual, month-end exercise instead of a real-time view.
+Fragmented HR and attendance: each outlet, plant or project team tracks attendance and leave differently (biometric here, paper register there, an app somewhere else), so payroll processing is slow and error-prone and there is no single headcount or cost-of-labour view.
+No single source of truth for people: an employee who works across a project and an outlet may exist as different records in different systems, with different login credentials and no unified access control.
+Inventory and procurement duplicated: a shared warehouse holding both electronic components and F&B/kitchen supplies has to be tracked in two different tools with no shared vendor master or purchase approval flow.
+Delayed, low-trust visibility for owners: the CEO/owner cannot see, on one screen, today's restaurant sales, this month's project margins, and this week's shop-floor output side by side.
+Compliance risk: GST, e-invoicing, TDS, PF/ESI and revenue-recognition requirements are handled inconsistently (or manually) across disconnected tools, increasing the risk of penalties and rework.
+High total cost of ownership: licensing, integration and support costs for 4-6 disconnected SaaS tools, plus the hidden cost of reconciling them, exceed the cost of one well-built unified platform at scale.
+2.2 Strategic Objectives
+Unified data: one tenant, one chart of accounts, one item/party/employee master, shared across every vertical module, with per-business-unit segmentation where required.
+Real-time visibility: role-based dashboards refresh from live transactional data (POS sale, work order completion, timesheet entry) rather than nightly batch jobs, so decisions can be made same-day.
+Cost reduction: replace 4-6 point solutions with modules of a single platform, cutting license sprawl, integration maintenance, and duplicate data entry.
+Scalability: support a group's growth from a handful of outlets/projects/plants to dozens, and from single-entity to multi-entity/multi-currency, without a platform migration.
+Compliance by design: GST/e-invoicing, TDS, PF/ESI, and Ind AS 115/ASC 606 revenue recognition are built into the core finance and payroll engines, not bolted on.
+Single source of truth for employees and users: one Employee record drives HR, attendance, payroll, staff rostering and system login/permissions, eliminating duplicate identity management.
+2.3 Success Metrics
+Area
+Metric
+Target Direction (illustrative)
+Finance
+Monthly close time (days)
+Reduce from ~10-15 days to 3-5 days
+Inventory
+Stock record accuracy (cycle count variance)
+Improve to within ±1-2%
+Projects
+Project margin visibility lag
+From month-end to real-time / daily
+Hospitality
+Average table turn time
+Reduce by 10-15% via faster billing/KOT
+Hospitality
+Order-to-KOT-to-serve time
+Reduce and make measurable per outlet
+HR
+Attendance data accuracy / disputes
+Reduce manual correction requests by >50%
+HR
+Payroll processing time per cycle
+Reduce from days to hours
+Manufacturing
+On-time delivery of work orders
+Improve via better MRP visibility
+Group
+Time to produce consolidated group P&L
+From weeks to same-day
+3. Scope
+3.1 In-Scope Modules and Verticals
+Core ERP: Finance & Accounting, Inventory (core), Procurement & Sales (core), HRMS/Attendance/Staff/User Management, Quotations/PO/Invoice/Stock workflows, Dashboards & Reporting, Multi-tenant/multi-business-unit administration, Security & Compliance.
+Software Module: Projects, Tasks, Sprints/Kanban/Gantt, Timesheets & Expenses, Project Accounting & Revenue Recognition, SaaS/Subscription Billing, Client & Contract Management, Proposals/Quotations for services.
+Electronics Module: Item Master with variants/serial/batch, Multi-level BOM & ECOs, Routing/Work Centers/Work Orders, MRP/MPS, Quality Management (QC, NCR, RMA), Inventory (multi-warehouse), Procurement, Sales, Costing.
+Hospitality Module: Multi-outlet POS (dine-in/take-away/delivery/room service), QR menu ordering, Kitchen operations (KOT), Reservations & banquet booking, Hotel (rooms, folios, night audit), Loyalty & CRM.
+3.2 Out-of-Scope for Phase 1
+The following are explicitly deferred beyond Phase 1 to keep the initial release achievable and focused. They are addressed in the Phase 2/3 roadmap in Section 12.
+Advanced performance management (360° reviews, goal cascading, competency frameworks) — Phase 1 HR is limited to master data, attendance, leave and basic ESS.
+Complex succession planning and talent management.
+Full statutory payroll automation across multiple states/countries — Phase 1 ships core payroll for a single primary jurisdiction (India) with manual/assisted handling for edge cases.
+Advanced MRP features such as multi-plant finite-capacity scheduling and constraint-based optimization — Phase 1 ships standard MRP/MPS.
+Full hotel channel-manager / OTA two-way integration — Phase 1 hotel module is standalone with manual rate/availability entry; channel manager integration is Phase 2.
+AI-driven forecasting, anomaly detection and intelligent scheduling — targeted for Phase 3.
+Public developer marketplace / third-party app ecosystem — targeted for Phase 3.
+Native iOS apps — Phase 1 mobile targets Android phone & tablet only, per the stated technical requirements; iOS may be considered later based on demand.
+3.3 Phased Rollout Plan (High-Level)
+Phase
+High-Level Goal
+Indicative Duration
+Phase 1 — MVP
+Core Finance/Inventory/Procurement/Sales, HRMS + Attendance + Leave + ESS, User Management, basic Hospitality POS (dine-in/take-away, table billing, QR menu), basic Software Projects/Timesheets, basic Electronics (BOM, Work Orders, simple inventory).
+Months 1-6
+Phase 2 — Depth
+Advanced payroll & statutory compliance, MRP/MPS, QC/RMA, Hotel module, Loyalty/CRM, SaaS billing, advanced dashboards, external integrations (aggregators, payment gateways, e-invoicing, biometric devices, channel managers).
+Months 7-12
+Phase 3 — Scale & Intelligence
+Advanced analytics, AI-assisted forecasting/scheduling/anomaly detection, public APIs, multi-entity consolidation at scale, marketplace/ecosystem.
+Months 13-18+
+4. User Personas & Roles
+Each persona below maps to one or more RBAC roles defined in Section 11. "Primary devices" indicates the platform(s) that persona is expected to use day-to-day, per the technical architecture in Section 5.
+4.1 Software Vertical
+Persona
+Goals
+Key Tasks
+Primary Devices
+Owner / Delivery Head
+Portfolio profitability, on-time delivery
+Review project margins, approve large quotations, monitor utilization
+Web, Android tablet
+Project Manager
+Deliver projects on time/budget
+Plan sprints/Gantt, allocate resources, approve timesheets, track budget vs actual
+Web, Windows
+Delivery Manager
+Cross-project resourcing
+Balance resource allocation across projects, escalate risks
+Web
+Developer / Consultant
+Log time accurately, know tasks
+Fill timesheets, update task status, submit expenses
+Web, Android phone
+Finance (Software)
+Accurate billing & revenue recognition
+Milestone billing, WIP review, recurring SaaS invoices, dunning
+Web
+4.2 Electronics Vertical
+Persona
+Goals
+Key Tasks
+Primary Devices
+Owner
+Plant profitability, quality, delivery
+Review production KPIs, cost variance, approve major POs
+Web, Android tablet
+Plant Head
+On-time, in-spec production
+Release work orders, monitor WIP, resolve shop-floor issues
+Web, Windows
+Production Planner
+Feasible, optimal production plan
+Run MRP/MPS, manage BOMs/routings, plan procurement
+Web, Windows
+Storekeeper
+Accurate stock, fast issue/receipt
+GRN, issue/return to production, cycle counts, bin transfers
+Android tablet (scanner), Windows
+QC Engineer
+Catch defects, manage NCRs/RMAs
+Inspect at receipt/in-process/final, log NCRs, process RMAs
+Android tablet, Web
+Purchase Manager
+Right price, right vendor, on time
+RFQ, PO issuance, vendor management, price lists
+Web
+Sales (Electronics)
+Quote and fulfill accurately
+Quotations, sales orders, delivery, invoicing, returns
+Web
+Finance (Electronics)
+Accurate costing & AP/AR
+Standard/actual costing, variance analysis, vendor bills
+Web
+4.3 Hospitality Vertical
+Persona
+Goals
+Key Tasks
+Primary Devices
+Owner
+Revenue, occupancy, food cost control
+Review sales/occupancy dashboards across outlets
+Web, Android tablet
+Restaurant/Café Manager
+Smooth service, cost control
+Table/shift management, discounts approval, waste review
+Windows POS, Android tablet
+Cashier
+Fast, accurate billing
+POS billing, split/merge bills, payments, refunds
+Windows POS, Android tablet
+Chef / Kitchen Staff
+Timely, correct order prep
+View/action KOTs, mark items 86'd, manage recipes
+Kitchen display (Windows/Android)
+Hotel Manager
+Occupancy, guest satisfaction
+Manage rates/availability, oversee check-in/out, night audit
+Windows, Web
+Front Desk
+Fast check-in/out, accurate folios
+Reservations, check-in/out, folio posting
+Windows
+Housekeeping
+Rooms ready on time
+Update room status, view housekeeping tasks
+Android phone/tablet
+Sales / Events (Banquet)
+Maximize banquet bookings
+Event/banquet booking, packages, advance collection
+Web, Windows
+Finance (Hospitality)
+Accurate daily reconciliation
+Day-end reconciliation, food cost reports, AR for events
+Web
+4.4 Common / Cross-Vertical Personas
+Persona
+Goals
+Key Tasks
+Primary Devices
+HR Manager
+Accurate HR data, compliant payroll
+Manage employee lifecycle, attendance/leave policy, payroll run
+Web
+HR Admin
+Day-to-day HR operations
+Onboard employees, process leave requests, maintain documents
+Web
+Employee (Self-Service)
+Easy access to own HR info
+View payslips/attendance/leave balance, apply for leave
+Android phone, Web
+System Admin
+Secure, correctly configured system
+Manage tenants, roles/permissions, integrations, module enablement
+Web
+Auditor
+Verify compliance & controls
+Review audit trails, financial reports, statutory filings
+Web (read-only)
+5. Modular Architecture Overview
+5.1 High-Level Architecture (Description)
+The platform is delivered as a modular backend (deployable as a modular monolith initially, with a clear path to domain microservices) exposing REST/GraphQL APIs, consumed by three client surfaces:
+Web (React + TypeScript): the primary surface for admin, finance, operations, project management, HR, procurement and reporting — used by managers and back-office staff on desktop/laptop browsers.
+Windows desktop (Electron wrapping React, or React Native for Windows): used for back-office workstations and, most importantly, POS terminals in restaurants/cafés/hotels where a dedicated, always-on till application is preferred.
+Android (phone & tablet, React Native): used for field/operational roles — warehouse scanning, HR self-service and attendance, shop-floor and QC data capture, housekeeping updates, and a lightweight offline-capable POS for smaller outlets.
+All three clients talk to the same backend API layer. The backend is organized into domain modules — Core (tenant, security, finance, inventory core, HR/attendance/user management), Software, Electronics, and Hospitality — each owning its own data and business logic, but sharing the Core services for identity, finance postings, inventory ledger and reporting. An event bus (Kafka/RabbitMQ) carries domain events (order_created, invoice_posted, stock_moved, work_order_completed, attendance_marked, leave_approved, and similar) so that modules react to each other without being tightly coupled — for example, a POS sale reduces stock and posts to finance by publishing events that the Inventory and Finance services consume, rather than the POS service writing directly into their tables.
+PostgreSQL (or MySQL) is the primary datastore, with Redis used for caching and session/token data. Flyway or Liquibase manages schema migrations across environments. Offline-first clients (POS, warehouse, field attendance) maintain a local embedded database and a sync queue that reconciles with the server when connectivity returns, with conflict resolution rules defined per entity (e.g., last-write-wins for draft POS orders, server-authoritative for stock levels).
+5.2 Module List
+Core ERP
+Finance & Accounting (GL, AP, AR, fixed assets, tax engine, multi-currency, multi-entity, consolidation, bank reconciliation, budgeting, financial reporting)
+Inventory (core: warehouses, bins, stock ledger, adjustments, transfers, expiry/lot tracking)
+Procurement & Sales (core: RFQ→PO→GRN→Bill, Quotation→SO→Delivery→Invoice, returns)
+HRMS / Attendance / Staff / User Management (employee master, shift & attendance, leave, payroll, ESS, staff rostering, user accounts, RBAC)
+Dashboards & Reporting (role-based dashboards, KPI library, ad-hoc report builder, export)
+Multi-Tenant & Business-Unit Administration (tenant setup, module enablement, inter-company transactions, consolidated reporting)
+Security & Compliance (authentication, RBAC, audit trail, regulatory compliance)
+Vertical Modules
+Software Module — Projects, Tasks/Sprints/Kanban/Gantt, Timesheets & Expenses, Project Accounting & Revenue Recognition, SaaS/Subscription Billing, Client & Contract Management.
+Electronics Module — Item Master/BOM/ECO, Routing/Work Centers/Work Orders, MRP/MPS, Quality Management, Costing (builds on Core Inventory/Procurement/Sales).
+Hospitality Module — POS (multi-outlet), Kitchen/KOT, Reservations & Banquet, Hotel (rooms/folios/night audit), Loyalty & CRM.
+5.3 Module Enablement per Tenant
+Every tenant (a company or business group) is provisioned with the Core ERP modules always enabled. Each vertical module — Software, Electronics, Hospitality — is a toggle at the tenant or business-unit level, controlled by System Admin in the Multi-Tenant Administration module. A single tenant can enable more than one vertical module simultaneously (e.g., a group running both a software services arm and a restaurant chain), and each business unit within that tenant can be scoped to see only the data and modules relevant to it, while group-level roles (Owner/CEO, Group Finance) see consolidated data across all enabled modules and business units.
+5.4 HRMS, User Management and Staff Management — Relationship
+Layer
+System of Record For
+Consumes Data From
+HRMS
+Employee master data: personal/job/compensation info, employment lifecycle, documents
+—
+User Management
+System login credentials, roles, permissions, data-scope, session/audit
+Employee master (most users are linked 1:1 to an employee record)
+Staff Management
+Operational scheduling: shift rosters, location/outlet/project assignment, day-to-day attendance views for managers
+Employee master (who exists) + Attendance module (who is present) + User Management (who can log in where)
+In short: HRMS answers "who is employed and under what terms"; User Management answers "who can log in and what can they do/see"; Staff Management answers "who is scheduled/present where, right now." All three read from the same underlying Employee entity so there is exactly one record per person, not three.
+6. Detailed Functional Requirements by Module
+This section is the primary reference for the development team. For each module: purpose & scope, key features, representative user stories, key data entities, and key workflows are documented. Data entities are elaborated further in Section 10 (Data Model Overview).
+6.1 Core ERP
+6.1.1 Finance & Accounting
+Purpose & scope: single financial backbone for all verticals and business units — general ledger, payables, receivables, fixed assets, taxation, multi-currency/multi-entity, and statutory/management reporting.
+Key features:
+General Ledger (GL): configurable chart of accounts, journal entries (manual and system-generated), period open/close, year-end closing.
+Accounts Payable (AP): vendor bills, three-way match against PO/GRN, payment runs, ageing.
+Accounts Receivable (AR): customer invoices (from Software, Electronics, Hospitality modules), receipts, ageing, dunning.
+Fixed Assets: asset register, depreciation schedules (multiple methods), disposal/transfer.
+Tax engine: GST (CGST/SGST/IGST), TDS, VAT (where applicable) — configurable by jurisdiction, e-invoicing generation/validation.
+Multi-currency: transaction and functional currency, realized/unrealized gain-loss, period-end revaluation.
+Multi-entity & consolidation: separate books per legal entity, inter-company elimination, consolidated financial statements.
+Bank reconciliation: bank feed/statement import, auto-matching, manual reconciliation.
+Budgeting: budget entry by account/cost-center/project/outlet, budget vs actual reporting.
+Financial reports: P&L, Balance Sheet, Cash Flow, Trial Balance, GL detail, cost-center/segment reporting.
+Key user stories:
+As a 
+Finance Manager
+, I want 
+to see accounts payable ageing across all vendors and business units
+ so that 
+I can prioritize payments and manage cash flow
+.
+As a 
+Group CFO
+, I want 
+to generate a consolidated P&L across the software, electronics and hospitality business units
+ so that 
+the owner gets one true picture of group performance
+.
+As a 
+Accountant
+, I want 
+to reconcile the bank statement against system transactions automatically
+ so that 
+month-end close is faster and more accurate
+.
+As a 
+Auditor
+, I want 
+to trace any GL entry back to its originating transaction and approver
+ so that 
+I can verify financial controls are working
+.
+Key data entities: GLAccount, JournalEntry, APInvoice, ARInvoice, Payment, FixedAsset, DepreciationSchedule, TaxCode, Budget, BankStatement, Entity (legal entity), CostCenter.
+Key workflow — "Procure to Pay": Purchase Request → RFQ → PO approval → Goods Receipt (GRN) → Vendor Bill (3-way match) → Payment approval → Payment → GL posting → Bank reconciliation.
+Key workflow — "Order to Cash": Quotation → Sales Order → Delivery/Fulfilment → Invoice → Payment receipt → GL posting → AR ageing update.
+6.1.2 Inventory (Core)
+Purpose & scope: the shared stock ledger and warehouse model used by Electronics (production/QC) and Hospitality (ingredient/consumable stock) alike, and available to Software for asset/consumable tracking.
+Key features:
+Warehouse and bin/rack hierarchy per location (plant, outlet kitchen store, project store).
+Stock ledger: perpetual, transaction-level (receipt, issue, transfer, adjustment) with running balance and valuation.
+Stock adjustments with approval and reason codes (damage, expiry, count correction).
+Inter-warehouse and inter-bin transfers with in-transit tracking.
+Expiry/lot and serial/batch tracking, integrated with Electronics serial/batch and Hospitality ingredient shelf-life.
+Cycle counting and physical stock-take with variance reporting.
+Key user stories:
+As a 
+Storekeeper
+, I want 
+to transfer stock between the main warehouse and a project site with a single scan
+ so that 
+inventory records stay accurate without manual paperwork
+.
+As a 
+Warehouse Manager
+, I want 
+to see items nearing expiry across all warehouses
+ so that 
+we can action them before they become wastage
+.
+Key data entities: Warehouse, Bin, Item, StockLedgerEntry, StockBalance, Batch, SerialNumber, StockAdjustment, StockTransfer, CycleCount.
+6.1.3 Procurement & Sales (Core)
+Purpose & scope: shared procure-to-pay and order-to-cash transaction flows used across all verticals, with vertical-specific screens/fields layered on top (e.g., Electronics adds routing/BOM context, Hospitality typically bypasses formal SO/quotation for walk-in sales via POS).
+Key features:
+Purchase Request → RFQ (multi-vendor) → comparative quotation → PO issuance with approval limits by role/amount.
+Goods Receipt Note (GRN) against PO with quantity/quality check, partial receipts.
+Vendor bill capture and 3-way match (PO–GRN–Bill) before payment approval.
+Vendor master with price lists, lead times, performance history.
+Quotation templates with versioning and approval workflow (for Software and Electronics B2B sales).
+Sales Order → Delivery/Dispatch → Invoice, with partial delivery/invoicing support.
+Purchase and sales returns with credit/debit note generation.
+Key user stories:
+As a 
+Purchase Manager
+, I want 
+to compare RFQ responses from three vendors side by side
+ so that 
+I can select the best price/lead-time combination
+.
+As a 
+Sales Executive
+, I want 
+to convert an approved quotation into a sales order in one click
+ so that 
+I don't have to re-key data and risk errors
+.
+Key data entities: PurchaseRequest, RFQ, VendorQuote, PurchaseOrder, GRN, VendorBill, Quotation, SalesOrder, DeliveryNote, SalesInvoice, CreditNote, DebitNote, Party (Customer/Vendor).
+6.1.4 HRMS / Attendance / Staff / User Management
+Purpose & scope: the single system of record for people, their attendance and leave, their pay, their operational scheduling, and their system access — shared across every vertical so that an employee working on a project, in a plant, or at an outlet is one record, one login, one attendance history.
+Employee Master
+Employee ID, name, contact details, emergency contact.
+Job information: department, designation, reporting manager, employment type (full-time/part-time/contract), primary location/outlet/warehouse/project.
+Compensation basics for payroll linkage, bank details, statutory IDs (PAN, UAN, ESI number, etc.).
+Lifecycle dates: joining, confirmation, separation, and reason for separation.
+Document repository: offer letter, contract, ID proof, certificates, policy acknowledgements.
+As a 
+HR Admin
+, I want 
+to onboard a new employee with all statutory documents captured in one workflow
+ so that 
+the employee is ready for attendance, payroll and system access from day one
+.
+Attendance & Shift Management
+Shift definitions (morning/evening/night, split shifts) and holiday calendars per location/outlet.
+Attendance capture via biometric devices, mobile app (with optional GPS geofencing), and web punch.
+Late/early arrival rules, half-day rules, overtime calculation, break-time tracking.
+Regularisation requests for missed punches, with approval workflow.
+Attendance reports: daily, monthly, by department/outlet/shift/project.
+As a 
+Restaurant Manager
+, I want 
+to see who is present at my outlet right now, by shift
+ so that 
+I can react immediately to under-staffing
+.
+As a 
+Employee
+, I want 
+to regularize a missed punch from my phone
+ so that 
+I don't have to visit HR in person
+.
+Leave Management
+Configurable leave types (CL, SL, PL, casual, sick, earned, unpaid, etc.).
+Accrual rules, carry-forward limits, and encashment rules.
+Leave application, multi-level approval workflow, and cancellation.
+Leave balance visibility for both employees and managers.
+Integration with the holiday calendar so leave applications correctly exclude holidays.
+As a 
+Manager
+, I want 
+to approve or reject a leave request from my phone with one tap
+ so that 
+my team's leave is never a bottleneck
+.
+Payroll (Phased)
+Salary structure: basic, HRA, allowances, deductions, configurable per grade/location.
+Pay components automatically linked to attendance and leave (loss of pay, overtime, bonuses).
+Monthly payroll run with pre-run validation, exception reporting, and payslip generation.
+Statutory compliance: PF, ESI, TDS, professional tax, gratuity computation, Form 16.
+Bank transfer file generation and GL integration (payroll journal posting).
+As a 
+HR Manager
+, I want 
+to run payroll for 200 employees across 3 verticals in one batch
+ so that 
+I don't have to consolidate data manually from separate systems
+.
+Employee Self-Service (ESS)
+View profile, attendance history, and leave balances.
+View and download payslips.
+Apply for leave and track approval status.
+Raise HR requests: letters, correction requests, declarations.
+Staff Management (Operational Layer)
+Shift scheduling and rostering per outlet/warehouse/project/hotel/restaurant.
+Assignment of employees to locations, roles, and shifts, with full history.
+Operational "who is present today at this outlet/shift" views for managers.
+Integration with POS, shop-floor terminals, and project allocation — an employee's login is linked to their employee record wherever they clock in or transact.
+As a 
+Plant Head
+, I want 
+to see which shop-floor operators are rostered and present for the night shift
+ so that 
+I can plan production realistically
+.
+User Management (System Access)
+User accounts: username/email, password or SSO, multi-factor authentication (MFA).
+Linkage between User and Employee (most users are employees; a small number of non-employee users — e.g., external auditors — are supported).
+Roles & permissions (RBAC): OWNER, FINANCE_HEAD, ACCOUNTANT, PROJECT_MANAGER, PLANT_HEAD, RESTAURANT_MANAGER, HOTEL_MANAGER, WAREHOUSE_MANAGER, HR_MANAGER, CASHIER, STOREKEEPER, SHOP_FLOOR_OPERATOR, and more (see Section 11).
+Data-level access control scoped by company, outlet, warehouse, or project.
+Session management, optional device trust and IP restrictions, and audit logs for login and permission changes.
+As a 
+System Admin
+, I want 
+to restrict a Cashier's data access to only their assigned outlet
+ so that 
+one outlet's data cannot leak to another
+.
+Key data entities: Employee, Department, Designation, Shift, HolidayCalendar, Attendance, Regularisation, LeaveType, LeaveApplication, LeaveBalance, SalaryStructure, PayrollRecord, Payslip, User, Role, Permission, StaffRoster, AuditLog.
+Key workflow — "Hire to Retire": Candidate converted to Employee record → Documents collected → User account + role provisioned → Shift/roster assignment → Attendance captured (biometric/mobile/web) → Leave accrual begins → Monthly payroll run consumes attendance/leave → Payslip issued → (eventually) Separation recorded → User account deactivated, access revoked, final settlement processed.
+Key workflow — "Shift Roster to Attendance to Payroll": Manager publishes roster for outlet/plant/project → Employee clocks in/out against rostered shift (biometric/mobile/web) → System computes late/early/overtime against shift rules → Regularisation requests resolved → Attendance locked for the payroll period → Payroll run consumes locked attendance + approved leave → LOP/overtime pay components computed → Payslip generated → GL journal posted.
+6.1.5 Quotations, PO, Invoice, Stocks (Cross-Vertical Workflows)
+Purpose & scope: this is not a separate module but the explicit end-to-end procure-to-pay and order-to-cash flow that ties Finance, Inventory, and Procurement & Sales together consistently across Software (service quotations/contracts), Electronics (product quotations/POs) and Hospitality (F&B/kitchen supply procurement).
+Common quotation templates with vertical-specific line-item types (service line, product line, package/combo line).
+Consistent approval-workflow engine reused for PO approval limits, quotation discount approval, and leave/expense approval.
+PO approval limits configurable by role and amount threshold.
+GRN generated against PO with automatic 3-way match against vendor bill before payment release.
+Sales invoices generated with correct tax treatment (GST) and e-invoicing where applicable, regardless of originating vertical.
+A single Stock module underlies GRNs (receipts) and Deliveries (issues) across Electronics and Hospitality.
+6.2 Software Module
+Purpose & scope: end-to-end delivery and commercial management of software/IT-services engagements — from project planning and execution, through time/expense capture, to project accounting, revenue recognition, and (where applicable) SaaS/subscription billing.
+Project Management
+Projects with phases/milestones, tasks and subtasks, dependencies.
+Sprint planning and Kanban boards for agile delivery teams; Gantt charts for waterfall/fixed-scope projects.
+Resource allocation and utilization tracking across concurrent projects, with capacity/over-allocation warnings.
+Task-level status, priority, and assignee tracking with activity history.
+Time & Expense Tracking
+Daily/weekly timesheets against project/task, with billable vs non-billable classification.
+Multi-level timesheet approval workflow (self → PM → Finance where required).
+Expense claims linked to projects, with receipt attachment and approval.
+Project Accounting
+Work-in-progress (WIP) tracking per project.
+Percentage-of-completion computation for revenue recognition.
+Milestone-based billing schedules with automatic invoice triggers on milestone completion/approval.
+Revenue recognition in accordance with Ind AS 115 / ASC 606 — recognizing revenue as performance obligations are satisfied, distinct from invoicing/cash timing.
+SaaS / Subscription Billing (Where Applicable)
+Subscription plans with seat-based and/or usage-based pricing tiers.
+Recurring invoice generation on billing-cycle schedules.
+Dunning workflows for failed/overdue payments (reminders, retries, suspension rules).
+Client & Contract Management
+Client/account records with contract terms, renewal dates, and commercial history.
+Proposal and quotation generation for services, with templated pricing and approval workflow.
+Key user stories:
+As a 
+Project Manager
+, I want 
+to see budget-vs-actual for my project updated as timesheets are approved
+ so that 
+I can flag budget overruns before they become critical
+.
+As a 
+Developer
+, I want 
+to log my time against the correct task in under a minute
+ so that 
+timesheet compliance doesn't feel like a chore
+.
+As a 
+Finance (Software)
+, I want 
+to automatically raise an invoice when a project milestone is marked complete and approved
+ so that 
+billing is never delayed by manual follow-up
+.
+As a 
+Finance (Software)
+, I want 
+to see recognized revenue for a fixed-price project based on percentage of completion, separate from what has been invoiced
+ so that 
+our books comply with Ind AS 115 / ASC 606
+.
+As a 
+Owner
+, I want 
+to see project margin (revenue recognized minus cost, including labour cost from timesheets) per project and in aggregate
+ so that 
+I know which engagements are actually profitable
+.
+Key data entities: Project, Task, Sprint, Timesheet, ExpenseClaim, Milestone, BillingSchedule, RevenueRecognitionEntry, Client, Contract, Proposal, SubscriptionPlan, Subscription, RecurringInvoice.
+Key workflow — "Project to Invoice": Proposal/Quotation approved → Project & contract created → Tasks/sprints planned, resources allocated → Timesheets logged and approved → WIP/percentage-of-completion updated → Milestone reached and approved → Invoice auto-generated → Revenue recognized per Ind AS 115/ASC 606 → Payment received and reconciled in AR.
+6.3 Electronics Module
+Purpose & scope: plan, execute and control electronics manufacturing and assembly — from item/BOM definition, through MRP-driven procurement and shop-floor execution, to quality control and costing — built on top of the Core Inventory and Procurement & Sales modules.
+Item Master & Engineering
+Item master supporting variants (e.g., by color/spec), with serial and/or batch tracking as configured per item.
+Multi-level Bills of Material (BOM), including alternate BOMs for substitute components.
+Engineering Change Orders (ECOs) with versioning, approval workflow, and effective-date control so production always uses the correct BOM revision.
+Production Planning & Execution
+Routing definitions: sequence of operations, work centers, standard times.
+Work orders generated from sales orders/forecasts, linked to BOM and routing.
+Shop-floor data capture: operation start/stop, quantity completed/rejected, operator and work-center logging (via Android tablet at the work center).
+WIP tracking: value and quantity of work-in-progress by work order and work center.
+MRP/MPS: demand planning (from sales orders/forecast), procurement proposals, safety-stock and lead-time-aware planning.
+Quality Management
+QC checkpoints at receipt (incoming inspection), in-process, and final inspection, with configurable inspection plans/parameters.
+Non-conformance reporting (NCR) with root-cause and disposition (rework/scrap/return) tracking.
+RMA (Return Merchandise Authorization) and service-order handling for post-sale returns/repairs.
+Inventory (Electronics-Specific Use)
+Multi-warehouse, bin/rack-level tracking for raw materials, WIP, and finished goods.
+GRN against PO, issue to production, return from production, stock adjustments, cycle counts (all via Core Inventory, with Electronics context).
+Procurement (Electronics-Specific Use)
+Purchase requests generated from MRP procurement proposals.
+RFQ, PO, vendor management, and price lists (via Core Procurement), with component-specific vendor performance tracking.
+Sales (Electronics-Specific Use)
+Quotations, sales orders, delivery, invoicing, and returns for finished electronics products (via Core Sales).
+Costing
+Standard costing and actual costing methods, configurable per item/product line.
+Variance analysis: material, labour, and overhead variance vs standard.
+Scrap tracking with cost impact reporting.
+Key user stories:
+As a 
+Production Planner
+, I want 
+to run MRP and get a consolidated list of what to procure and when
+ so that 
+we never run out of critical components mid-production
+.
+As a 
+Shop-Floor Operator
+, I want 
+to log completed and rejected quantities against my work order from a tablet at my station
+ so that 
+production data is accurate without paper travelers
+.
+As a 
+QC Engineer
+, I want 
+to raise a non-conformance report the moment I find a defect
+ so that 
+the issue is tracked to root cause and disposition, not lost
+.
+As a 
+Plant Head
+, I want 
+to see WIP value and quantity across all work orders in real time
+ so that 
+I can identify bottlenecks before they delay shipment
+.
+As a 
+Finance (Electronics)
+, I want 
+to see standard-vs-actual cost variance per work order
+ so that 
+we understand where margin is being lost in production
+.
+Key data entities: Item, ItemVariant, BOM, BOMItem, ECO, Routing, WorkCenter, WorkOrder, WOTransaction, MRPRun, ProcurementProposal, QCInspection, NCR, RMA, SerialNumber, Batch, StandardCost, CostVariance.
+Key workflow — "BOM to Finished Goods": Sales order/forecast triggers MRP → Procurement proposals raised for shortfalls → RFQ/PO/GRN executes procurement (Core) → Work order released against BOM/routing → Shop-floor executes operations, logging quantities → In-process QC checkpoints passed → Final inspection → Finished goods received into warehouse → Delivery against sales order → Invoice raised → Costing/variance computed.
+6.4 Hospitality Module
+Purpose & scope: run day-to-day operations for restaurants, cafés, cloud kitchens, banquets and hotels — POS billing, kitchen operations, reservations, and (for hotels) rooms and folios — across single or multiple outlets under one tenant.
+Multi-Outlet Setup
+Outlet types: restaurant, café, cloud kitchen, banquet hall, hotel (with room service).
+Per-outlet configuration: menu, pricing, tax rules, table layout, operating hours.
+POS Billing
+Order channels: dine-in, take-away, delivery, room service.
+Table-wise billing with live table status (free/occupied/reserved) on a floor-plan view.
+QR-code menu: customer scans a table/outlet QR code, views the digital menu, and can place an order and/or request the bill directly.
+Modifiers (e.g., extra cheese, spice level), combos, and happy-hour/time-based pricing rules.
+Discounts and service charge, with approval limits for manager-level overrides.
+Split bills (by item or by guest), merge bills (combine multiple tables/orders), voids and refunds — each with reason codes and manager approval where configured.
+Multiple payment modes in a single bill: cash, card, UPI, wallet.
+Offline-first POS: the till continues to take orders and bill customers without connectivity, queuing transactions locally and syncing automatically once online.
+Kitchen Operations
+Kitchen Order Ticket (KOT) routed to kitchen or bar print/display station on order confirmation.
+Course-wise firing (starters fired first, mains fired on cue) to coordinate service timing.
+"86'ing" items (marking an item unavailable) instantly reflected on POS and QR menu.
+Recipe and ingredient mapping per menu item, driving automatic ingredient deduction from inventory on sale.
+Food cost reporting (ingredient cost vs menu price) and wastage tracking.
+Reservations & Pre-Booking
+Table reservations by time slot, with optional deposits and configurable no-show policies.
+Event/banquet booking: hall selection, package configuration, advance payment collection, and final billing at event close.
+Hotel (Where Applicable)
+Room types and rate plans, with an availability calendar.
+Reservations, check-in/check-out, and guest profile management.
+Guest folios accumulating room and other charges, with night-audit process to close each business day.
+Posting of restaurant, spa, or other outlet charges directly to the guest's room folio.
+Loyalty & CRM
+Customer profiles with visit history across outlets.
+Points-based loyalty programs, vouchers, and targeted campaigns.
+Key user stories:
+As a 
+Cashier
+, I want 
+to split a table's bill by individual guest in a few taps
+ so that 
+large groups can pay separately without confusion or delay
+.
+As a 
+Customer
+, I want 
+to scan a QR code, view the menu, and order directly from my phone
+ so that 
+I don't have to wait for a server to take my order
+.
+As a 
+Chef
+, I want 
+to see incoming KOTs grouped by course on a kitchen display
+ so that 
+the kitchen fires dishes in the right sequence
+.
+As a 
+Restaurant Manager
+, I want 
+to see food cost percentage by menu item
+ so that 
+I can adjust pricing or portions to protect margin
+.
+As a 
+Front Desk
+, I want 
+to post a guest's restaurant bill directly to their room folio
+ so that 
+the guest settles everything at checkout, not per outlet
+.
+As a 
+Cashier
+, I want 
+to keep billing customers even when the internet connection drops
+ so that 
+service never stops because of connectivity issues
+.
+Key data entities: Outlet, Table, Menu, MenuItem, Modifier, Combo, KOT, Recipe, RecipeItem, Reservation, BanquetBooking, Room, RoomType, RatePlan, Folio, FolioTransaction, LoyaltyAccount, Voucher, Campaign.
+Key workflow — "Reservation to Folio": Guest reserves table or room (with optional deposit) → Guest arrives, table/room status updated → Orders placed (POS/QR menu) generate KOTs and deduct recipe ingredients from inventory → Charges accumulate on the bill (restaurant) or guest folio (hotel) → Bill settled via one or more payment modes, or folio charged and settled at hotel check-out → Night audit closes the business day → Loyalty points/campaign eligibility updated.
+7. Role-Based Dashboards
+Every role lands on a dashboard scoped to their data-access level (company, business unit, outlet, warehouse, or project) as defined in Section 11. Widgets below are illustrative of Phase 1/2 scope; the ad-hoc report builder (Section 6, Dashboards & Reporting) allows additional custom views.
+Role
+Key Dashboard Widgets & KPIs
+Owner / CEO
+Group-level P&L; revenue by vertical/business unit; consolidated cash position; top/bottom projects by margin; occupancy & RevPAR (hotel); inventory turns; total headcount; attendance %; payroll cost trend.
+Finance
+Pending approvals (PO/bills/expenses); AR ageing; AP ageing; bank reconciliation status; tax liability summary; payroll liabilities; budget vs actual by cost center.
+Project Manager
+Project schedule (Gantt/Kanban view); budget vs actual; resource utilization; WIP and % completion; pending timesheet/expense approvals.
+Plant Head (Electronics)
+Production plan vs actual; WIP by work order/work center; quality defect rate; stockouts on critical components; attendance by shift.
+Restaurant / Café Manager
+Sales by period (today/week/month); average table turn time; top-selling items; wastage report; staff attendance and shift coverage; discount/void summary.
+Hotel Manager
+Occupancy %; ADR (Average Daily Rate); RevPAR; channel/source mix; pending housekeeping rooms; front-desk & housekeeping attendance.
+Warehouse Manager
+Pending GRNs; open pick lists; stockouts; slow-moving/ageing items; warehouse team attendance.
+HR Manager
+Headcount trend; joiners/separations; attendance summary; leave balance overview; overtime hours; payroll run status; statutory compliance status (PF/ESI/TDS filings).
+Employee (ESS)
+Own attendance calendar; leave balance; latest payslip; upcoming shifts/roster.
+Dashboards support drill-down (e.g., clicking group revenue-by-vertical opens the underlying business-unit P&L), configurable date ranges, and export to CSV/Excel/PDF from the ad-hoc report builder.
+8. Non-Functional Requirements
+8.1 Performance
+Operation
+Target Response Time
+POS bill creation / item add
+< 300 ms (online), instant (offline/local)
+Stock/item lookup (search)
+< 500 ms
+Attendance punch (biometric/mobile/web)
+< 1 s to register locally; async sync
+Dashboard widget load
+< 2 s for standard date ranges
+Standard report generation (e.g., ageing, attendance summary)
+< 5 s for typical data volumes; async/background for large exports
+Payroll run (per 500 employees)
+< 10 minutes end-to-end
+8.2 Availability & Reliability
+Target uptime of 99.5%+ for the core backend/API layer in production, excluding scheduled maintenance windows.
+Automated daily backups with point-in-time recovery; documented disaster-recovery runbook with a defined RPO/RTO (e.g., RPO ≤ 1 hour, RTO ≤ 4 hours for Phase 1, tightened in later phases).
+Graceful degradation: POS, warehouse scanning and attendance apps must remain operable offline and sync automatically on reconnect.
+8.3 Security
+Authentication via email/password, OTP, and SSO/OAuth2; mandatory MFA for finance, HR-payroll, and system-admin roles.
+Role-based access control (RBAC) enforced at the API layer, not just the UI, with data-level scoping by company/outlet/warehouse/project.
+Audit trail for all critical transactions: finance postings, inventory adjustments, HR/payroll changes, POS voids/refunds/discounts, and permission changes.
+Encryption in transit (TLS 1.2+) and at rest for all databases and backups.
+Session management with configurable timeout; optional device trust and IP allow-listing for sensitive roles.
+8.4 Scalability
+Architecture (modular monolith with clear domain boundaries, moving to microservices where load requires) must scale horizontally per domain module.
+Designed to support growth from a handful of outlets/projects/plants to dozens per tenant, and from hundreds to tens of thousands of daily transactions (POS orders, attendance punches, stock movements) without redesign.
+Multi-tenant data isolation must scale to many tenants without cross-tenant performance degradation.
+8.5 Usability
+Mobile-first design for roles that are primarily on the move or on the floor: attendance/ESS, warehouse scanning, POS on tablets, housekeeping.
+Multi-language support for POS and ESS screens at minimum, given the diversity of frontline staff.
+Accessibility: keyboard navigation and adequate color contrast on web screens as a baseline (WCAG 2.1 AA as a target, phased in).
+8.6 Maintainability
+Consistent coding standards and linting enforced via CI for both backend (Java/Spring) and frontend (TypeScript/React) codebases.
+API-first design with versioned REST/GraphQL contracts and generated API documentation.
+Database schema changes managed exclusively through Flyway/Liquibase migrations, never manual DDL in production.
+9. Integration & Data Flow
+9.1 Internal Integrations Between Modules
+HRMS ↔ User Management: employee record drives user provisioning and role assignment; deactivating an employee automatically revokes system access.
+HRMS ↔ Staff Management: employee master feeds who can be rostered; roster feeds the operational attendance view.
+Attendance & Payroll: attendance and approved leave feed directly into loss-of-pay, overtime, and shift-differential pay components each payroll cycle.
+POS → Inventory → Finance: a POS sale deducts recipe ingredients from inventory and posts a corresponding finance journal (sales revenue, tax liability, COGS) via the event bus.
+Work Order → Inventory → Costing: work-order material issue and finished-goods receipt move stock; work-order completion feeds standard/actual cost variance calculation.
+Project → Billing → AR: milestone completion or timesheet approval triggers invoicing, which posts to AR and, on payment, to cash/bank.
+9.2 External Integrations
+Category
+Examples
+Purpose
+Payment gateways
+Razorpay, Stripe, PayU (illustrative)
+Card/UPI/wallet payment capture in POS and online invoicing
+Food delivery aggregators
+Swiggy, Zomato
+Order ingestion into POS/KOT, reconciliation of aggregator payouts
+Hotel channel managers / OTAs
+Booking.com, MakeMyTrip (Phase 2)
+Rate/availability sync, reservation ingestion
+E-invoicing / GST systems
+GSTN e-invoice/e-way bill APIs
+Statutory invoice generation and validation
+Biometric attendance devices
+Standard biometric/RFID device protocols
+Attendance punch capture at plants/outlets
+Barcode scanners & printers
+Warehouse/POS/kitchen hardware
+Stock scanning, KOT/bill/label printing
+SSO providers
+Google Workspace, Microsoft 365
+Single sign-on for staff login
+Email / SMS gateways
+Transactional email/SMS providers
+Notifications: approvals, payslips, OTPs, reservation confirmations
+9.3 Key Data Flows (Described)
+Hire to Retire: onboarding → user/role provisioning → shift/roster assignment → attendance capture → leave accrual → payroll processing → separation and access revocation. (Full detail in Section 6.1.4.)
+Shift Roster to Attendance to Payroll: roster published → attendance captured against roster → exceptions regularised → attendance locked → payroll run consumes attendance/leave → payslip issued → GL posting.
+Order to Cash: quotation/order → fulfilment/delivery → invoice → payment → AR update → GL posting.
+Procure to Pay: purchase request → RFQ/PO → GRN → vendor bill (3-way match) → payment → GL posting → bank reconciliation.
+Project to Invoice: proposal/contract → project execution (tasks/timesheets) → WIP/%-completion → milestone billing → revenue recognition → AR.
+Reservation to Folio: reservation/deposit → arrival/check-in → orders/charges accumulate → folio settled or hotel checkout → night audit → loyalty update.
+BOM to Finished Goods: sales order/forecast → MRP → procurement → work order execution → QC → finished-goods receipt → delivery/invoice → costing/variance.
+10. Data Model Overview
+This is a logical overview of major entities and relationships to orient architects — not a full ERD. Detailed entity-relationship diagrams and field-level schemas are produced during technical design in Phase 1 sprint zero.
+10.1 Major Entities by Domain
+Domain
+Major Entities
+Core
+Tenant, Entity (legal entity), User, Role, Permission, Employee, Department, Designation, Shift, Attendance, LeaveType, LeaveApplication, PayrollRecord, Party (Customer/Vendor), Item, Warehouse, Bin, StockLedgerEntry, GLAccount, JournalEntry, APInvoice, ARInvoice, Payment
+Software
+Project, Task, Sprint, Timesheet, ExpenseClaim, Milestone, SubscriptionPlan, Subscription, Contract
+Electronics
+BOM, BOMItem, ECO, Routing, WorkCenter, WorkOrder, WOTransaction, MRPRun, QCInspection, NCR, RMA, SerialNumber, Batch
+Hospitality
+Outlet, Table, Menu, MenuItem, Modifier, KOT, Recipe, RecipeItem, Reservation, Folio, FolioTransaction, Room, RoomType
+10.2 Key Relationships
+User ↔ Employee: one-to-one for the vast majority of users (an employee has exactly one login); the model also permits one-to-many in edge cases (e.g., a shared kiosk login for training) and zero employees for non-employee external users.
+Employee ↔ Attendance, LeaveApplication, PayrollRecord: one-to-many — an employee accumulates many attendance records, leave applications, and payroll records over time.
+Employee ↔ StaffRoster / Location Assignment: one-to-many with history — an employee's outlet/project/warehouse assignment can change over time and past assignments are retained for reporting.
+Role ↔ User: many-to-many (a user can hold more than one role); Role ↔ Permission: many-to-many; Role/User ↔ Data Scope: a scoping record limits a role/user combination to specific companies/outlets/warehouses/projects.
+Item ↔ Warehouse/Bin ↔ StockLedgerEntry: an item's stock position at any point is the aggregate of its ledger entries per warehouse/bin, never a directly-edited balance field.
+BOM ↔ Item: a BOM belongs to a parent Item and references child Items (BOMItem), supporting multi-level nesting (a BOMItem's item can itself have a BOM).
+WorkOrder ↔ BOM ↔ Routing: a work order is created against a specific BOM revision and Routing, both of which are versioned via ECO for BOM.
+Reservation/Table ↔ KOT ↔ Folio: orders raised against a table or room generate KOTs and post transactions to the relevant bill or guest folio.
+Party (Customer/Vendor) is shared across Software (clients), Electronics (customers/vendors) and Hospitality (corporate/event clients) so a single organization is not duplicated as separate records per vertical.
+11. Security, Roles & Permissions
+11.1 Example Roles and Permissions by Vertical
+Role
+View
+Create
+Edit
+Approve
+Delete
+OWNER
+All (scoped to tenant)
+—
+—
+High-value approvals
+—
+FINANCE_HEAD
+All finance data
+Journal entries, budgets
+GL config, tax setup
+Payments, large POs, payroll release
+Draft entries only
+ACCOUNTANT
+Assigned entity finance data
+Bills, invoices, entries
+Own drafts
+—
+Own drafts only
+PROJECT_MANAGER
+Assigned projects
+Tasks, sprints, quotations
+Project plan, allocations
+Timesheets, expenses (own team)
+—
+PLANT_HEAD
+Assigned plant data
+Work orders
+Routing, WO status
+MRP proposals, NCR disposition
+—
+RESTAURANT_MANAGER
+Assigned outlet data
+Discounts, reservations
+Menu pricing (limited)
+Voids, refunds, large discounts
+—
+HOTEL_MANAGER
+Assigned hotel data
+Rate plans, bookings
+Room status
+Folio adjustments
+—
+WAREHOUSE_MANAGER
+Assigned warehouse(s)
+Transfers, adjustments
+Bin setup
+Stock adjustments
+—
+HR_MANAGER
+All HR/payroll (tenant-scoped)
+Employee records, payroll run
+Salary structure, policies
+Leave escalations, payroll release
+Employee records (with audit)
+CASHIER
+Assigned outlet POS
+Bills, KOTs
+Own open bill
+—
+—
+STOREKEEPER
+Assigned warehouse
+GRN, issues
+Bin locations
+—
+—
+SHOP_FLOOR_OPERATOR
+Assigned work orders
+WO transactions (qty done/rejected)
+—
+—
+—
+11.2 Data-Level Security
+Every role is combined with a data scope: company/entity, outlet, warehouse, and/or project. A Restaurant Manager assigned to Outlet A cannot view or act on Outlet B's data unless explicitly granted multi-outlet scope.
+Group-level roles (Owner, Group Finance) have scope across all business units by default; operational roles default to a single-location scope that must be explicitly widened.
+11.3 Audit Requirements
+Finance: all journal entries, payment approvals, and chart-of-accounts changes are logged with user, timestamp, and before/after values.
+Inventory: all stock adjustments and transfers are logged with reason code and approver.
+HR/Payroll: all changes to salary structure, employee master compensation fields, and payroll runs are logged; payslip access is logged for privacy compliance.
+POS: all voids, refunds, discounts above a threshold, and bill merges/splits are logged with the authorizing user.
+Access: all login attempts (success/failure), permission changes, and role assignments are logged.
+11.4 Password, MFA, Session Policies
+Minimum password complexity and rotation policy configurable per tenant; breached-password checks recommended.
+MFA mandatory for FINANCE_HEAD, HR_MANAGER, OWNER, and SYSTEM_ADMIN roles; optional but encouraged for others.
+Configurable session timeout per role sensitivity (e.g., shorter timeout for finance/admin sessions than for a kitchen display).
+Optional device trust and IP allow-listing for back-office/finance access, particularly for remote or high-privilege roles.
+12. Implementation Roadmap
+12.1 Phase 1 (MVP)
+Modules: Core Finance (GL/AP/AR basics), Core Inventory, Core Procurement & Sales (basic), HRMS (Employee Master, Attendance, Leave, basic ESS), User Management, basic Hospitality POS (dine-in/take-away, table-wise billing, QR menu), basic Software Projects/Timesheets, basic Electronics (BOM, Work Orders, simple inventory).
+Platforms: Web (React) for back-office/admin; Windows (Electron) for POS; Android (React Native) for attendance/ESS and basic warehouse scanning.
+Target users: pilot tenant(s) across at least two of the three verticals to validate the shared-core hypothesis.
+Success criteria: a pilot tenant can run daily operations (billing, attendance, basic procurement) without falling back to spreadsheets; month-end close achievable within the target timeline (Section 2.3).
+12.2 Phase 2 (Depth)
+Advanced payroll and full statutory compliance (PF/ESI/TDS/gratuity/Form 16).
+MRP/MPS, QC/NCR/RMA for Electronics.
+Hotel module (rooms, folios, night audit).
+Loyalty/CRM for Hospitality; SaaS/subscription billing for Software.
+Advanced role-based dashboards and ad-hoc report builder.
+External integrations: payment gateways, food-delivery aggregators, e-invoicing/GST systems, biometric devices, SSO.
+12.3 Phase 3 (Scale & Intelligence)
+Advanced analytics and AI-assisted features: demand forecasting, anomaly detection (e.g., unusual discount patterns, stock shrinkage), intelligent shift/production scheduling.
+Ecosystem: public APIs and a partner/marketplace model for third-party extensions.
+Full hotel channel-manager/OTA integration; multi-entity consolidation at larger scale.
+12.4 High-Level Timeline
+Milestone
+Target Month
+Phase 1 development start
+Month 1
+Phase 1 pilot go-live
+Month 5-6
+Phase 1 stabilization complete
+Month 7
+Phase 2 features begin rolling out
+Month 7-12
+Phase 2 complete / general availability
+Month 12-13
+Phase 3 features begin rolling out
+Month 13+
+13. Risks & Mitigation
+Risk
+Mitigation
+Implementation complexity across three very different verticals
+Build the shared Core first and validate it against one vertical end-to-end before adding the next; maintain a strict shared-data-model discipline to avoid vertical-specific forks.
+Data migration from existing systems (HR, finance, POS, projects)
+Phase migration per vertical/business unit; provide import templates and a validation/reconciliation step before cutover; run parallel for a defined period where feasible.
+User adoption, especially for attendance, POS, and shop-floor roles
+Pilot with a small, motivated group first; keep frontline UI minimal-click; provide in-app guidance and on-site training during rollout.
+Offline sync issues for POS/warehouse/field attendance
+Design conflict-resolution rules explicitly per entity up front; extensive offline/online transition testing; clear in-app sync-status indicators for users.
+Performance under load (month-end, payroll, high-volume POS)
+Load-test against realistic peak scenarios before each phase's go-live; design payroll and month-end jobs to run asynchronously/in background with progress visibility.
+Scope creep across three verticals diluting Phase 1 focus
+Enforce the explicit out-of-scope list (Section 3.2) and change-control process for anything proposed to be added to Phase 1.
+Compliance risk (GST/e-invoicing/PF/ESI changes)
+Design the tax and statutory-compliance engine as configuration-driven, not hard-coded, so regulatory changes don't require a full release cycle.
+14. Glossary
+Term
+Definition
+BOM
+Bill of Materials — the list of components/sub-assemblies and quantities required to build a finished item.
+ECO
+Engineering Change Order — a controlled, versioned change to a BOM or routing.
+KOT
+Kitchen Order Ticket — the ticket sent to the kitchen/bar when an order is placed, triggering preparation.
+WIP
+Work in Progress — partially completed production (Electronics) or partially delivered/billed work (Software projects).
+MRP
+Material Requirements Planning — the process of determining what to procure/produce, and when, based on demand and current stock.
+MPS
+Master Production Schedule — the plan of what finished items to produce and when, feeding MRP.
+Folio
+A guest's running bill in a hotel, accumulating room and other outlet charges until settled at checkout.
+LOP
+Loss of Pay — salary deduction for unapproved/unpaid absence.
+ESS
+Employee Self-Service — the portal/app through which employees view their own HR data and submit requests.
+RBAC
+Role-Based Access Control — restricting system access and actions based on a user's assigned role(s).
+GRN
+Goods Receipt Note — the document/record confirming receipt of goods against a purchase order.
+RFQ
+Request for Quotation — a solicitation sent to vendors to obtain price/lead-time quotes.
+NCR
+Non-Conformance Report — a record of a quality defect or deviation, tracked to root cause and disposition.
+RMA
+Return Merchandise Authorization — the process/document authorizing a customer to return a product.
+RevPAR
+Revenue Per Available Room — a hotel-industry KPI (ADR × occupancy rate).
+ADR
+Average Daily Rate — average revenue earned per occupied room per day.
+Ind AS 115 / ASC 606
+Indian and US accounting standards, respectively, governing revenue recognition from contracts with customers.
+Dunning
+The process of communicating with customers about overdue payments, typically via automated reminders/escalations.
+3-Way Match
+Verification that a Purchase Order, Goods Receipt, and Vendor Bill agree before payment is released.
+15. Appendices
+15.1 Sample Screen Descriptions
+POS billing screen: floor-plan table view with color-coded status (free/occupied/reserved); tap a table to open its bill; menu grid with modifiers/combos; QR-menu order feed shown alongside staff-entered items; split/merge/discount/payment actions accessible from the same screen.
+Project dashboard: budget-vs-actual chart at top; task/Kanban board below; pending timesheet approvals panel; milestone billing status strip.
+BOM screen: tree view of multi-level BOM with expandable sub-assemblies; alternate-BOM toggle; ECO history panel showing version, effective date, and approver.
+Work order screen: header with linked BOM/routing/sales order; operation-by-operation progress bar; quantity completed/rejected entry; material issue panel.
+Employee master / attendance / leave / payslip screens: tabbed employee profile (personal, job, compensation, documents); attendance calendar with punch-in/out detail; leave application form with balance shown inline; payslip viewer with downloadable PDF.
+User & role management screen: user list with linked employee, assigned role(s), and data scope; role editor showing permission matrix (view/create/edit/approve/delete) per module.
+15.2 Sample Reports
+Project P&L — revenue recognized, direct cost (labour from timesheets + expenses), margin, by project and rolled up by client/portfolio.
+Food Cost Report — ingredient cost vs menu price by item, with food-cost percentage and trend over time.
+Inventory Ageing — stock value by age bucket, by warehouse/item, highlighting slow-moving and near-expiry stock.
+AR/AP Ageing — outstanding receivables/payables by bucket (current, 30/60/90+ days), by customer/vendor.
+Attendance Summary — present/absent/late/overtime counts by department, outlet, or shift, for a selected period.
+Payroll Register — full pay component breakdown per employee for a payroll run, with statutory deduction totals.
+15.3 Example User Journeys
+"Hire to Retire" for an employee: candidate onboarded as Employee → user account and role provisioned → assigned to a roster → attendance captured over the employment period → leave accrued and applied for → monthly payroll processed → eventually, separation recorded and system access revoked, with final settlement processed.
+"Shift Roster → Attendance → Payroll": manager publishes next week's roster for an outlet → employees clock in/out against their rostered shifts → any missed punches are regularised → attendance is locked at period end → payroll run automatically applies LOP/overtime based on locked attendance → payslips are generated and published to ESS.
+"Guest reserves table → arrives → orders via QR → pays → loyalty points updated": guest books a table online with a small deposit → arrives and is checked in against the reservation → scans the table QR code and orders directly from their phone → kitchen receives the KOT and prepares the order → guest requests the bill via the QR menu → cashier finalizes payment across cash/card/UPI → loyalty points are credited to the guest's profile automatically.
+"Sales order → work order → production → QC → delivery → invoice": a confirmed sales order for a finished electronic assembly triggers a work order against the current BOM/routing revision → shop floor executes operations, logging quantities per station → in-process and final QC checkpoints are passed (or an NCR raised and dispositioned) → finished goods are received into the warehouse → the order is delivered and invoiced, with standard-vs-actual cost variance computed against the work order.
+— End of Document —
