@@ -1,5 +1,5 @@
 package com.neurolinx.erp.controller;
-import com.neurolinx.erp.model.User;
+
 import com.neurolinx.erp.repository.UserRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -16,9 +16,11 @@ import javax.crypto.SecretKey;
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = "*")
 public class AuthController {
-    @Autowired private UserRepository userRepository;
-    @Autowired private PasswordEncoder passwordEncoder;
-    
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     private final SecretKey key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
 
     @PostMapping("/login")
@@ -28,11 +30,11 @@ public class AuthController {
         var userOpt = userRepository.findByUsername(username);
         if (userOpt.isPresent() && passwordEncoder.matches(password, userOpt.get().getPassword())) {
             String token = Jwts.builder()
-                .setSubject(username)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 86400000))
-                .signWith(key)
-                .compact();
+                    .setSubject(username)
+                    .setIssuedAt(new Date())
+                    .setExpiration(new Date(System.currentTimeMillis() + 86400000))
+                    .signWith(key)
+                    .compact();
             return ResponseEntity.ok(Map.of("token", token, "message", "Login successful"));
         }
         return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials"));
