@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import MasterLayout from './components/MasterLayout';
 import Dashboard from './pages/admin/Dashboard';
+import GlobalModules from './pages/admin/GlobalModules';
+import ClientProvisioning from './pages/admin/ClientProvisioning';
 
 function App() {
   return (
@@ -12,8 +14,8 @@ function App() {
         {/* Protected Routes Wrapper */}
         <Route element={<MasterLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/clients" element={<div style={{padding: '2rem'}}><h1>Clients Module</h1><p>Client provisioning goes here.</p></div>} />
-          <Route path="/settings" element={<div style={{padding: '2rem'}}><h1>Global Settings</h1><p>Module setup goes here.</p></div>} />
+          <Route path="/clients" element={<ClientProvisioning />} />
+          <Route path="/settings" element={<GlobalModules />} />
         </Route>
         
         <Route path="*" element={<Navigate to="/" replace />} />
