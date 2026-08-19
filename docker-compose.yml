@@ -43,19 +43,7 @@ services:
     image: ghcr.io/neurolinxdeveloper-0369/erp-frontend:latest
     container_name: erp-frontend
     ports:
-      - "3030:80"
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    container_name: erp-nginx
-    ports:
-      - "8086:443"
       - "8087:80"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
     restart: unless-stopped
 
   certbot:
