@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Plus, Users, Settings, Building2 } from 'lucide-react';
+import { Plus, Users, Settings, Building2, X } from 'lucide-react';
 
 export default function ClientProvisioning() {
   const [companies, setCompanies] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  
+  // Form State
+  const [name, setName] = useState('');
+  const [industryType, setIndustryType] = useState('Restaurant');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetch('http://50.6.45.177:8088/api/admin/companies')
@@ -11,6 +17,33 @@ export default function ClientProvisioning() {
       .catch(err => console.error("Failed to load companies", err));
   }, []);
 
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      const res = await fetch('http://50.6.45.177:8088/api/admin/companies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, industryType, isActive: true })
+      });
+      
+      if (res.ok) {
+        const newClient = await res.json();
+        setCompanies([...companies, newClient]);
+        setShowModal(false);
+        setName('');
+      } else {
+        alert('Failed to create client');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -18,7 +51,9 @@ export default function ClientProvisioning() {
           <h1 style={{ margin: 0, color: '#111827', fontSize: '1.5rem' }}>Client Provisioning</h1>
           <p style={{ margin: '0.5rem 0 0 0', color: '#6b7280' }}>Manage client companies, roles, and module access.</p>
         </div>
-        <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6', color: 'white', padding: '0.75rem 1.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }}>
+        <button 
+          onClick={() => setShowModal(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6', color: 'white', padding: '0.75rem 1.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }}>
           <Plus size={18} />
           Create Client
         </button>
@@ -47,7 +82,59 @@ export default function ClientProvisioning() {
             </div>
           </div>
         ))}
+        {companies.length === 0 && (
+          <p style={{ color: '#6b7280' }}>No clients found. Click "Create Client" to add one.</p>
+        )}
       </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
+          <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '400px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#111827' }}>Create New Client</h2>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateClient} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Company Name</label>
+                <input 
+                  type="text" 
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. Joe's Cafe"
+                  required
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Industry Type</label>
+                <select 
+                  value={industryType}
+                  onChange={e => setIndustryType(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                >
+                  <option value="Restaurant">Restaurant</option>
+                  <option value="Hotel">Hotel</option>
+                  <option value="Software">Software</option>
+                  <option value="Hybrid">Hybrid (Hotel & Restaurant)</option>
+                </select>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+                {isSubmitting ? 'Creating...' : 'Save Client'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
