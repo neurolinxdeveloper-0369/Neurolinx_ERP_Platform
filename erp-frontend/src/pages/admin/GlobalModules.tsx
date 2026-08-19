@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle, XCircle, X } from 'lucide-react';
 
 export default function GlobalModules() {
   const [modules, setModules] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+
+  // Form State
+  const [name, setName] = useState('');
+  const [frontendRoute, setFrontendRoute] = useState('');
+  const [icon, setIcon] = useState('circle');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetch('http://50.6.45.177:8088/api/admin/menu-items')
@@ -11,6 +18,35 @@ export default function GlobalModules() {
       .catch(err => console.error("Failed to load modules", err));
   }, []);
 
+  const handleAddModule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      const res = await fetch('http://50.6.45.177:8088/api/admin/menu-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, frontendRoute, icon, isMasterEnabled: true })
+      });
+      
+      if (res.ok) {
+        const newModule = await res.json();
+        setModules([...modules, newModule]);
+        setShowModal(false);
+        setName('');
+        setFrontendRoute('');
+        setIcon('circle');
+      } else {
+        alert('Failed to create module');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -18,7 +54,9 @@ export default function GlobalModules() {
           <h1 style={{ margin: 0, color: '#111827', fontSize: '1.5rem' }}>Global Modules</h1>
           <p style={{ margin: '0.5rem 0 0 0', color: '#6b7280' }}>Manage all available menu items in the ERP system.</p>
         </div>
-        <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6', color: 'white', padding: '0.75rem 1.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }}>
+        <button 
+          onClick={() => setShowModal(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6', color: 'white', padding: '0.75rem 1.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }}>
           <Plus size={18} />
           Add Module
         </button>
@@ -60,12 +98,72 @@ export default function GlobalModules() {
             ))}
             {modules.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>Loading modules...</td>
+                <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No modules found. Click "Add Module" to create one.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
+          <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '400px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#111827' }}>Create Global Module</h2>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddModule} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Module Name</label>
+                <input 
+                  type="text" 
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. POS System"
+                  required
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Frontend Route</label>
+                <input 
+                  type="text" 
+                  value={frontendRoute}
+                  onChange={e => setFrontendRoute(e.target.value)}
+                  placeholder="e.g. /pos"
+                  required
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Icon (lucide-react name)</label>
+                <input 
+                  type="text" 
+                  value={icon}
+                  onChange={e => setIcon(e.target.value)}
+                  placeholder="e.g. shopping-cart, layout-dashboard, users"
+                  required
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>Use lowercase dash format (e.g. 'settings', 'monitor')</p>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+                {isSubmitting ? 'Saving...' : 'Save Module'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
