@@ -40,3 +40,7 @@ jobs:
           context: ./erp-frontend
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+
+      - name: Deploy to VPS via Portainer Webhook
+        run: |
+          curl -k -X POST "https://portainer.neurolinx.in:9443/api/stacks/webhooks/bf8accf0-3003-461b-a437-0808ef8d78e2"
