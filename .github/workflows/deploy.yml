@@ -1,1 +1,42 @@
-﻿慮敭›畂汩⁤湡⁤畐汢獩⁨潴䜠䍈੒漊㩮 瀠獵㩨 †戠慲据敨㩳嬠∠慭湩•੝攊癮਺†䕒䥇呓奒›桧牣椮੯†偁彉䵉䝁彅䅎䕍›敮牵汯湩摸癥汥灯牥〭㘳⼹牥⵰灡੩†剆乏䕔䑎䥟䅍䕇也䵁㩅渠略潲楬确敤敶潬数⵲㌰㤶支灲昭潲瑮湥੤樊扯㩳 戠極摬愭摮瀭獵㩨 †爠湵⵳湯›扵湵畴氭瑡獥ੴ††数浲獩楳湯㩳 ††挠湯整瑮㩳爠慥੤†††慰正条獥›牷瑩੥ †猠整獰਺†††‭慮敭›桃捥潫瑵爠灥獯瑩牯੹††††獵獥›捡楴湯⽳档捥潫瑵癀ਲ਼ ††ⴠ渠浡㩥䰠杯椠⁮潴琠敨䌠湯慴湩牥爠来獩牴੹††††獵獥›潤正牥氯杯湩愭瑣潩䁮㉶ †††眠瑩㩨 ††††爠来獩牴㩹笠⁻湥⹶䕒䥇呓奒素੽†††††獵牥慮敭›筻朠瑩畨⹢捡潴⁲絽 ††††瀠獡睳牯㩤笠⁻敳牣瑥⹳䥇䡔䉕呟䭏久素੽ ††ⴠ渠浡㩥䈠極摬愠摮瀠獵⁨剅⁐偁੉††††獵獥›潤正牥戯極摬瀭獵⵨捡楴湯癀਴††††楷桴਺†††††潣瑮硥㩴⸠支灲愭楰 ††††瀠獵㩨琠畲੥†††††慴獧›筻攠癮刮䝅卉剔⁙絽笯⁻湥⹶偁彉䵉䝁彅䅎䕍素㩽慬整瑳ਊ†††‭慮敭›畂汩⁤湡⁤異桳䔠偒䘠潲瑮湥੤††††獵獥›潤正牥戯極摬瀭獵⵨捡楴湯癀਴††††楷桴਺†††††潣瑮硥㩴⸠支灲昭潲瑮湥੤†††††異桳›牴敵 ††††琠条㩳笠⁻湥⹶䕒䥇呓奒素⽽筻攠癮䘮佒呎久彄䵉䝁彅䅎䕍素㩽慬整瑳਍
+name: Build and Publish to GHCR
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE_NAME: neurolinxdeveloper-0369/erp-api
+  FRONTEND_IMAGE_NAME: neurolinxdeveloper-0369/erp-frontend
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_PAT }}
+
+      - name: Build and push ERP API
+        uses: docker/build-push-action@v4
+        with:
+          context: ./erp-api
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:latest
+
+      - name: Build and push ERP Frontend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./erp-frontend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
