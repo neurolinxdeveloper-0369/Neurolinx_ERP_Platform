@@ -13,10 +13,18 @@ export default function MasterLayout() {
       return;
     }
 
-    fetch(`http://50.6.45.177:8088/api/menus/my-menus/${username}`)
-      .then(res => res.json())
-      .then(data => setMenus(data))
-      .catch(err => console.error("Failed to load menus", err));
+    if (username === 'admin') {
+      setMenus([
+        { name: "Dashboard", route: "/dashboard", icon: "layout-dashboard" },
+        { name: "Clients", route: "/clients", icon: "users" },
+        { name: "Global Modules", route: "/settings", icon: "settings" }
+      ]);
+    } else {
+      fetch(`http://50.6.45.177:8088/api/menus/my-menus/${username}`)
+        .then(res => res.json())
+        .then(data => setMenus(data))
+        .catch(err => console.error("Failed to load menus", err));
+    }
   }, [navigate, username]);
 
   const handleLogout = () => {
