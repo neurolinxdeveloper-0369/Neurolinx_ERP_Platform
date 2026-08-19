@@ -120,8 +120,10 @@ export default function ClientProvisioning() {
                 >
                   <option value="Restaurant">Restaurant</option>
                   <option value="Hotel">Hotel</option>
+                  <option value="Hybrid (Hotel & Restaurant)">Hybrid (Hotel & Restaurant)</option>
                   <option value="Software">Software</option>
-                  <option value="Hybrid">Hybrid (Hotel & Restaurant)</option>
+                  <option value="Hybrid (Software & Hardware)">Hybrid (Software & Hardware)</option>
+                  <option value="Electronics (Manufacturing & Assembly)">Electronics (Manufacturing & Assembly)</option>
                 </select>
               </div>
 
