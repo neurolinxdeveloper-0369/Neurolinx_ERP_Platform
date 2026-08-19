@@ -46,6 +46,11 @@ services:
       - "8087:80"
     restart: unless-stopped
 
+  nginx:
+    image: nginx:alpine
+    container_name: erp-nginx
+    restart: unless-stopped
+
   certbot:
     image: certbot/certbot
     container_name: erp-certbot
