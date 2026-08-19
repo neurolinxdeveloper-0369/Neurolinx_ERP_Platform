@@ -13,6 +13,10 @@ public class User {
     @JoinColumn(name = "role_id")
     private Role role;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private Company company;
+
     public User() {}
     public User(String username, String password) { this.username = username; this.password = password; }
     
@@ -24,4 +28,6 @@ public class User {
     public void setPassword(String password) { this.password = password; }
     public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
+    public Company getCompany() { return company; }
+    public void setCompany(Company company) { this.company = company; }
 }

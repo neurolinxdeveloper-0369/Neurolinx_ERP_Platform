@@ -9,13 +9,18 @@ public class Role {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String name;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private Company company;
 
     public Role() {}
 
-    public Role(String name) {
+    public Role(String name, Company company) {
         this.name = name;
+        this.company = company;
     }
 
     public Long getId() { return id; }
@@ -23,4 +28,7 @@ public class Role {
     
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    public Company getCompany() { return company; }
+    public void setCompany(Company company) { this.company = company; }
 }
