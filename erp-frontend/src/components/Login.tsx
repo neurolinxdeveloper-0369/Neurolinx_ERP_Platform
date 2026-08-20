@@ -1,30 +1,60 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
-  const [showOtpScreen, setShowOtpScreen] = useState(false);
+  const [loginMode, setLoginMode] = useState<'SELECT' | 'PASSWORD' | 'OTP_VERIFY'>('SELECT');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
     try {
-      const res = await fetch('http://50.6.45.177:8088/api/auth/login', {
+      const res = await fetch('http://50.6.45.177:8088/api/auth/login-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
       const data = await res.json();
       if (res.ok) {
-        setShowOtpScreen(true);
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('username', email);
+        navigate('/dashboard');
       } else {
         setError(data.message || 'Login failed');
+      }
+    } catch (err) {
+      setError('Network error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setError('Please enter your email first');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+    try {
+      const res = await fetch('http://50.6.45.177:8088/api/auth/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLoginMode('OTP_VERIFY');
+      } else {
+        setError(data.message || 'Failed to request OTP');
       }
     } catch (err) {
       setError('Network error');
@@ -46,10 +76,34 @@ export default function Login() {
       const data = await res.json();
       if (res.ok) {
         localStorage.setItem('token', data.token);
-        localStorage.setItem('username', email); // We store email as username in frontend for now
+        localStorage.setItem('username', email);
         navigate('/dashboard');
       } else {
         setError(data.message || 'Invalid OTP');
+      }
+    } catch (err) {
+      setError('Network error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const res = await fetch('http://50.6.45.177:8088/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: credentialResponse.credential })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('username', data.email);
+        navigate('/dashboard');
+      } else {
+        setError(data.message || 'No user found for this Google account.');
       }
     } catch (err) {
       setError('Network error');
@@ -67,10 +121,10 @@ export default function Login() {
           
           <div style={{ marginBottom: '2rem' }}>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', margin: '0 0 0.5rem 0' }}>
-              {showOtpScreen ? 'Check your email' : 'Sign In'}
+              {loginMode === 'OTP_VERIFY' ? 'Check your email' : 'Sign In'}
             </h1>
             <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: 0 }}>
-              {showOtpScreen ? `We sent a 6-digit code to ${email}` : 'Enter your credentials to access your workspace'}
+              {loginMode === 'OTP_VERIFY' ? `We sent a 6-digit code to ${email}` : 'Choose a method to access your workspace'}
             </p>
           </div>
 
@@ -80,8 +134,51 @@ export default function Login() {
             </div>
           )}
 
-          {!showOtpScreen ? (
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {loginMode === 'SELECT' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError('Google Login Failed')}
+                  theme="outline"
+                  size="large"
+                  width="380"
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '0.5rem 0' }}>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e7eb' }}></div>
+                <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontWeight: 500, letterSpacing: '0.05em' }}>OR CONTINUE WITH EMAIL</span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: '#e5e7eb' }}></div>
+              </div>
+
+              <form onSubmit={handleRequestOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>Email address</label>
+                  <input 
+                    type="email" 
+                    placeholder="name@company.com" 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
+                    required 
+                    style={{ width: '100%', padding: '0.875rem', borderRadius: '6px', border: '1px solid #d1d5db', boxSizing: 'border-box', outline: 'none' }}
+                  />
+                </div>
+                
+                <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '0.875rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '1rem', transition: 'background-color 0.2s' }}>
+                  {isLoading ? 'Sending...' : 'Send OTP Login Code'}
+                </button>
+
+                <button type="button" onClick={() => setLoginMode('PASSWORD')} style={{ width: '100%', padding: '0.875rem', backgroundColor: 'transparent', color: '#374151', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem', transition: 'background-color 0.2s' }}>
+                  Sign in with Password
+                </button>
+              </form>
+            </div>
+          )}
+
+          {loginMode === 'PASSWORD' && (
+            <form onSubmit={handlePasswordLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>Email address</label>
                 <input 
@@ -106,11 +203,17 @@ export default function Login() {
                 />
               </div>
 
-              <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '0.875rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '1rem', marginTop: '0.5rem', transition: 'background-color 0.2s' }}>
-                {isLoading ? 'Signing in...' : 'Sign In with Email'}
+              <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '0.875rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '1rem', marginTop: '0.5rem' }}>
+                {isLoading ? 'Signing in...' : 'Sign In'}
+              </button>
+              
+              <button type="button" onClick={() => setLoginMode('SELECT')} style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '0.875rem', cursor: 'pointer', marginTop: '0.5rem', textDecoration: 'underline' }}>
+                Back to other options
               </button>
             </form>
-          ) : (
+          )}
+
+          {loginMode === 'OTP_VERIFY' && (
             <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>6-Digit OTP</label>
@@ -124,12 +227,12 @@ export default function Login() {
                 />
               </div>
 
-              <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '0.875rem', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '1rem', marginTop: '0.5rem', transition: 'background-color 0.2s' }}>
+              <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '0.875rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '1rem', marginTop: '0.5rem' }}>
                 {isLoading ? 'Verifying...' : 'Verify & Continue'}
               </button>
               
-              <button type="button" onClick={() => setShowOtpScreen(false)} style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '0.875rem', cursor: 'pointer', marginTop: '0.5rem', textDecoration: 'underline' }}>
-                Use a different email
+              <button type="button" onClick={() => setLoginMode('SELECT')} style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '0.875rem', cursor: 'pointer', marginTop: '0.5rem', textDecoration: 'underline' }}>
+                Use a different method
               </button>
             </form>
           )}
