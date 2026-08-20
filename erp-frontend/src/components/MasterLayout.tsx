@@ -21,7 +21,7 @@ export default function MasterLayout() {
         { name: "Global Modules", route: "/settings", icon: "settings" }
       ]);
     } else {
-      apiFetch(`http://50.6.45.177:8088/api/menus/my-menus/${username}`)
+      apiFetch(`http://erp-api.neurolinx.in/api/menus/my-menus/${username}`)
         .then(res => res.json())
         .then(data => setMenus(data))
         .catch(err => console.error("Failed to load menus", err));
