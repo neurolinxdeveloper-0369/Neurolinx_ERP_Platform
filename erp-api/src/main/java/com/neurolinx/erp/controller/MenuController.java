@@ -18,9 +18,9 @@ public class MenuController {
     @Autowired private RolePrivilegeRepository rolePrivilegeRepository;
 
     // Temporary method to fetch menus by username until JWT filter is fully implemented
-    @GetMapping("/my-menus/{username}")
-    public ResponseEntity<?> getMyMenus(@PathVariable String username) {
-        var userOpt = userRepository.findByUsername(username);
+    @GetMapping("/my-menus/{email}")
+    public ResponseEntity<?> getMyMenus(@PathVariable String email) {
+        var userOpt = userRepository.findByEmail(email);
         
         if (userOpt.isEmpty()) {
             return ResponseEntity.status(404).body("User not found");

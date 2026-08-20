@@ -84,7 +84,7 @@ public class AdminController {
         clientAdminRole = roleRepository.save(clientAdminRole);
 
         // 3. Create the Admin User
-        User adminUser = new User(dto.getUsername(), passwordEncoder.encode(dto.getPassword()));
+        User adminUser = new User(dto.getEmail(), passwordEncoder.encode(dto.getPassword()));
         adminUser.setCompany(company);
         adminUser.setRole(clientAdminRole);
         userRepository.save(adminUser);

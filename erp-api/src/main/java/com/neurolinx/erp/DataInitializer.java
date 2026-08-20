@@ -24,8 +24,8 @@ public class DataInitializer {
             });
 
             // Seed Default Admin User
-            if (userRepository.findByUsername("admin").isEmpty()) {
-                User admin = new User("admin", passwordEncoder.encode("admin123"));
+            if (userRepository.findByEmail("neurolinxdeveloper@gmail.com").isEmpty()) {
+                User admin = new User("neurolinxdeveloper@gmail.com", passwordEncoder.encode("Neurolinx@2026"));
                 admin.setRole(masterAdmin);
                 admin.setCompany(null); // System admin does not belong to a client company
                 userRepository.save(admin);
