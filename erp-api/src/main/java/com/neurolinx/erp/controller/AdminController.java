@@ -96,12 +96,53 @@ public class AdminController {
 
     @PostMapping("/roles")
     public ResponseEntity<Role> createRole(@RequestBody Role role) {
-        // If the role JSON contains a company object with an ID, it will automatically link it
         return ResponseEntity.ok(roleRepository.save(role));
     }
 
     @PostMapping("/role-privileges")
     public ResponseEntity<RolePrivilege> assignPrivilege(@RequestBody RolePrivilege privilege) {
         return ResponseEntity.ok(rolePrivilegeRepository.save(privilege));
+    }
+
+    // --- COMPANY MODULE ASSIGNMENT ---
+
+    @GetMapping("/companies/{companyId}/modules")
+    public ResponseEntity<List<Long>> getCompanyModules(@PathVariable Long companyId) {
+        Role adminRole = roleRepository.findAll().stream()
+                .filter(r -> r.getCompany() != null && r.getCompany().getId().equals(companyId) && "Company Admin".equals(r.getName()))
+                .findFirst()
+                .orElse(null);
+        
+        if (adminRole == null) return ResponseEntity.notFound().build();
+
+        List<Long> assignedModuleIds = rolePrivilegeRepository.findByRole(adminRole).stream()
+                .map(p -> p.getMenuItem().getId())
+                .toList();
+                
+        return ResponseEntity.ok(assignedModuleIds);
+    }
+
+    @PostMapping("/companies/{companyId}/modules")
+    public ResponseEntity<?> updateCompanyModules(@PathVariable Long companyId, @RequestBody List<Long> moduleIds) {
+        Role adminRole = roleRepository.findAll().stream()
+                .filter(r -> r.getCompany() != null && r.getCompany().getId().equals(companyId) && "Company Admin".equals(r.getName()))
+                .findFirst()
+                .orElse(null);
+        
+        if (adminRole == null) return ResponseEntity.notFound().build();
+
+        // Remove old privileges
+        List<RolePrivilege> existing = rolePrivilegeRepository.findByRole(adminRole);
+        rolePrivilegeRepository.deleteAll(existing);
+
+        // Add new privileges
+        for (Long moduleId : moduleIds) {
+            menuItemRepository.findById(moduleId).ifPresent(menuItem -> {
+                RolePrivilege rp = new RolePrivilege(adminRole, menuItem, true, true, true);
+                rolePrivilegeRepository.save(rp);
+            });
+        }
+        
+        return ResponseEntity.ok().build();
     }
 }
