@@ -13,7 +13,7 @@ export default function MasterLayout() {
       return;
     }
 
-    if (username === 'admin') {
+    if (username === 'admin' || username === 'neurolinxdeveloper@gmail.com') {
       setMenus([
         { name: "Dashboard", route: "/dashboard", icon: "layout-dashboard" },
         { name: "Clients", route: "/clients", icon: "users" },
@@ -45,7 +45,7 @@ export default function MasterLayout() {
       {/* Sidebar */}
       <div style={{ width: '250px', backgroundColor: '#1f2937', color: 'white', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: '1px solid #374151' }}>
-          Neurolinx ERP
+          Neurolinx One
         </div>
         <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {menus.map((menu, index) => (
