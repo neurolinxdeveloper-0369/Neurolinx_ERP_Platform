@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import javax.crypto.SecretKey;
 
-@Component
 public class JwtRequestFilter extends OncePerRequestFilter {
 
     private final SecretKey key;
