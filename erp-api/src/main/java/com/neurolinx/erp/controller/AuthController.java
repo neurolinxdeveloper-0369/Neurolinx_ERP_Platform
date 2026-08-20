@@ -58,7 +58,7 @@ public class AuthController {
             newSession.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
             newSession.setIsApproved(true);
             deviceSessionRepository.save(newSession);
-            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful"));
+            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful", "email", email));
         }
 
         var sessionOpt = deviceSessionRepository.findByEmailAndDeviceId(email, deviceId);
@@ -73,7 +73,7 @@ public class AuthController {
             session.setRefreshToken(refreshToken);
             session.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
             deviceSessionRepository.save(session);
-            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful"));
+            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful", "email", email));
         }
 
         // New Device
@@ -88,11 +88,11 @@ public class AuthController {
             newSession.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
             newSession.setIsApproved(true);
             deviceSessionRepository.save(newSession);
-            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful"));
+            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful", "email", email));
         } else if (count == 2) {
             // 3rd device requires OTP
             otpService.generateAndSendOtp(email);
-            return ResponseEntity.ok(Map.of("message", "Device OTP required", "requiresDeviceOtp", true));
+            return ResponseEntity.ok(Map.of("message", "Device OTP required", "requiresDeviceOtp", true, "email", email));
         } else {
             // 4th+ device blocks and requires manual approval
             DeviceSession newSession = new DeviceSession(email, deviceId);
@@ -115,7 +115,7 @@ public class AuthController {
             newSession.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
             newSession.setIsApproved(true);
             deviceSessionRepository.save(newSession);
-            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful"));
+            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful", "email", email));
         }
         return ResponseEntity.status(401).body(Map.of("message", "Invalid or expired OTP"));
     }
