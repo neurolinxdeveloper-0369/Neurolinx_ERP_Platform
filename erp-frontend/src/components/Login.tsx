@@ -14,7 +14,7 @@ export default function Login() {
   const getDeviceId = () => {
     let deviceId = localStorage.getItem('deviceId');
     if (!deviceId) {
-      deviceId = crypto.randomUUID();
+      deviceId = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
       localStorage.setItem('deviceId', deviceId);
     }
     return deviceId;
