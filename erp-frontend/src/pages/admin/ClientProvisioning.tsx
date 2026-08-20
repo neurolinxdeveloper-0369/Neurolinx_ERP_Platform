@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Users, Settings, Building2, X, Edit2, Trash2, CheckSquare, Square, CheckCircle } from 'lucide-react';
+import { apiFetch } from '../../api';
 
 export default function ClientProvisioning() {
   const [companies, setCompanies] = useState<any[]>([]);
@@ -40,14 +41,14 @@ export default function ClientProvisioning() {
   }, []);
 
   const fetchCompanies = () => {
-    fetch('http://50.6.45.177:8088/api/admin/companies')
+    apiFetch('http://50.6.45.177:8088/api/admin/companies')
       .then(res => res.json())
       .then(data => setCompanies(data))
       .catch(err => console.error("Failed to load companies", err));
   };
 
   const fetchAllModules = () => {
-    fetch('http://50.6.45.177:8088/api/admin/menu-items')
+    apiFetch('http://50.6.45.177:8088/api/admin/menu-items')
       .then(res => res.json())
       .then(data => setAllModules(data.filter((m: any) => m.isMasterEnabled)))
       .catch(err => console.error("Failed to load modules", err));
@@ -71,7 +72,7 @@ export default function ClientProvisioning() {
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch('http://50.6.45.177:8088/api/auth/send-registration-otp', {
+      const res = await apiFetch('http://50.6.45.177:8088/api/auth/send-registration-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -92,7 +93,7 @@ export default function ClientProvisioning() {
     if (!otp) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch('http://50.6.45.177:8088/api/auth/verify-registration-otp', {
+      const res = await apiFetch('http://50.6.45.177:8088/api/auth/verify-registration-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp })
@@ -140,7 +141,7 @@ export default function ClientProvisioning() {
     setEditingId(comp.id);
     setSelectedCompanyName(comp.name);
     try {
-      const res = await fetch(`http://50.6.45.177:8088/api/admin/companies/${comp.id}/modules`);
+      const res = await apiFetch(`http://50.6.45.177:8088/api/admin/companies/${comp.id}/modules`);
       const data = await res.json();
       setAssignedModuleIds(data || []);
       setShowModulesModal(true);
@@ -161,7 +162,7 @@ export default function ClientProvisioning() {
   const handleSaveModules = async () => {
     setIsSubmitting(true);
     try {
-      const res = await fetch(`http://50.6.45.177:8088/api/admin/companies/${editingId}/modules`, {
+      const res = await apiFetch(`http://50.6.45.177:8088/api/admin/companies/${editingId}/modules`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(assignedModuleIds)
@@ -181,7 +182,7 @@ export default function ClientProvisioning() {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this client? This cannot be undone!")) return;
     try {
-      const res = await fetch(`http://50.6.45.177:8088/api/admin/companies/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`http://50.6.45.177:8088/api/admin/companies/${id}`, { method: 'DELETE' });
       if (res.ok) fetchCompanies();
     } catch (err) {
       console.error(err);
@@ -207,7 +208,7 @@ export default function ClientProvisioning() {
       : { companyName, industryType, email, password, logoBase64, contactNumber, address };
     
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

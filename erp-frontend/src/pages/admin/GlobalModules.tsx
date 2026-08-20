@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, CheckCircle, XCircle, X } from 'lucide-react';
+import { apiFetch } from '../../api';
 
 export default function GlobalModules() {
   const [modules, setModules] = useState<any[]>([]);
@@ -18,7 +19,7 @@ export default function GlobalModules() {
   }, []);
 
   const fetchModules = () => {
-    fetch('http://50.6.45.177:8088/api/admin/menu-items')
+    apiFetch('http://50.6.45.177:8088/api/admin/menu-items')
       .then(res => res.json())
       .then(data => setModules(data))
       .catch(err => console.error("Failed to load modules", err));
@@ -45,7 +46,7 @@ export default function GlobalModules() {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this module? This will break any clients using it!")) return;
     try {
-      const res = await fetch(`http://50.6.45.177:8088/api/admin/menu-items/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`http://50.6.45.177:8088/api/admin/menu-items/${id}`, { method: 'DELETE' });
       if (res.ok) fetchModules();
     } catch (err) {
       console.error(err);
@@ -63,7 +64,7 @@ export default function GlobalModules() {
     const method = editingId ? 'PUT' : 'POST';
     
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, frontendRoute, icon, isMasterEnabled })

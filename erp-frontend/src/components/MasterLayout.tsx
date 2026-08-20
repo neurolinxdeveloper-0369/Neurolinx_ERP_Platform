@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, Link } from 'react-router-dom';
 import * as Icons from 'lucide-react';
+import { apiFetch } from '../api';
 
 export default function MasterLayout() {
   const [menus, setMenus] = useState<any[]>([]);
@@ -20,7 +21,7 @@ export default function MasterLayout() {
         { name: "Global Modules", route: "/settings", icon: "settings" }
       ]);
     } else {
-      fetch(`http://50.6.45.177:8088/api/menus/my-menus/${username}`)
+      apiFetch(`http://50.6.45.177:8088/api/menus/my-menus/${username}`)
         .then(res => res.json())
         .then(data => setMenus(data))
         .catch(err => console.error("Failed to load menus", err));

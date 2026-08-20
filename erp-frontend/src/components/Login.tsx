@@ -7,9 +7,18 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
-  const [loginMode, setLoginMode] = useState<'SELECT' | 'PASSWORD' | 'OTP_VERIFY'>('SELECT');
+  const [loginMode, setLoginMode] = useState<'SELECT' | 'PASSWORD' | 'OTP_VERIFY' | 'DEVICE_OTP'>('SELECT');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  const getDeviceId = () => {
+    let deviceId = localStorage.getItem('deviceId');
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem('deviceId', deviceId);
+    }
+    return deviceId;
+  };
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,13 +28,18 @@ export default function Login() {
       const res = await fetch('http://50.6.45.177:8088/api/auth/login-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password, deviceId: getDeviceId() })
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('username', email);
-        navigate('/dashboard');
+        if (data.requiresDeviceOtp) {
+          setLoginMode('DEVICE_OTP');
+        } else {
+          localStorage.setItem('token', data.token);
+          if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+          localStorage.setItem('username', email);
+          navigate('/dashboard');
+        }
       } else {
         setError(data.message || 'Login failed');
       }
@@ -71,11 +85,43 @@ export default function Login() {
       const res = await fetch('http://50.6.45.177:8088/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp })
+        body: JSON.stringify({ email, otp, deviceId: getDeviceId() })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.requiresDeviceOtp) {
+          setLoginMode('DEVICE_OTP');
+          setOtp(''); // clear OTP for next step
+        } else {
+          localStorage.setItem('token', data.token);
+          if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+          localStorage.setItem('username', email);
+          navigate('/dashboard');
+        }
+      } else {
+        setError(data.message || 'Invalid OTP');
+      }
+    } catch (err) {
+      setError('Network error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyDeviceOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+    try {
+      const res = await fetch('http://50.6.45.177:8088/api/auth/verify-device-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, deviceId: getDeviceId() })
       });
       const data = await res.json();
       if (res.ok) {
         localStorage.setItem('token', data.token);
+        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
         localStorage.setItem('username', email);
         navigate('/dashboard');
       } else {
@@ -95,13 +141,19 @@ export default function Login() {
       const res = await fetch('http://50.6.45.177:8088/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: credentialResponse.credential })
+        body: JSON.stringify({ token: credentialResponse.credential, deviceId: getDeviceId() })
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('username', data.email);
-        navigate('/dashboard');
+        if (data.requiresDeviceOtp) {
+          setEmail(data.email);
+          setLoginMode('DEVICE_OTP');
+        } else {
+          localStorage.setItem('token', data.token);
+          if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+          localStorage.setItem('username', data.email);
+          navigate('/dashboard');
+        }
       } else {
         setError(data.message || 'No user found for this Google account.');
       }
@@ -233,6 +285,34 @@ export default function Login() {
               
               <button type="button" onClick={() => setLoginMode('SELECT')} style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '0.875rem', cursor: 'pointer', marginTop: '0.5rem', textDecoration: 'underline' }}>
                 Use a different method
+              </button>
+            </form>
+          )}
+
+          {loginMode === 'DEVICE_OTP' && (
+            <form onSubmit={handleVerifyDeviceOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ padding: '0.75rem', backgroundColor: '#fff3cd', color: '#856404', borderRadius: '6px', fontSize: '0.875rem', textAlign: 'center' }}>
+                You are logging in from a new unrecognized device. Please check your email for a verification code to authorize this device.
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>6-Digit Device Authorization Code</label>
+                <input 
+                  type="text" 
+                  placeholder="123456" 
+                  value={otp} 
+                  onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} 
+                  required 
+                  style={{ width: '100%', padding: '0.875rem', borderRadius: '6px', border: '1px solid #d1d5db', boxSizing: 'border-box', outline: 'none', textAlign: 'center', fontSize: '1.25rem', letterSpacing: '0.25rem' }}
+                />
+              </div>
+
+              <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '0.875rem', backgroundColor: '#eab308', color: 'white', border: 'none', borderRadius: '6px', cursor: isLoading ? 'not-allowed' : 'pointer', fontWeight: '600', fontSize: '1rem', marginTop: '0.5rem' }}>
+                {isLoading ? 'Verifying Device...' : 'Authorize Device & Continue'}
+              </button>
+              
+              <button type="button" onClick={() => setLoginMode('SELECT')} style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: '0.875rem', cursor: 'pointer', marginTop: '0.5rem', textDecoration: 'underline' }}>
+                Cancel
               </button>
             </form>
           )}
