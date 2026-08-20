@@ -17,6 +17,13 @@ public class Company {
     @Column(nullable = false)
     private Boolean isActive = true;
 
+    @Column(columnDefinition = "TEXT")
+    private String logoBase64;
+
+    private String contactNumber;
+
+    private String address;
+
     public Company() {}
 
     public Company(String name, String industryType) {
@@ -35,4 +42,13 @@ public class Company {
     
     public Boolean getIsActive() { return isActive; }
     public void setIsActive(Boolean active) { isActive = active; }
+
+    public String getLogoBase64() { return logoBase64; }
+    public void setLogoBase64(String logoBase64) { this.logoBase64 = logoBase64; }
+
+    public String getContactNumber() { return contactNumber; }
+    public void setContactNumber(String contactNumber) { this.contactNumber = contactNumber; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
 }

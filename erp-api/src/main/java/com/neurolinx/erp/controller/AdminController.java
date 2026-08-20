@@ -63,6 +63,9 @@ public class AdminController {
             company.setName(updatedCompany.getName());
             company.setIndustryType(updatedCompany.getIndustryType());
             company.setIsActive(updatedCompany.getIsActive());
+            company.setLogoBase64(updatedCompany.getLogoBase64());
+            company.setContactNumber(updatedCompany.getContactNumber());
+            company.setAddress(updatedCompany.getAddress());
             return ResponseEntity.ok(companyRepository.save(company));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -77,6 +80,9 @@ public class AdminController {
     public ResponseEntity<?> createCompany(@RequestBody CompanyProvisionDTO dto) {
         // 1. Create Company
         Company company = new Company(dto.getCompanyName(), dto.getIndustryType());
+        company.setLogoBase64(dto.getLogoBase64());
+        company.setContactNumber(dto.getContactNumber());
+        company.setAddress(dto.getAddress());
         company = companyRepository.save(company);
 
         // 2. Create Default "Company Admin" Role for this client

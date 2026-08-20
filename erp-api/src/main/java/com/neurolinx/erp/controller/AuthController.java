@@ -58,4 +58,21 @@ public class AuthController {
         
         return ResponseEntity.status(401).body(Map.of("message", "Invalid or expired OTP"));
     }
+
+    @PostMapping("/send-registration-otp")
+    public ResponseEntity<?> sendRegistrationOtp(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        otpService.generateAndSendOtp(email);
+        return ResponseEntity.ok(Map.of("message", "OTP sent to " + email));
+    }
+
+    @PostMapping("/verify-registration-otp")
+    public ResponseEntity<?> verifyRegistrationOtp(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String otp = payload.get("otp");
+        if (otpService.verifyOtp(email, otp)) {
+            return ResponseEntity.ok(Map.of("message", "OTP verified"));
+        }
+        return ResponseEntity.status(401).body(Map.of("message", "Invalid or expired OTP"));
+    }
 }

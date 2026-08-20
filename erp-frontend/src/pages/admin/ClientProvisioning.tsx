@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Users, Settings, Building2, X, Edit2, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Plus, Users, Settings, Building2, X, Edit2, Trash2, CheckSquare, Square, CheckCircle } from 'lucide-react';
 
 export default function ClientProvisioning() {
   const [companies, setCompanies] = useState<any[]>([]);
@@ -12,10 +12,21 @@ export default function ClientProvisioning() {
   const [industryType, setIndustryType] = useState('Restaurant');
   const [isActive, setIsActive] = useState(true);
   
+  // Branding Fields
+  const [logoBase64, setLogoBase64] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
+  const [address, setAddress] = useState('');
+  
   // For new clients only
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  
+  // OTP State
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otp, setOtp] = useState('');
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // For Module Assignment
@@ -42,13 +53,75 @@ export default function ClientProvisioning() {
       .catch(err => console.error("Failed to load modules", err));
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoBase64(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const sendRegistrationOtp = async () => {
+    if (!email) {
+      alert("Please enter an email address first.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('http://50.6.45.177:8088/api/auth/send-registration-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (res.ok) {
+        setOtpSent(true);
+      } else {
+        alert("Failed to send OTP.");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const verifyRegistrationOtp = async () => {
+    if (!otp) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('http://50.6.45.177:8088/api/auth/verify-registration-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp })
+      });
+      if (res.ok) {
+        setOtpVerified(true);
+      } else {
+        alert("Invalid or expired OTP.");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const openCreateModal = () => {
     setEditingId(null);
     setCompanyName('');
     setIndustryType('Restaurant');
-    setUsername('');
+    setLogoBase64('');
+    setContactNumber('');
+    setAddress('');
+    setEmail('');
     setPassword('');
     setConfirmPassword('');
+    setOtpSent(false);
+    setOtpVerified(false);
+    setOtp('');
     setShowModal(true);
   };
 
@@ -57,6 +130,9 @@ export default function ClientProvisioning() {
     setCompanyName(comp.name);
     setIndustryType(comp.industryType);
     setIsActive(comp.isActive);
+    setLogoBase64(comp.logoBase64 || '');
+    setContactNumber(comp.contactNumber || '');
+    setAddress(comp.address || '');
     setShowModal(true);
   };
 
@@ -127,8 +203,8 @@ export default function ClientProvisioning() {
       
     const method = editingId ? 'PUT' : 'POST';
     const payload = editingId 
-      ? { name: companyName, industryType, isActive }
-      : { companyName, industryType, username, password };
+      ? { name: companyName, industryType, isActive, logoBase64, contactNumber, address }
+      : { companyName, industryType, email, password, logoBase64, contactNumber, address };
     
     try {
       const res = await fetch(url, {
@@ -175,8 +251,12 @@ export default function ClientProvisioning() {
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-              <div style={{ backgroundColor: company.isActive ? '#eff6ff' : '#f3f4f6', padding: '0.75rem', borderRadius: '8px', color: company.isActive ? '#3b82f6' : '#9ca3af' }}>
-                <Building2 size={24} />
+              <div style={{ backgroundColor: company.isActive ? '#eff6ff' : '#f3f4f6', width: '56px', height: '56px', borderRadius: '8px', color: company.isActive ? '#3b82f6' : '#9ca3af', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                {company.logoBase64 ? (
+                  <img src={company.logoBase64} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <Building2 size={24} />
+                )}
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.125rem', color: '#111827', textDecoration: company.isActive ? 'none' : 'line-through' }}>{company.name}</h3>
@@ -254,10 +334,10 @@ export default function ClientProvisioning() {
       {/* Create/Edit Client Modal */}
       {showModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
-          <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '400px' }}>
+          <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#111827' }}>
-                {editingId ? 'Edit Client' : 'Create New Client'}
+                {editingId ? 'Edit Client Details' : 'Create New Client'}
               </h2>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
                 <X size={20} />
@@ -265,36 +345,55 @@ export default function ClientProvisioning() {
             </div>
             
             <form onSubmit={handleSaveClient} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Company Name</label>
-                <input 
-                  type="text" 
-                  value={companyName}
-                  onChange={e => setCompanyName(e.target.value)}
-                  placeholder="e.g. Joe's Cafe"
-                  required
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
-                />
-              </div>
               
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Industry Type</label>
-                <select 
-                  value={industryType}
-                  onChange={e => setIndustryType(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
-                >
-                  <option value="Restaurant">Restaurant</option>
-                  <option value="Hotel">Hotel</option>
-                  <option value="Hybrid (Hotel & Restaurant)">Hybrid (Hotel & Restaurant)</option>
-                  <option value="Software">Software</option>
-                  <option value="Hybrid (Software & Hardware)">Hybrid (Software & Hardware)</option>
-                  <option value="Electronics (Manufacturing & Assembly)">Electronics (Manufacturing & Assembly)</option>
-                </select>
+              {/* Branding Section */}
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                <div style={{ width: '80px', height: '80px', backgroundColor: '#f3f4f6', borderRadius: '8px', border: '1px dashed #d1d5db', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', position: 'relative' }}>
+                  {logoBase64 ? (
+                    <img src={logoBase64} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', color: '#9ca3af', textAlign: 'center' }}>Upload<br/>Logo</span>
+                  )}
+                  <input type="file" accept="image/*" onChange={handleImageUpload} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />
+                </div>
+                
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    value={companyName}
+                    onChange={e => setCompanyName(e.target.value)}
+                    placeholder="Company Name (e.g. Joe's Cafe)"
+                    required
+                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                  />
+                  <select 
+                    value={industryType}
+                    onChange={e => setIndustryType(e.target.value)}
+                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                  >
+                    <option value="Restaurant">Restaurant</option>
+                    <option value="Hotel">Hotel</option>
+                    <option value="Hybrid (Hotel & Restaurant)">Hybrid (Hotel & Restaurant)</option>
+                    <option value="Software">Software</option>
+                    <option value="Hybrid (Software & Hardware)">Hybrid (Software & Hardware)</option>
+                    <option value="Electronics (Manufacturing & Assembly)">Electronics (Manufacturing & Assembly)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Contact Number</label>
+                  <input type="text" value={contactNumber} onChange={e => setContactNumber(e.target.value)} style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Address / City</label>
+                  <input type="text" value={address} onChange={e => setAddress(e.target.value)} style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }} />
+                </div>
               </div>
 
               {editingId ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
                   <input 
                     type="checkbox" 
                     checked={isActive} 
@@ -306,48 +405,87 @@ export default function ClientProvisioning() {
               ) : (
                 <div style={{ marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
                   <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: '#374151' }}>Client Admin Account</h3>
+                  
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    
+                    {/* OTP Email Flow */}
                     <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Username</label>
-                      <input 
-                        type="text" 
-                        value={username}
-                        onChange={e => setUsername(e.target.value)}
-                        placeholder="e.g. joe_admin"
-                        required
-                        style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
-                      />
+                      <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Email Address</label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input 
+                          type="email" 
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          placeholder="admin@client.com"
+                          disabled={otpVerified}
+                          required
+                          style={{ flex: 1, padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box', backgroundColor: otpVerified ? '#f3f4f6' : 'white' }}
+                        />
+                        {!otpVerified && (
+                          <button type="button" onClick={sendRegistrationOtp} disabled={isSubmitting || !email} style={{ padding: '0 1rem', backgroundColor: '#4b5563', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }}>
+                            {otpSent ? 'Resend OTP' : 'Send OTP'}
+                          </button>
+                        )}
+                        {otpVerified && (
+                          <div style={{ display: 'flex', alignItems: 'center', color: '#10b981', padding: '0 0.5rem' }}>
+                            <CheckCircle size={20} />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Password</label>
-                      <input 
-                        type="password" 
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        placeholder="Enter a secure password"
-                        required
-                        style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Confirm Password</label>
-                      <input 
-                        type="password" 
-                        value={confirmPassword}
-                        onChange={e => setConfirmPassword(e.target.value)}
-                        placeholder="Re-type password"
-                        required
-                        style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
-                      />
-                    </div>
+
+                    {otpSent && !otpVerified && (
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Enter 6-Digit Code</label>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <input 
+                            type="text" 
+                            value={otp}
+                            onChange={e => setOtp(e.target.value)}
+                            placeholder="123456"
+                            style={{ flex: 1, padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                          />
+                          <button type="button" onClick={verifyRegistrationOtp} disabled={isSubmitting || !otp} style={{ padding: '0 1rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }}>
+                            Verify
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {otpVerified && (
+                      <>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Password</label>
+                          <input 
+                            type="password" 
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            placeholder="Enter a secure password"
+                            required
+                            style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Confirm Password</label>
+                          <input 
+                            type="password" 
+                            value={confirmPassword}
+                            onChange={e => setConfirmPassword(e.target.value)}
+                            placeholder="Re-type password"
+                            required
+                            style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
 
               <button 
                 type="submit" 
-                disabled={isSubmitting}
-                style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+                disabled={isSubmitting || (!editingId && !otpVerified)}
+                style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: (isSubmitting || (!editingId && !otpVerified)) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
                 {isSubmitting ? 'Saving...' : 'Save Client'}
               </button>
             </form>
