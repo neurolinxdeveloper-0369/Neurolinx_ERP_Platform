@@ -1,4 +1,4 @@
-﻿package com.neurolinx.erp.service;
+package com.neurolinx.erp.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
