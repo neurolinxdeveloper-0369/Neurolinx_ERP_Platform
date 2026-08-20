@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus, Users, Settings, Building2, X, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Users, Settings, Building2, X, Edit2, Trash2, CheckSquare, Square } from 'lucide-react';
 
 export default function ClientProvisioning() {
   const [companies, setCompanies] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [showModulesModal, setShowModulesModal] = useState(false);
   
   // Form State
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -17,8 +18,14 @@ export default function ClientProvisioning() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // For Module Assignment
+  const [allModules, setAllModules] = useState<any[]>([]);
+  const [assignedModuleIds, setAssignedModuleIds] = useState<number[]>([]);
+  const [selectedCompanyName, setSelectedCompanyName] = useState('');
+
   useEffect(() => {
     fetchCompanies();
+    fetchAllModules();
   }, []);
 
   const fetchCompanies = () => {
@@ -26,6 +33,13 @@ export default function ClientProvisioning() {
       .then(res => res.json())
       .then(data => setCompanies(data))
       .catch(err => console.error("Failed to load companies", err));
+  };
+
+  const fetchAllModules = () => {
+    fetch('http://50.6.45.177:8088/api/admin/menu-items')
+      .then(res => res.json())
+      .then(data => setAllModules(data.filter((m: any) => m.isMasterEnabled)))
+      .catch(err => console.error("Failed to load modules", err));
   };
 
   const openCreateModal = () => {
@@ -44,6 +58,48 @@ export default function ClientProvisioning() {
     setIndustryType(comp.industryType);
     setIsActive(comp.isActive);
     setShowModal(true);
+  };
+
+  const openModulesModal = async (comp: any) => {
+    setEditingId(comp.id);
+    setSelectedCompanyName(comp.name);
+    try {
+      const res = await fetch(`http://50.6.45.177:8088/api/admin/companies/${comp.id}/modules`);
+      const data = await res.json();
+      setAssignedModuleIds(data || []);
+      setShowModulesModal(true);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load assigned modules");
+    }
+  };
+
+  const toggleModule = (id: number) => {
+    if (assignedModuleIds.includes(id)) {
+      setAssignedModuleIds(assignedModuleIds.filter(mId => mId !== id));
+    } else {
+      setAssignedModuleIds([...assignedModuleIds, id]);
+    }
+  };
+
+  const handleSaveModules = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`http://50.6.45.177:8088/api/admin/companies/${editingId}/modules`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assignedModuleIds)
+      });
+      if (res.ok) {
+        setShowModulesModal(false);
+      } else {
+        alert("Failed to save modules");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -132,7 +188,7 @@ export default function ClientProvisioning() {
               <button style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', backgroundColor: '#f3f4f6', color: '#4b5563', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                 <Users size={16} /> Roles
               </button>
-              <button style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', backgroundColor: '#f3f4f6', color: '#4b5563', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+              <button onClick={() => openModulesModal(company)} style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', backgroundColor: '#f3f4f6', color: '#4b5563', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                 <Settings size={16} /> Modules
               </button>
             </div>
@@ -143,7 +199,59 @@ export default function ClientProvisioning() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modules Assignment Modal */}
+      {showModulesModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
+          <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '500px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#111827' }}>Assign Modules</h2>
+                <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.875rem' }}>For {selectedCompanyName}</p>
+              </div>
+              <button onClick={() => setShowModulesModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ maxHeight: '60vh', overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {allModules.length === 0 ? (
+                <p style={{ color: '#6b7280', textAlign: 'center', padding: '2rem 0' }}>No global modules found. Please create some in Settings first.</p>
+              ) : (
+                allModules.map(mod => {
+                  const isChecked = assignedModuleIds.includes(mod.id);
+                  return (
+                    <div 
+                      key={mod.id} 
+                      onClick={() => toggleModule(mod.id)}
+                      style={{ 
+                        display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', 
+                        border: `1px solid ${isChecked ? '#3b82f6' : '#e5e7eb'}`, 
+                        borderRadius: '6px', cursor: 'pointer',
+                        backgroundColor: isChecked ? '#eff6ff' : 'white'
+                      }}
+                    >
+                      {isChecked ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#9ca3af" />}
+                      <div>
+                        <div style={{ fontWeight: '500', color: '#111827' }}>{mod.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{mod.frontendRoute}</div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <button 
+              onClick={handleSaveModules}
+              disabled={isSubmitting}
+              style={{ width: '100%', padding: '0.75rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+              {isSubmitting ? 'Saving...' : 'Save Assignments'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Client Modal */}
       {showModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
           <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '400px' }}>
