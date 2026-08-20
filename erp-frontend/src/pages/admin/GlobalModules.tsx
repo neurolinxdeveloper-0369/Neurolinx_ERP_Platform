@@ -19,7 +19,7 @@ export default function GlobalModules() {
   }, []);
 
   const fetchModules = () => {
-    apiFetch('http://erp-api.neurolinx.in/api/admin/menu-items')
+    apiFetch('https://erp-api.neurolinx.in/api/admin/menu-items')
       .then(res => res.json())
       .then(data => setModules(data))
       .catch(err => console.error("Failed to load modules", err));
@@ -46,7 +46,7 @@ export default function GlobalModules() {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this module? This will break any clients using it!")) return;
     try {
-      const res = await apiFetch(`http://erp-api.neurolinx.in/api/admin/menu-items/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/menu-items/${id}`, { method: 'DELETE' });
       if (res.ok) fetchModules();
     } catch (err) {
       console.error(err);
@@ -58,8 +58,8 @@ export default function GlobalModules() {
     setIsSubmitting(true);
     
     const url = editingId 
-      ? `http://erp-api.neurolinx.in/api/admin/menu-items/${editingId}`
-      : 'http://erp-api.neurolinx.in/api/admin/menu-items';
+      ? `https://erp-api.neurolinx.in/api/admin/menu-items/${editingId}`
+      : 'https://erp-api.neurolinx.in/api/admin/menu-items';
       
     const method = editingId ? 'PUT' : 'POST';
     

@@ -11,7 +11,7 @@ export const apiFetch = async (url: string, options: RequestInit = {}) => {
   if (res.status === 401 && token && !url.includes('/api/auth/')) {
     const refreshToken = localStorage.getItem('refreshToken');
     if (refreshToken) {
-      const refreshRes = await fetch('http://erp-api.neurolinx.in/api/auth/refresh', {
+      const refreshRes = await fetch('https://erp-api.neurolinx.in/api/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken })

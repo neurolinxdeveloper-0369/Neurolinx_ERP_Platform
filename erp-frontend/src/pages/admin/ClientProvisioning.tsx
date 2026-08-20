@@ -41,14 +41,14 @@ export default function ClientProvisioning() {
   }, []);
 
   const fetchCompanies = () => {
-    apiFetch('http://erp-api.neurolinx.in/api/admin/companies')
+    apiFetch('https://erp-api.neurolinx.in/api/admin/companies')
       .then(res => res.json())
       .then(data => setCompanies(data))
       .catch(err => console.error("Failed to load companies", err));
   };
 
   const fetchAllModules = () => {
-    apiFetch('http://erp-api.neurolinx.in/api/admin/menu-items')
+    apiFetch('https://erp-api.neurolinx.in/api/admin/menu-items')
       .then(res => res.json())
       .then(data => setAllModules(data.filter((m: any) => m.isMasterEnabled)))
       .catch(err => console.error("Failed to load modules", err));
@@ -72,7 +72,7 @@ export default function ClientProvisioning() {
     }
     setIsSubmitting(true);
     try {
-      const res = await apiFetch('http://erp-api.neurolinx.in/api/auth/send-registration-otp', {
+      const res = await apiFetch('https://erp-api.neurolinx.in/api/auth/send-registration-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -93,7 +93,7 @@ export default function ClientProvisioning() {
     if (!otp) return;
     setIsSubmitting(true);
     try {
-      const res = await apiFetch('http://erp-api.neurolinx.in/api/auth/verify-registration-otp', {
+      const res = await apiFetch('https://erp-api.neurolinx.in/api/auth/verify-registration-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp })
@@ -141,7 +141,7 @@ export default function ClientProvisioning() {
     setEditingId(comp.id);
     setSelectedCompanyName(comp.name);
     try {
-      const res = await apiFetch(`http://erp-api.neurolinx.in/api/admin/companies/${comp.id}/modules`);
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${comp.id}/modules`);
       const data = await res.json();
       setAssignedModuleIds(data || []);
       setShowModulesModal(true);
@@ -162,7 +162,7 @@ export default function ClientProvisioning() {
   const handleSaveModules = async () => {
     setIsSubmitting(true);
     try {
-      const res = await apiFetch(`http://erp-api.neurolinx.in/api/admin/companies/${editingId}/modules`, {
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${editingId}/modules`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(assignedModuleIds)
@@ -182,7 +182,7 @@ export default function ClientProvisioning() {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this client? This cannot be undone!")) return;
     try {
-      const res = await apiFetch(`http://erp-api.neurolinx.in/api/admin/companies/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${id}`, { method: 'DELETE' });
       if (res.ok) fetchCompanies();
     } catch (err) {
       console.error(err);
@@ -199,8 +199,8 @@ export default function ClientProvisioning() {
     setIsSubmitting(true);
     
     const url = editingId 
-      ? `http://erp-api.neurolinx.in/api/admin/companies/${editingId}`
-      : 'http://erp-api.neurolinx.in/api/admin/companies';
+      ? `https://erp-api.neurolinx.in/api/admin/companies/${editingId}`
+      : 'https://erp-api.neurolinx.in/api/admin/companies';
       
     const method = editingId ? 'PUT' : 'POST';
     const payload = editingId 

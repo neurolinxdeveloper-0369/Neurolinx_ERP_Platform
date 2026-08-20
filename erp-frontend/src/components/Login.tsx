@@ -25,7 +25,7 @@ export default function Login() {
     setError('');
     setIsLoading(true);
     try {
-      const res = await fetch('http://erp-api.neurolinx.in/api/auth/login-password', {
+      const res = await fetch('https://erp-api.neurolinx.in/api/auth/login-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, deviceId: getDeviceId() })
@@ -59,7 +59,7 @@ export default function Login() {
     setError('');
     setIsLoading(true);
     try {
-      const res = await fetch('http://erp-api.neurolinx.in/api/auth/request-otp', {
+      const res = await fetch('https://erp-api.neurolinx.in/api/auth/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -82,7 +82,7 @@ export default function Login() {
     setError('');
     setIsLoading(true);
     try {
-      const res = await fetch('http://erp-api.neurolinx.in/api/auth/verify-otp', {
+      const res = await fetch('https://erp-api.neurolinx.in/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp, deviceId: getDeviceId() })
@@ -113,7 +113,7 @@ export default function Login() {
     setError('');
     setIsLoading(true);
     try {
-      const res = await fetch('http://erp-api.neurolinx.in/api/auth/verify-device-otp', {
+      const res = await fetch('https://erp-api.neurolinx.in/api/auth/verify-device-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp, deviceId: getDeviceId() })
@@ -138,7 +138,7 @@ export default function Login() {
     setError('');
     setIsLoading(true);
     try {
-      const res = await fetch('http://erp-api.neurolinx.in/api/auth/google', {
+      const res = await fetch('https://erp-api.neurolinx.in/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: credentialResponse.credential, deviceId: getDeviceId() })
