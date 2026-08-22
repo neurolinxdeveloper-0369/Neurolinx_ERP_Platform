@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -17,6 +18,24 @@ public class AdminController {
     @Autowired private MenuItemRepository menuItemRepository;
     @Autowired private RoleRepository roleRepository;
     @Autowired private RolePrivilegeRepository rolePrivilegeRepository;
+    @Autowired private UserRepository userRepository;
+    @Autowired private DeviceSessionRepository deviceSessionRepository;
+    @Autowired private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    // --- DEVICE SESSIONS ---
+
+    @GetMapping("/pending-devices")
+    public ResponseEntity<?> getPendingDevices() {
+        return ResponseEntity.ok(deviceSessionRepository.findAll().stream().filter(s -> !s.getIsApproved()).collect(Collectors.toList()));
+    }
+
+    @PostMapping("/approve-device/{id}")
+    public ResponseEntity<?> approveDevice(@PathVariable Long id) {
+        var session = deviceSessionRepository.findById(id).orElseThrow();
+        session.setIsApproved(true);
+        deviceSessionRepository.save(session);
+        return ResponseEntity.ok().build();
+    }
 
     // --- MENU ITEMS (Global Modules) ---
     

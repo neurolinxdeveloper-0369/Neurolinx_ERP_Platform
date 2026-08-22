@@ -18,6 +18,7 @@ export default function MasterLayout() {
       setMenus([
         { name: "Dashboard", route: "/dashboard", icon: "layout-dashboard" },
         { name: "Clients", route: "/clients", icon: "users" },
+        { name: "Device Approvals", route: "/approvals", icon: "shield-check" },
         { name: "Global Modules", route: "/settings", icon: "settings" }
       ]);
     } else {

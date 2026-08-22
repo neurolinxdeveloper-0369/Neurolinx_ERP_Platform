@@ -4,6 +4,7 @@ import MasterLayout from './components/MasterLayout';
 import Dashboard from './pages/admin/Dashboard';
 import GlobalModules from './pages/admin/GlobalModules';
 import ClientProvisioning from './pages/admin/ClientProvisioning';
+import DeviceApprovals from './pages/admin/DeviceApprovals';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/clients" element={<ClientProvisioning />} />
           <Route path="/settings" element={<GlobalModules />} />
+          <Route path="/approvals" element={<DeviceApprovals />} />
         </Route>
         
         <Route path="*" element={<Navigate to="/" replace />} />
