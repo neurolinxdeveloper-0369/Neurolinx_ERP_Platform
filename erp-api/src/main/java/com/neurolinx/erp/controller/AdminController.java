@@ -68,9 +68,6 @@ public class AdminController {
 
     // --- COMPANIES (Clients) ---
 
-    @Autowired private UserRepository userRepository;
-    @Autowired private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
-
     @GetMapping("/companies")
     public ResponseEntity<List<Company>> getAllCompanies() {
         return ResponseEntity.ok(companyRepository.findAll());
