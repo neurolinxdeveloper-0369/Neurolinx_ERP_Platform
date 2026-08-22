@@ -10,6 +10,7 @@ export default function ClientProvisioning() {
   // Form State
   const [editingId, setEditingId] = useState<number | null>(null);
   const [companyName, setCompanyName] = useState('');
+  const [clientName, setClientName] = useState('');
   const [industryType, setIndustryType] = useState('Restaurant');
   const [isActive, setIsActive] = useState(true);
   
@@ -113,6 +114,7 @@ export default function ClientProvisioning() {
   const openCreateModal = () => {
     setEditingId(null);
     setCompanyName('');
+    setClientName('');
     setIndustryType('Restaurant');
     setLogoBase64('');
     setContactNumber('');
@@ -129,6 +131,7 @@ export default function ClientProvisioning() {
   const openEditModal = (comp: any) => {
     setEditingId(comp.id);
     setCompanyName(comp.name);
+    setClientName(comp.clientName || '');
     setIndustryType(comp.industryType);
     setIsActive(comp.isActive);
     setLogoBase64(comp.logoBase64 || '');
@@ -204,8 +207,8 @@ export default function ClientProvisioning() {
       
     const method = editingId ? 'PUT' : 'POST';
     const payload = editingId 
-      ? { name: companyName, industryType, isActive, logoBase64, contactNumber, address }
-      : { companyName, industryType, email, password, logoBase64, contactNumber, address };
+      ? { name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address }
+      : { companyName, clientName, industryType, email, password, logoBase64, contactNumber, address };
     
     try {
       const res = await apiFetch(url, {
@@ -364,6 +367,14 @@ export default function ClientProvisioning() {
                     value={companyName}
                     onChange={e => setCompanyName(e.target.value)}
                     placeholder="Company Name (e.g. Joe's Cafe)"
+                    required
+                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                  />
+                  <input 
+                    type="text" 
+                    value={clientName}
+                    onChange={e => setClientName(e.target.value)}
+                    placeholder="Client Name (e.g. John Doe)"
                     required
                     style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
                   />

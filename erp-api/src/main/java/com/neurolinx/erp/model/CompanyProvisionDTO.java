@@ -9,6 +9,7 @@ public class CompanyProvisionDTO {
     private String logoBase64;
     private String contactNumber;
     private String address;
+    private String clientName;
 
     public String getCompanyName() { return companyName; }
     public void setCompanyName(String companyName) { this.companyName = companyName; }
@@ -30,4 +31,7 @@ public class CompanyProvisionDTO {
 
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+
+    public String getClientName() { return clientName; }
+    public void setClientName(String clientName) { this.clientName = clientName; }
 }

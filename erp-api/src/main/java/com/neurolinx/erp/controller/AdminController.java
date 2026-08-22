@@ -66,6 +66,7 @@ public class AdminController {
             company.setLogoBase64(updatedCompany.getLogoBase64());
             company.setContactNumber(updatedCompany.getContactNumber());
             company.setAddress(updatedCompany.getAddress());
+            company.setClientName(updatedCompany.getClientName());
             return ResponseEntity.ok(companyRepository.save(company));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -83,6 +84,7 @@ public class AdminController {
         company.setLogoBase64(dto.getLogoBase64());
         company.setContactNumber(dto.getContactNumber());
         company.setAddress(dto.getAddress());
+        company.setClientName(dto.getClientName());
         company = companyRepository.save(company);
 
         // 2. Create Default "Company Admin" Role for this client

@@ -24,6 +24,8 @@ public class Company {
 
     private String address;
 
+    private String clientName;
+
     public Company() {}
 
     public Company(String name, String industryType) {
@@ -51,4 +53,7 @@ public class Company {
 
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+
+    public String getClientName() { return clientName; }
+    public void setClientName(String clientName) { this.clientName = clientName; }
 }
