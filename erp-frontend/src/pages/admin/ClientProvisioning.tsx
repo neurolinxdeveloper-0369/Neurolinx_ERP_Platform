@@ -6,6 +6,9 @@ export default function ClientProvisioning() {
   const [companies, setCompanies] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showModulesModal, setShowModulesModal] = useState(false);
+  const [showRolesModal, setShowRolesModal] = useState(false);
+  const [companyRoles, setCompanyRoles] = useState<any[]>([]);
+  const [newRoleName, setNewRoleName] = useState('');
   
   // Form State
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -182,6 +185,47 @@ export default function ClientProvisioning() {
     }
   };
 
+  const openRolesModal = async (comp: any) => {
+    setEditingId(comp.id);
+    setSelectedCompanyName(comp.name);
+    setNewRoleName('');
+    try {
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${comp.id}/roles`);
+      if (res.ok) {
+        const data = await res.json();
+        setCompanyRoles(data || []);
+        setShowRolesModal(true);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddRole = async () => {
+    if (!newRoleName.trim()) return;
+    setIsSubmitting(true);
+    try {
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${editingId}/roles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newRoleName.trim() })
+      });
+      if (res.ok) {
+        setNewRoleName('');
+        // Refresh roles
+        const refreshRes = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${editingId}/roles`);
+        const data = await refreshRes.json();
+        setCompanyRoles(data || []);
+      } else {
+        alert('Failed to add role');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this client? This cannot be undone!")) return;
     try {
@@ -269,7 +313,7 @@ export default function ClientProvisioning() {
             </div>
             
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.5rem', borderTop: '1px solid #f3f4f6', paddingTop: '1rem' }}>
-              <button style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', backgroundColor: '#f3f4f6', color: '#4b5563', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+              <button onClick={() => openRolesModal(company)} style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', backgroundColor: '#f3f4f6', color: '#4b5563', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                 <Users size={16} /> Roles
               </button>
               <button onClick={() => openModulesModal(company)} style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', backgroundColor: '#f3f4f6', color: '#4b5563', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
@@ -282,6 +326,50 @@ export default function ClientProvisioning() {
           <p style={{ color: '#6b7280' }}>No clients found. Click "Create Client" to add one.</p>
         )}
       </div>
+
+      {/* Roles Management Modal */}
+      {showRolesModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 50 }}>
+          <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '500px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#111827' }}>Manage Roles</h2>
+                <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.875rem' }}>For {selectedCompanyName}</p>
+              </div>
+              <button onClick={() => setShowRolesModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <input 
+                type="text" 
+                value={newRoleName}
+                onChange={e => setNewRoleName(e.target.value)}
+                placeholder="New Role Name (e.g. Waitstaff)"
+                style={{ flex: 1, padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px' }}
+              />
+              <button onClick={handleAddRole} disabled={isSubmitting || !newRoleName.trim()} style={{ padding: '0.5rem 1rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', opacity: isSubmitting ? 0.7 : 1 }}>
+                {isSubmitting ? 'Adding...' : 'Add Role'}
+              </button>
+            </div>
+            <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ backgroundColor: '#f3f4f6' }}>
+                  <tr><th style={{ padding: '0.75rem', textAlign: 'left' }}>Role Name</th></tr>
+                </thead>
+                <tbody>
+                  {companyRoles.map((r, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '0.75rem' }}>{r.name}</td>
+                    </tr>
+                  ))}
+                  {companyRoles.length === 0 && <tr><td style={{ padding: '1rem', textAlign: 'center', color: '#6b7280' }}>No roles yet.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modules Assignment Modal */}
       {showModulesModal && (
