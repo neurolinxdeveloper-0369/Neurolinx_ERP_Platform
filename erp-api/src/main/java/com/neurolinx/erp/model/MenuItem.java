@@ -20,6 +20,9 @@ public class MenuItem {
     // Master kill switch. If false, no one sees this menu, regardless of their role.
     @Column(nullable = false)
     private Boolean isMasterEnabled = true;
+    
+    @Column
+    private String industryType = "All";
 
     public MenuItem() {}
 
@@ -43,4 +46,7 @@ public class MenuItem {
 
     public Boolean getIsMasterEnabled() { return isMasterEnabled; }
     public void setIsMasterEnabled(Boolean masterEnabled) { isMasterEnabled = masterEnabled; }
+
+    public String getIndustryType() { return industryType; }
+    public void setIndustryType(String industryType) { this.industryType = industryType; }
 }

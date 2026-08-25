@@ -46,6 +46,7 @@ public class AdminController {
 
     @PostMapping("/menu-items")
     public ResponseEntity<MenuItem> createMenuItem(@RequestBody MenuItem menuItem) {
+        if (menuItem.getIndustryType() == null) menuItem.setIndustryType("All");
         return ResponseEntity.ok(menuItemRepository.save(menuItem));
     }
 
@@ -56,6 +57,7 @@ public class AdminController {
             item.setFrontendRoute(updatedItem.getFrontendRoute());
             item.setIcon(updatedItem.getIcon());
             item.setIsMasterEnabled(updatedItem.getIsMasterEnabled());
+            item.setIndustryType(updatedItem.getIndustryType() != null ? updatedItem.getIndustryType() : "All");
             return ResponseEntity.ok(menuItemRepository.save(item));
         }).orElse(ResponseEntity.notFound().build());
     }

@@ -9,6 +9,7 @@ export default function ClientProvisioning() {
   const [showRolesModal, setShowRolesModal] = useState(false);
   const [companyRoles, setCompanyRoles] = useState<any[]>([]);
   const [newRoleName, setNewRoleName] = useState('');
+  const [selectedCompanyType, setSelectedCompanyType] = useState('');
   
   // Form State
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -146,6 +147,7 @@ export default function ClientProvisioning() {
   const openModulesModal = async (comp: any) => {
     setEditingId(comp.id);
     setSelectedCompanyName(comp.name);
+    setSelectedCompanyType(comp.industryType || '');
     try {
       const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${comp.id}/modules`);
       const data = await res.json();
@@ -389,7 +391,13 @@ export default function ClientProvisioning() {
               {allModules.length === 0 ? (
                 <p style={{ color: '#6b7280', textAlign: 'center', padding: '2rem 0' }}>No global modules found. Please create some in Settings first.</p>
               ) : (
-                allModules.map(mod => {
+                allModules.filter(mod => {
+                  if (!mod.industryType || mod.industryType === 'All') return true;
+                  if (selectedCompanyType === mod.industryType) return true;
+                  if (selectedCompanyType === 'Hybrid (Hotel & Restaurant)' && (mod.industryType === 'Hotel' || mod.industryType === 'Restaurant')) return true;
+                  if (selectedCompanyType === 'Hybrid (Software & Hardware)' && (mod.industryType === 'Software' || mod.industryType === 'Hardware' || mod.industryType === 'Electronics (Manufacturing & Assembly)')) return true;
+                  return false;
+                }).map(mod => {
                   const isChecked = assignedModuleIds.includes(mod.id);
                   return (
                     <div 

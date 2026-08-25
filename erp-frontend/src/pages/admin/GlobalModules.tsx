@@ -10,7 +10,9 @@ export default function GlobalModules() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [frontendRoute, setFrontendRoute] = useState('');
-  const [icon, setIcon] = useState('circle');
+  const [icon, setIcon] = useState('');
+  const [industryType, setIndustryType] = useState('All');
+  const [filterType, setFilterType] = useState('All');
   const [isMasterEnabled, setIsMasterEnabled] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,7 +31,8 @@ export default function GlobalModules() {
     setEditingId(null);
     setName('');
     setFrontendRoute('');
-    setIcon('circle');
+    setIcon('');
+    setIndustryType('All');
     setIsMasterEnabled(true);
     setShowModal(true);
   };
@@ -39,6 +42,7 @@ export default function GlobalModules() {
     setName(mod.name);
     setFrontendRoute(mod.frontendRoute);
     setIcon(mod.icon);
+    setIndustryType(mod.industryType || 'All');
     setIsMasterEnabled(mod.isMasterEnabled);
     setShowModal(true);
   };
@@ -67,7 +71,7 @@ export default function GlobalModules() {
       const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, frontendRoute, icon, isMasterEnabled })
+        body: JSON.stringify({ name, frontendRoute, icon, isMasterEnabled, industryType })
       });
       
       if (res.ok) {
@@ -99,6 +103,26 @@ export default function GlobalModules() {
         </button>
       </div>
 
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+        {['All', 'Restaurant', 'Hotel', 'Hybrid (Hotel & Restaurant)', 'Software', 'Hybrid (Software & Hardware)', 'Electronics (Manufacturing & Assembly)', 'Ecommerce'].map(type => (
+          <button 
+            key={type}
+            onClick={() => setFilterType(type)}
+            style={{ 
+              padding: '0.5rem 1rem', 
+              borderRadius: '9999px', 
+              border: '1px solid ' + (filterType === type ? '#3b82f6' : '#d1d5db'),
+              backgroundColor: filterType === type ? '#3b82f6' : 'white',
+              color: filterType === type ? 'white' : '#374151',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+
       <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
@@ -106,16 +130,18 @@ export default function GlobalModules() {
               <th style={{ padding: '1rem', color: '#4b5563', fontWeight: '500' }}>Module Name</th>
               <th style={{ padding: '1rem', color: '#4b5563', fontWeight: '500' }}>Route</th>
               <th style={{ padding: '1rem', color: '#4b5563', fontWeight: '500' }}>Icon</th>
+              <th style={{ padding: '1rem', color: '#4b5563', fontWeight: '500' }}>Industry</th>
               <th style={{ padding: '1rem', color: '#4b5563', fontWeight: '500' }}>Master Status</th>
               <th style={{ padding: '1rem', color: '#4b5563', fontWeight: '500', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {modules.map((mod, index) => (
+            {modules.filter(m => filterType === 'All' || m.industryType === filterType || (!m.industryType && filterType === 'All') || m.industryType === 'All').map((mod, index) => (
               <tr key={index} style={{ borderBottom: '1px solid #e5e7eb' }}>
                 <td style={{ padding: '1rem', color: '#111827', fontWeight: '500' }}>{mod.name}</td>
                 <td style={{ padding: '1rem', color: '#6b7280' }}>{mod.frontendRoute}</td>
                 <td style={{ padding: '1rem', color: '#6b7280' }}>{mod.icon}</td>
+                <td style={{ padding: '1rem', color: '#6b7280' }}>{mod.industryType || 'All'}</td>
                 <td style={{ padding: '1rem' }}>
                   {mod.isMasterEnabled ? (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#10b981', backgroundColor: '#d1fae5', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.875rem' }}>
@@ -190,6 +216,24 @@ export default function GlobalModules() {
                   required
                   style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
                 />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Industry Type</label>
+                <select 
+                  value={industryType}
+                  onChange={e => setIndustryType(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                >
+                  <option value="All">All Industries (Default)</option>
+                  <option value="Restaurant">Restaurant</option>
+                  <option value="Hotel">Hotel</option>
+                  <option value="Hybrid (Hotel & Restaurant)">Hybrid (Hotel & Restaurant)</option>
+                  <option value="Software">Software</option>
+                  <option value="Hybrid (Software & Hardware)">Hybrid (Software & Hardware)</option>
+                  <option value="Electronics (Manufacturing & Assembly)">Electronics (Manufacturing & Assembly)</option>
+                  <option value="Ecommerce">Ecommerce</option>
+                </select>
               </div>
 
               {editingId && (
