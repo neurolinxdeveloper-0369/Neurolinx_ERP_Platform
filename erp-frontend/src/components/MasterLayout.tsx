@@ -45,8 +45,8 @@ export default function MasterLayout() {
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb' }}>
       {/* Sidebar */}
-      <div style={{ width: '250px', backgroundColor: '#1f2937', color: 'white', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: '1px solid #374151' }}>
+      <div style={{ width: '250px', backgroundColor: 'white', borderRight: '1px solid #e5e7eb', color: '#374151', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: '1px solid #e5e7eb', color: '#0f172a' }}>
           Neurolinx One
         </div>
         <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -54,20 +54,20 @@ export default function MasterLayout() {
             <Link 
               key={index} 
               to={menu.route}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', color: '#d1d5db', textDecoration: 'none', borderRadius: '4px' }}
-              onMouseOver={e => e.currentTarget.style.backgroundColor = '#374151'}
-              onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', color: '#475569', textDecoration: 'none', borderRadius: '8px', fontWeight: '500' }}
+              onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f0f9ff'; e.currentTarget.style.color = '#0284c7'; }}
+              onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#475569'; }}
             >
               {renderIcon(menu.icon)}
               {menu.name}
             </Link>
           ))}
         </nav>
-        <div style={{ padding: '1rem', borderTop: '1px solid #374151' }}>
-          <div style={{ marginBottom: '1rem', color: '#9ca3af' }}>Logged in as: {username}</div>
+        <div style={{ padding: '1rem', borderTop: '1px solid #e5e7eb' }}>
+          <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.875rem', wordBreak: 'break-all' }}>{username}</div>
           <button 
             onClick={handleLogout}
-            style={{ width: '100%', padding: '0.5rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            style={{ width: '100%', padding: '0.5rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}
           >
             Logout
           </button>
