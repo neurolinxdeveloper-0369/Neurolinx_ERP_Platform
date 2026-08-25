@@ -118,6 +118,21 @@ public class AdminController {
 
     // --- ROLES & PRIVILEGES (Client Provisioning) ---
 
+    @GetMapping("/companies/{companyId}/roles")
+    public ResponseEntity<List<Role>> getCompanyRoles(@PathVariable Long companyId) {
+        return ResponseEntity.ok(roleRepository.findAll().stream()
+                .filter(r -> r.getCompany() != null && r.getCompany().getId().equals(companyId))
+                .collect(Collectors.toList()));
+    }
+
+    @PostMapping("/companies/{companyId}/roles")
+    public ResponseEntity<?> createCompanyRole(@PathVariable Long companyId, @RequestBody Role role) {
+        return companyRepository.findById(companyId).map(company -> {
+            role.setCompany(company);
+            return ResponseEntity.ok(roleRepository.save(role));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/roles")
     public ResponseEntity<Role> createRole(@RequestBody Role role) {
         return ResponseEntity.ok(roleRepository.save(role));
