@@ -46,7 +46,7 @@ export default function MasterLayout() {
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb' }}>
       {/* Sidebar */}
       <div style={{ width: '250px', backgroundColor: 'white', borderRight: '1px solid #e5e7eb', color: '#374151', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: '1px solid #e5e7eb', color: '#0f172a' }}>
+        <div style={{ height: '70px', display: 'flex', alignItems: 'center', padding: '0 1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: '1px solid #e5e7eb', color: '#0f172a', boxSizing: 'border-box' }}>
           Neurolinx One
         </div>
         <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -63,21 +63,21 @@ export default function MasterLayout() {
             </Link>
           ))}
         </nav>
-        <div style={{ padding: '1rem', borderTop: '1px solid #e5e7eb' }}>
-          <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.875rem', wordBreak: 'break-all' }}>{username}</div>
-          <button 
-            onClick={handleLogout}
-            style={{ width: '100%', padding: '0.5rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}
-          >
-            Logout
-          </button>
-        </div>
       </div>
 
       {/* Main Content Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <header style={{ height: '60px', backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', padding: '0 2rem' }}>
-          <h2 style={{ margin: 0, color: '#111827', fontSize: '1.25rem' }}>Dashboard</h2>
+        <header style={{ height: '70px', backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', boxSizing: 'border-box' }}>
+          <h2 style={{ margin: 0, color: '#111827', fontSize: '1.25rem' }}>Neurolinx One</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+            <span style={{ color: '#64748b', fontSize: '0.875rem', fontWeight: '500' }}>{username}</span>
+            <button 
+              onClick={handleLogout}
+              style={{ padding: '0.5rem 1rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}
+            >
+              Logout
+            </button>
+          </div>
         </header>
         <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
           <Outlet />
