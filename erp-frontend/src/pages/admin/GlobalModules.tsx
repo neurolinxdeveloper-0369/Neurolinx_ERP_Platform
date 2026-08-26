@@ -60,20 +60,20 @@ export default function GlobalModules() {
   const handleSaveModule = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    const url = editingId 
+
+    const url = editingId
       ? `https://erp-api.neurolinx.in/api/admin/menu-items/${editingId}`
       : 'https://erp-api.neurolinx.in/api/admin/menu-items';
-      
+
     const method = editingId ? 'PUT' : 'POST';
-    
+
     try {
       const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, frontendRoute, icon, isMasterEnabled, industryType })
       });
-      
+
       if (res.ok) {
         fetchModules();
         setShowModal(false);
@@ -95,7 +95,7 @@ export default function GlobalModules() {
           <h1 style={{ margin: 0, color: '#111827', fontSize: '1.5rem' }}>Global Modules</h1>
           <p style={{ margin: '0.5rem 0 0 0', color: '#6b7280' }}>Manage all available menu items in the ERP system.</p>
         </div>
-        <button 
+        <button
           onClick={openCreateModal}
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6', color: 'white', padding: '0.75rem 1.5rem', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }}>
           <Plus size={18} />
@@ -105,12 +105,12 @@ export default function GlobalModules() {
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
         {['All', 'Restaurant', 'Hotel', 'Hybrid (Hotel & Restaurant)', 'Software', 'Hybrid (Software & Hardware)', 'Electronics (Manufacturing & Assembly)', 'Ecommerce'].map(type => (
-          <button 
+          <button
             key={type}
             onClick={() => setFilterType(type)}
-            style={{ 
-              padding: '0.5rem 1rem', 
-              borderRadius: '9999px', 
+            style={{
+              padding: '0.5rem 1rem',
+              borderRadius: '9999px',
               border: '1px solid ' + (filterType === type ? '#3b82f6' : '#d1d5db'),
               backgroundColor: filterType === type ? '#3b82f6' : 'white',
               color: filterType === type ? 'white' : '#374151',
@@ -180,12 +180,12 @@ export default function GlobalModules() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSaveModule} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Module Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="e.g. POS System"
@@ -193,11 +193,23 @@ export default function GlobalModules() {
                   style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
                 />
               </div>
-              
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>SUB Module Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="e.g. POS System"
+                  required
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Frontend Route</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={frontendRoute}
                   onChange={e => setFrontendRoute(e.target.value)}
                   placeholder="e.g. /pos"
@@ -208,8 +220,8 @@ export default function GlobalModules() {
 
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Icon (lucide-react name)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={icon}
                   onChange={e => setIcon(e.target.value)}
                   placeholder="e.g. shopping-cart, layout-dashboard, users"
@@ -220,7 +232,7 @@ export default function GlobalModules() {
 
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#374151', fontWeight: '500' }}>Industry Type</label>
-                <select 
+                <select
                   value={industryType}
                   onChange={e => setIndustryType(e.target.value)}
                   style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
@@ -238,18 +250,18 @@ export default function GlobalModules() {
 
               {editingId && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={isMasterEnabled} 
-                    onChange={e => setIsMasterEnabled(e.target.checked)} 
+                  <input
+                    type="checkbox"
+                    checked={isMasterEnabled}
+                    onChange={e => setIsMasterEnabled(e.target.checked)}
                     id="masterEnabled"
                   />
                   <label htmlFor="masterEnabled" style={{ fontSize: '0.875rem', color: '#374151', fontWeight: '500', cursor: 'pointer' }}>Master Enabled (If unchecked, NO client can use this)</label>
                 </div>
               )}
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={isSubmitting}
                 style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
                 {isSubmitting ? 'Saving...' : 'Save Module'}
