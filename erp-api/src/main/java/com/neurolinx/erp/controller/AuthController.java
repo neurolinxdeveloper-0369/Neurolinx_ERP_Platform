@@ -92,9 +92,15 @@ public class AuthController {
         // New Device
         List<DeviceSession> allSessions = deviceSessionRepository.findByEmail(email);
         int count = allSessions.size();
+        
+        var userOpt = userRepository.findByEmail(email);
+        boolean bypassLimit = false;
+        if (userOpt.isPresent() && userOpt.get().getCompany() != null) {
+            bypassLimit = userOpt.get().getCompany().getBypassDeviceLimit();
+        }
 
-        if (count < 2) {
-            // Auto approve 1st and 2nd device
+        if (bypassLimit || count < 2) {
+            // Auto approve 1st and 2nd device, OR if bypass limit is true
             DeviceSession newSession = new DeviceSession(email, deviceId);
             String refreshToken = UUID.randomUUID().toString();
             newSession.setRefreshToken(refreshToken);

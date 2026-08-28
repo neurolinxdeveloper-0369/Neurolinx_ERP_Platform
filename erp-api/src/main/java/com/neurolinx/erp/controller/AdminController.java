@@ -91,6 +91,14 @@ public class AdminController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    @PutMapping("/companies/{id}/bypass-limit")
+    public ResponseEntity<Company> toggleBypassLimit(@PathVariable Long id, @RequestBody java.util.Map<String, Boolean> payload) {
+        return companyRepository.findById(id).map(company -> {
+            company.setBypassDeviceLimit(payload.get("bypass"));
+            return ResponseEntity.ok(companyRepository.save(company));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
     @DeleteMapping("/companies/{id}")
     public ResponseEntity<?> deleteCompany(@PathVariable Long id) {
         companyRepository.deleteById(id);

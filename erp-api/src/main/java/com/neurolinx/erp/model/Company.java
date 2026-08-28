@@ -30,6 +30,9 @@ public class Company {
     
     private Integer totalTables;
 
+    @Column(nullable = false)
+    private Boolean bypassDeviceLimit = false;
+
     public Company() {}
 
     public Company(String name, String industryType) {
@@ -66,4 +69,7 @@ public class Company {
 
     public Integer getTotalTables() { return totalTables; }
     public void setTotalTables(Integer totalTables) { this.totalTables = totalTables; }
+
+    public Boolean getBypassDeviceLimit() { return bypassDeviceLimit; }
+    public void setBypassDeviceLimit(Boolean bypassDeviceLimit) { this.bypassDeviceLimit = bypassDeviceLimit; }
 }
