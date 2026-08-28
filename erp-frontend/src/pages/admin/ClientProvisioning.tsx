@@ -494,10 +494,10 @@ export default function ClientProvisioning() {
                     <option value="Ecommerce">Ecommerce</option>
                   </select>
                   <input 
-                    type="url" 
+                    type="text" 
                     value={websiteUrl}
                     onChange={e => setWebsiteUrl(e.target.value)}
-                    placeholder="Website URL (e.g. https://joescafe.com)"
+                    placeholder="Website URL (e.g. one.neurolinx.in/spice-nation)"
                     style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
                   />
                   <input 
