@@ -96,7 +96,7 @@ public class AuthController {
         var userOpt = userRepository.findByEmail(email);
         boolean bypassLimit = false;
         if (userOpt.isPresent() && userOpt.get().getCompany() != null) {
-            bypassLimit = userOpt.get().getCompany().getBypassDeviceLimit();
+            bypassLimit = Boolean.TRUE.equals(userOpt.get().getCompany().getBypassDeviceLimit());
         }
 
         if (bypassLimit || count < 2) {

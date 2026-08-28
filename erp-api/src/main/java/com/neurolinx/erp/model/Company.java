@@ -30,7 +30,7 @@ public class Company {
     
     private Integer totalTables;
 
-    @Column(nullable = false)
+    @Column(columnDefinition = "boolean default false")
     private Boolean bypassDeviceLimit = false;
 
     public Company() {}
