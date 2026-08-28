@@ -5,6 +5,7 @@ import Dashboard from './pages/admin/Dashboard';
 import GlobalModules from './pages/admin/GlobalModules';
 import ClientProvisioning from './pages/admin/ClientProvisioning';
 import DeviceApprovals from './pages/admin/DeviceApprovals';
+import ClientPortal from './pages/ClientPortal';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/approvals" element={<DeviceApprovals />} />
         </Route>
         
+        <Route path="/:slug" element={<ClientPortal />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

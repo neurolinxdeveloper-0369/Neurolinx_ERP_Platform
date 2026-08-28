@@ -2,6 +2,7 @@ package com.neurolinx.erp.controller;
 
 import com.neurolinx.erp.model.DeviceSession;
 import com.neurolinx.erp.repository.DeviceSessionRepository;
+import com.neurolinx.erp.repository.CompanyRepository;
 import com.neurolinx.erp.repository.UserRepository;
 import com.neurolinx.erp.service.OtpService;
 import io.jsonwebtoken.Jwts;
@@ -25,6 +26,8 @@ public class AuthController {
     @Autowired
     private UserRepository userRepository;
     @Autowired
+    private CompanyRepository companyRepository;
+    @Autowired
     private DeviceSessionRepository deviceSessionRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -34,6 +37,16 @@ public class AuthController {
     private SecretKey key;
     
     private final ObjectMapper mapper = new ObjectMapper();
+
+    @GetMapping("/client/{slug}")
+    public ResponseEntity<?> getClientBySlug(@PathVariable String slug) {
+        return companyRepository.findByWebsiteUrlEndingWith(slug)
+            .map(c -> ResponseEntity.ok(Map.of(
+                "name", c.getName(),
+                "logo", c.getLogoBase64() != null ? c.getLogoBase64() : ""
+            )))
+            .orElse(ResponseEntity.notFound().build());
+    }
 
     private String generateJwt(String email) {
         // 1 hour expiry

@@ -6,4 +6,5 @@ import java.util.Optional;
 
 public interface CompanyRepository extends JpaRepository<Company, Long> {
     Optional<Company> findByName(String name);
+    Optional<Company> findByWebsiteUrlEndingWith(String slug);
 }
