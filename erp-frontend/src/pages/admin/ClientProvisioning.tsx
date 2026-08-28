@@ -22,6 +22,8 @@ export default function ClientProvisioning() {
   const [logoBase64, setLogoBase64] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [address, setAddress] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [totalTables, setTotalTables] = useState<number | ''>('');
   
   // For new clients only
   const [email, setEmail] = useState('');
@@ -123,6 +125,8 @@ export default function ClientProvisioning() {
     setLogoBase64('');
     setContactNumber('');
     setAddress('');
+    setWebsiteUrl('');
+    setTotalTables('');
     setEmail('');
     setPassword('');
     setConfirmPassword('');
@@ -141,6 +145,8 @@ export default function ClientProvisioning() {
     setLogoBase64(comp.logoBase64 || '');
     setContactNumber(comp.contactNumber || '');
     setAddress(comp.address || '');
+    setWebsiteUrl(comp.websiteUrl || '');
+    setTotalTables(comp.totalTables || '');
     setShowModal(true);
   };
 
@@ -253,8 +259,8 @@ export default function ClientProvisioning() {
       
     const method = editingId ? 'PUT' : 'POST';
     const payload = editingId 
-      ? { name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address }
-      : { companyName, clientName, industryType, email, password, logoBase64, contactNumber, address };
+      ? { name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables }
+      : { companyName, clientName, industryType, email, password, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables };
     
     try {
       const res = await apiFetch(url, {
@@ -487,6 +493,20 @@ export default function ClientProvisioning() {
                     <option value="Electronics (Manufacturing & Assembly)">Electronics (Manufacturing & Assembly)</option>
                     <option value="Ecommerce">Ecommerce</option>
                   </select>
+                  <input 
+                    type="url" 
+                    value={websiteUrl}
+                    onChange={e => setWebsiteUrl(e.target.value)}
+                    placeholder="Website URL (e.g. https://joescafe.com)"
+                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                  />
+                  <input 
+                    type="number" 
+                    value={totalTables}
+                    onChange={e => setTotalTables(e.target.value ? parseInt(e.target.value) : '')}
+                    placeholder="Total Tables (for Restaurant/Hotel)"
+                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box' }}
+                  />
                 </div>
               </div>
 

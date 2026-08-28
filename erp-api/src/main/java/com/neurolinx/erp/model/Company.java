@@ -25,6 +25,10 @@ public class Company {
     private String address;
 
     private String clientName;
+    
+    private String websiteUrl;
+    
+    private Integer totalTables;
 
     public Company() {}
 
@@ -56,4 +60,10 @@ public class Company {
 
     public String getClientName() { return clientName; }
     public void setClientName(String clientName) { this.clientName = clientName; }
+
+    public String getWebsiteUrl() { return websiteUrl; }
+    public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = websiteUrl; }
+
+    public Integer getTotalTables() { return totalTables; }
+    public void setTotalTables(Integer totalTables) { this.totalTables = totalTables; }
 }

@@ -10,6 +10,8 @@ public class CompanyProvisionDTO {
     private String contactNumber;
     private String address;
     private String clientName;
+    private String websiteUrl;
+    private Integer totalTables;
 
     public String getCompanyName() { return companyName; }
     public void setCompanyName(String companyName) { this.companyName = companyName; }
@@ -34,4 +36,10 @@ public class CompanyProvisionDTO {
 
     public String getClientName() { return clientName; }
     public void setClientName(String clientName) { this.clientName = clientName; }
+
+    public String getWebsiteUrl() { return websiteUrl; }
+    public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = websiteUrl; }
+
+    public Integer getTotalTables() { return totalTables; }
+    public void setTotalTables(Integer totalTables) { this.totalTables = totalTables; }
 }

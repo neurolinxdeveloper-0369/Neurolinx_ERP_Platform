@@ -85,6 +85,8 @@ public class AdminController {
             company.setContactNumber(updatedCompany.getContactNumber());
             company.setAddress(updatedCompany.getAddress());
             company.setClientName(updatedCompany.getClientName());
+            company.setWebsiteUrl(updatedCompany.getWebsiteUrl());
+            company.setTotalTables(updatedCompany.getTotalTables());
             return ResponseEntity.ok(companyRepository.save(company));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -103,6 +105,8 @@ public class AdminController {
         company.setContactNumber(dto.getContactNumber());
         company.setAddress(dto.getAddress());
         company.setClientName(dto.getClientName());
+        company.setWebsiteUrl(dto.getWebsiteUrl());
+        company.setTotalTables(dto.getTotalTables());
         company = companyRepository.save(company);
 
         // 2. Create Default "Company Admin" Role for this client
