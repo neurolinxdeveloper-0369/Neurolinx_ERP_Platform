@@ -1,11 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import MasterLayout from './components/MasterLayout';
-import Dashboard from './pages/admin/Dashboard';
+import AdminDashboard from './pages/admin/Dashboard';
 import GlobalModules from './pages/admin/GlobalModules';
 import ClientProvisioning from './pages/admin/ClientProvisioning';
 import DeviceApprovals from './pages/admin/DeviceApprovals';
 import ClientPortal from './pages/ClientPortal';
+
+// Industry specific modules
+import RestaurantDashboard from './pages/restaurant/Dashboard';
 
 function App() {
   return (
@@ -13,12 +16,16 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         
-        {/* Protected Routes Wrapper */}
+        {/* Protected Routes Wrapper (renders the Sidebar + Topnav) */}
         <Route element={<MasterLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
+          {/* Master Admin Routes */}
+          <Route path="/dashboard" element={<AdminDashboard />} />
           <Route path="/clients" element={<ClientProvisioning />} />
           <Route path="/settings" element={<GlobalModules />} />
           <Route path="/approvals" element={<DeviceApprovals />} />
+          
+          {/* Client Modules */}
+          <Route path="/res-dashboard" element={<RestaurantDashboard />} />
         </Route>
         
         <Route path="/:slug" element={<ClientPortal />} />

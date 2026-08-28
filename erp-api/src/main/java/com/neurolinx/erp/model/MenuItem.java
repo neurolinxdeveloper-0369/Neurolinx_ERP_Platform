@@ -24,6 +24,9 @@ public class MenuItem {
     @Column
     private String industryType = "All";
 
+    @Column(name = "parent_id")
+    private Long parentId;
+
     public MenuItem() {}
 
     public MenuItem(String name, String frontendRoute, String icon) {
@@ -49,4 +52,7 @@ public class MenuItem {
 
     public String getIndustryType() { return industryType; }
     public void setIndustryType(String industryType) { this.industryType = industryType; }
+
+    public Long getParentId() { return parentId; }
+    public void setParentId(Long parentId) { this.parentId = parentId; }
 }
