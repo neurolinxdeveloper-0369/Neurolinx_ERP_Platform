@@ -410,15 +410,22 @@ export default function ClientProvisioning() {
                       key={mod.id} 
                       onClick={() => toggleModule(mod.id)}
                       style={{ 
-                        display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', 
-                        border: `1px solid ${isChecked ? '#3b82f6' : '#e5e7eb'}`, 
-                        borderRadius: '6px', cursor: 'pointer',
-                        backgroundColor: isChecked ? '#eff6ff' : 'white'
-                      }}
-                    >
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.75rem', 
+                        padding: '0.75rem', 
+                        border: '1px solid', 
+                        borderColor: isChecked ? '#3b82f6' : '#d1d5db', 
+                        borderRadius: '6px', 
+                        backgroundColor: isChecked ? '#eff6ff' : 'white',
+                        cursor: 'pointer',
+                        marginLeft: mod.parentId ? '2rem' : '0'
+                      }}>
                       {isChecked ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#9ca3af" />}
                       <div>
-                        <div style={{ fontWeight: '500', color: '#111827' }}>{mod.name}</div>
+                        <div style={{ fontWeight: '500', color: '#111827' }}>
+                          {mod.parentId ? '↳ ' : ''}{mod.name}
+                        </div>
                         <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{mod.frontendRoute}</div>
                       </div>
                     </div>
