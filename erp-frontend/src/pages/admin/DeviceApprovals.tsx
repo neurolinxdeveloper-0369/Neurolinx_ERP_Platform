@@ -79,17 +79,50 @@ export default function DeviceApprovals() {
                 <td style={{ padding: '1rem', color: '#111827' }}>{company.name}</td>
                 <td style={{ padding: '1rem', color: '#6b7280' }}>{company.industryType}</td>
                 <td style={{ padding: '1rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={company.bypassDeviceLimit}
-                      onChange={(e) => toggleBypassLimit(company.id, e.target.checked)}
-                      style={{ width: '1.25rem', height: '1.25rem' }}
-                    />
-                    <span style={{ color: company.bypassDeviceLimit ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
-                      {company.bypassDeviceLimit ? 'Unlimited Devices Enabled' : '3-Device Limit Enforced'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <span style={{ 
+                      padding: '0.25rem 0.75rem', 
+                      borderRadius: '9999px', 
+                      fontSize: '0.875rem',
+                      fontWeight: 'bold',
+                      backgroundColor: !company.bypassDeviceLimit ? '#d1fae5' : '#fee2e2',
+                      color: !company.bypassDeviceLimit ? '#065f46' : '#991b1b'
+                    }}>
+                      {!company.bypassDeviceLimit ? 'Limit Enforced' : 'Unlimited (Bypassed)'}
                     </span>
-                  </label>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        onClick={() => toggleBypassLimit(company.id, false)}
+                        disabled={!company.bypassDeviceLimit}
+                        style={{ 
+                          padding: '0.375rem 0.75rem', 
+                          border: 'none', 
+                          borderRadius: '4px', 
+                          cursor: !company.bypassDeviceLimit ? 'not-allowed' : 'pointer',
+                          backgroundColor: !company.bypassDeviceLimit ? '#e5e7eb' : '#10b981',
+                          color: !company.bypassDeviceLimit ? '#9ca3af' : 'white',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        Enable Limit
+                      </button>
+                      <button 
+                        onClick={() => toggleBypassLimit(company.id, true)}
+                        disabled={company.bypassDeviceLimit}
+                        style={{ 
+                          padding: '0.375rem 0.75rem', 
+                          border: 'none', 
+                          borderRadius: '4px', 
+                          cursor: company.bypassDeviceLimit ? 'not-allowed' : 'pointer',
+                          backgroundColor: company.bypassDeviceLimit ? '#e5e7eb' : '#ef4444',
+                          color: company.bypassDeviceLimit ? '#9ca3af' : 'white',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        Disable Limit
+                      </button>
+                    </div>
+                  </div>
                 </td>
               </tr>
             ))}
