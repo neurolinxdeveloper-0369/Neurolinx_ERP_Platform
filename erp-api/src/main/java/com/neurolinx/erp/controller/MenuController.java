@@ -40,9 +40,11 @@ public class MenuController {
                 .filter(p -> p.getMenuItem().getIsMasterEnabled())
                 .filter(p -> p.getCanRead())
                 .map(p -> java.util.Map.of(
+                        "id", p.getMenuItem().getId(),
                         "name", p.getMenuItem().getName(),
                         "route", p.getMenuItem().getFrontendRoute(),
-                        "icon", p.getMenuItem().getIcon() != null ? p.getMenuItem().getIcon() : ""
+                        "icon", p.getMenuItem().getIcon() != null ? p.getMenuItem().getIcon() : "",
+                        "parentId", p.getMenuItem().getParentId() != null ? p.getMenuItem().getParentId() : 0L
                 ))
                 .collect(Collectors.toList());
 
