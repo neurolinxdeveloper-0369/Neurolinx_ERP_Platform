@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../../api';
-import { Edit2, Trash2, CheckCircle, XCircle, X, Plus } from 'lucide-react';
+import { Edit2, Trash2, CheckCircle, XCircle, X, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 
 export default function GlobalModules() {
   const [modules, setModules] = useState<any[]>([]);
@@ -17,7 +17,7 @@ export default function GlobalModules() {
   const [subModules, setSubModules] = useState<{name: string, frontendRoute: string}[]>([]);
 
   const [filterType, setFilterType] = useState('All');
-
+  const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
   useEffect(() => {
     fetchModules();
   }, []);
@@ -130,6 +130,13 @@ export default function GlobalModules() {
     setSubModules(updated);
   };
 
+  const toggleParent = (parentId: number) => {
+    setExpandedParents(prev => ({
+      ...prev,
+      [parentId]: !prev[parentId]
+    }));
+  };
+
   const industries = ['All', 'Restaurant', 'Hotel', 'Hybrid (Hotel & Restaurant)', 'Software', 'Hybrid (Software & Hardware)', 'Electronics (Manufacturing & Assembly)', 'Ecommerce'];
 
   return (
@@ -178,36 +185,90 @@ export default function GlobalModules() {
             </tr>
           </thead>
           <tbody>
-            {modules.filter(m => filterType === 'All' || m.industryType === filterType || (!m.industryType && filterType === 'All') || m.industryType === 'All').map((mod, index) => (
-              <tr key={index} style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: mod.parentId ? '#f9fafb' : 'white' }}>
-                <td style={{ padding: '1rem', color: '#111827', fontWeight: mod.parentId ? 'normal' : '500', paddingLeft: mod.parentId ? '3rem' : '1rem' }}>
-                  {mod.parentId ? '↳ ' : ''}{mod.name}
-                </td>
-                <td style={{ padding: '1rem', color: '#6b7280' }}>{mod.frontendRoute}</td>
-                <td style={{ padding: '1rem', color: '#6b7280' }}>{mod.icon}</td>
-                <td style={{ padding: '1rem', color: '#6b7280' }}>{mod.industryType || 'All'}</td>
-                <td style={{ padding: '1rem' }}>
-                  {mod.isMasterEnabled ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#10b981', backgroundColor: '#d1fae5', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.875rem' }}>
-                      <CheckCircle size={14} /> Active
-                    </span>
-                  ) : (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444', backgroundColor: '#fee2e2', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.875rem' }}>
-                      <XCircle size={14} /> Disabled
-                    </span>
-                  )}
-                </td>
-                <td style={{ padding: '1rem', textAlign: 'right' }}>
-                  <button onClick={() => openEditModal(mod)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6b7280', marginRight: '0.5rem' }}><Edit2 size={18} /></button>
-                  <button onClick={() => handleDelete(mod.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={18} /></button>
-                </td>
-              </tr>
-            ))}
-            {modules.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No modules found. Click "Add Module" to create one.</td>
-              </tr>
-            )}
+            {(() => {
+              const filteredModules = modules.filter(m => filterType === 'All' || m.industryType === filterType || (!m.industryType && filterType === 'All') || m.industryType === 'All');
+              const parentModules = filteredModules.filter(m => !m.parentId || m.parentId === 0);
+              
+              if (parentModules.length === 0) {
+                return (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No modules found. Click "Add Module" to create one.</td>
+                  </tr>
+                );
+              }
+
+              return parentModules.map((mod, index) => {
+                const children = filteredModules.filter(m => m.parentId === mod.id);
+                const isExpanded = expandedParents[mod.id];
+                return (
+                  <React.Fragment key={index}>
+                    <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '1rem', color: '#111827', fontWeight: '500' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          {children.length > 0 && (
+                            <button 
+                              onClick={() => toggleParent(mod.id)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', color: '#6b7280' }}
+                            >
+                              {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                            </button>
+                          )}
+                          {mod.name}
+                          {children.length > 0 && (
+                            <span style={{ fontSize: '0.75rem', backgroundColor: '#e5e7eb', color: '#374151', padding: '0.125rem 0.375rem', borderRadius: '9999px', fontWeight: 'bold' }}>
+                              {children.length}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ padding: '1rem', color: '#6b7280' }}>{mod.frontendRoute}</td>
+                      <td style={{ padding: '1rem', color: '#6b7280' }}>{mod.icon}</td>
+                      <td style={{ padding: '1rem', color: '#6b7280' }}>{mod.industryType || 'All'}</td>
+                      <td style={{ padding: '1rem' }}>
+                        {mod.isMasterEnabled ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#10b981', backgroundColor: '#d1fae5', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.875rem' }}>
+                            <CheckCircle size={14} /> Active
+                          </span>
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444', backgroundColor: '#fee2e2', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.875rem' }}>
+                            <XCircle size={14} /> Disabled
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '1rem', textAlign: 'right' }}>
+                        <button onClick={() => openEditModal(mod)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#6b7280', marginRight: '0.5rem' }}><Edit2 size={18} /></button>
+                        <button onClick={() => handleDelete(mod.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={18} /></button>
+                      </td>
+                    </tr>
+                    {isExpanded && children.map(child => (
+                      <tr key={child.id} style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f8fafc' }}>
+                        <td style={{ padding: '1rem', color: '#475569', paddingLeft: '3rem', fontSize: '0.9rem' }}>
+                          ↳ {child.name}
+                        </td>
+                        <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.9rem' }}>{child.frontendRoute}</td>
+                        <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.9rem' }}>{child.icon}</td>
+                        <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.9rem' }}>{child.industryType || 'All'}</td>
+                        <td style={{ padding: '1rem' }}>
+                          {child.isMasterEnabled ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#10b981', backgroundColor: '#d1fae5', padding: '0.125rem 0.5rem', borderRadius: '9999px', fontSize: '0.75rem' }}>
+                              <CheckCircle size={12} /> Active
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444', backgroundColor: '#fee2e2', padding: '0.125rem 0.5rem', borderRadius: '9999px', fontSize: '0.75rem' }}>
+                              <XCircle size={12} /> Disabled
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '1rem', textAlign: 'right' }}>
+                          <button onClick={() => openEditModal(child)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b', marginRight: '0.5rem' }}><Edit2 size={16} /></button>
+                          <button onClick={() => handleDelete(child.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={16} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              });
+            })()}
           </tbody>
         </table>
       </div>
