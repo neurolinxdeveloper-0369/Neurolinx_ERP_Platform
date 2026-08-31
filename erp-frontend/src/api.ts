@@ -8,7 +8,7 @@ export const apiFetch = async (url: string, options: RequestInit = {}) => {
   
   let res = await fetch(url, { ...options, headers });
   
-  if (res.status === 401 && token && !url.includes('/api/auth/')) {
+  if ((res.status === 401 || res.status === 403) && token && !url.includes('/api/auth/')) {
     const refreshToken = localStorage.getItem('refreshToken');
     if (refreshToken) {
       const refreshRes = await fetch('https://erp-api.neurolinx.in/api/auth/refresh', {
