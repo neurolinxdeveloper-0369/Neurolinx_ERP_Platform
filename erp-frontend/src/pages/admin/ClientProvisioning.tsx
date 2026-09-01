@@ -65,8 +65,36 @@ export default function ClientProvisioning() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogoBase64(reader.result as string);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          const MAX_SIZE = 200;
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG with 0.7 quality
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          setLogoBase64(compressedBase64);
+        };
+        img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -136,18 +164,29 @@ export default function ClientProvisioning() {
     setShowModal(true);
   };
 
-  const openEditModal = (comp: any) => {
-    setEditingId(comp.id);
-    setCompanyName(comp.name);
-    setClientName(comp.clientName || '');
-    setIndustryType(comp.industryType);
-    setIsActive(comp.isActive);
-    setLogoBase64(comp.logoBase64 || '');
-    setContactNumber(comp.contactNumber || '');
-    setAddress(comp.address || '');
-    setWebsiteUrl(comp.websiteUrl || '');
-    setTotalTables(comp.totalTables || '');
-    setShowModal(true);
+  const openEditModal = async (comp: any) => {
+    try {
+      setIsSubmitting(true);
+      const res = await apiFetch('https://erp-api.neurolinx.in/api/admin/companies/' + comp.id);
+      if (res.ok) {
+        const fullComp = await res.json();
+        setEditingId(fullComp.id);
+        setCompanyName(fullComp.name);
+        setClientName(fullComp.clientName || '');
+        setIndustryType(fullComp.industryType);
+        setIsActive(fullComp.isActive);
+        setLogoBase64(fullComp.logoBase64 || '');
+        setContactNumber(fullComp.contactNumber || '');
+        setAddress(fullComp.address || '');
+        setWebsiteUrl(fullComp.websiteUrl || '');
+        setTotalTables(fullComp.totalTables || '');
+        setShowModal(true);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const openModulesModal = async (comp: any) => {
