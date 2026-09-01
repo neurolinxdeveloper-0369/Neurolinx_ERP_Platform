@@ -393,46 +393,86 @@ export default function ClientProvisioning() {
               </button>
             </div>
             
-            <div style={{ maxHeight: '60vh', overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {allModules.length === 0 ? (
-                <p style={{ color: '#6b7280', textAlign: 'center', padding: '2rem 0' }}>No global modules found. Please create some in Settings first.</p>
-              ) : (
-                allModules.filter(mod => {
-                  if (!mod.industryType || mod.industryType === 'All') return true;
-                  if (selectedCompanyType === mod.industryType) return true;
-                  if (selectedCompanyType === 'Hybrid (Hotel & Restaurant)' && (mod.industryType === 'Hotel' || mod.industryType === 'Restaurant')) return true;
-                  if (selectedCompanyType === 'Hybrid (Software & Hardware)' && (mod.industryType === 'Software' || mod.industryType === 'Hardware' || mod.industryType === 'Electronics (Manufacturing & Assembly)')) return true;
-                  return false;
-                }).map(mod => {
-                  const isChecked = assignedModuleIds.includes(mod.id);
-                  return (
-                    <div 
-                      key={mod.id} 
-                      onClick={() => toggleModule(mod.id)}
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '0.75rem', 
-                        padding: '0.75rem', 
-                        border: '1px solid', 
-                        borderColor: isChecked ? '#3b82f6' : '#d1d5db', 
-                        borderRadius: '6px', 
-                        backgroundColor: isChecked ? '#eff6ff' : 'white',
-                        cursor: 'pointer',
-                        marginLeft: mod.parentId ? '2rem' : '0'
-                      }}>
-                      {isChecked ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#9ca3af" />}
-                      <div>
-                        <div style={{ fontWeight: '500', color: '#111827' }}>
-                          {mod.parentId ? '↳ ' : ''}{mod.name}
+              <div style={{ maxHeight: '60vh', overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {(() => {
+                  if (allModules.length === 0) {
+                    return <p style={{ color: '#6b7280', textAlign: 'center', padding: '2rem 0' }}>No global modules found. Please create some in Settings first.</p>;
+                  }
+                  
+                  const availableModules = allModules.filter(mod => {
+                    if (!mod.industryType || mod.industryType === 'All') return true;
+                    if (selectedCompanyType === mod.industryType) return true;
+                    if (selectedCompanyType === 'Hybrid (Hotel & Restaurant)' && (mod.industryType === 'Hotel' || mod.industryType === 'Restaurant')) return true;
+                    if (selectedCompanyType === 'Hybrid (Software & Hardware)' && (mod.industryType === 'Software' || mod.industryType === 'Hardware' || mod.industryType === 'Electronics (Manufacturing & Assembly)')) return true;
+                    return false;
+                  });
+                  
+                  const parentModules = availableModules.filter(m => !m.parentId || m.parentId === 0);
+                  
+                  return parentModules.map(mod => {
+                    const children = availableModules.filter(m => m.parentId === mod.id);
+                    const isChecked = assignedModuleIds.includes(mod.id);
+                    
+                    return (
+                      <div key={mod.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div 
+                          onClick={() => toggleModule(mod.id)}
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '0.75rem', 
+                            padding: '0.75rem', 
+                            border: '1px solid', 
+                            borderColor: isChecked ? '#3b82f6' : '#d1d5db', 
+                            borderRadius: '6px', 
+                            backgroundColor: isChecked ? '#eff6ff' : 'white',
+                            cursor: 'pointer'
+                          }}>
+                          {isChecked ? <CheckSquare size={20} color="#3b82f6" /> : <Square size={20} color="#9ca3af" />}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: '500', color: '#111827' }}>
+                              {mod.name}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{mod.frontendRoute}</div>
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{mod.frontendRoute}</div>
+                        
+                        {children.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', paddingLeft: '2rem', marginTop: '0.25rem' }}>
+                            {children.map(child => {
+                              const isChildChecked = assignedModuleIds.includes(child.id);
+                              return (
+                                <div 
+                                  key={child.id}
+                                  onClick={() => toggleModule(child.id)}
+                                  style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '0.75rem', 
+                                    padding: '0.5rem 0.75rem', 
+                                    border: '1px solid', 
+                                    borderColor: isChildChecked ? '#3b82f6' : '#e5e7eb', 
+                                    borderRadius: '6px', 
+                                    backgroundColor: isChildChecked ? '#eff6ff' : '#f9fafb',
+                                    cursor: 'pointer'
+                                  }}>
+                                  {isChildChecked ? <CheckSquare size={16} color="#3b82f6" /> : <Square size={16} color="#9ca3af" />}
+                                  <div>
+                                    <div style={{ fontWeight: '500', color: '#4b5563', fontSize: '0.875rem' }}>
+                                      {child.name}
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{child.frontendRoute}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                    );
+                  });
+                })()}
+              </div>
 
             <button 
               onClick={handleSaveModules}

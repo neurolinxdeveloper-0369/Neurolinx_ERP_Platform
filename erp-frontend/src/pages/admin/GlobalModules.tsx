@@ -14,7 +14,8 @@ export default function GlobalModules() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Sub Modules State
-  const [subModules, setSubModules] = useState<{name: string, frontendRoute: string}[]>([]);
+  const [subModules, setSubModules] = useState<{id?: number, name: string, frontendRoute: string}[]>([]);
+  const [deletedSubModules, setDeletedSubModules] = useState<number[]>([]);
 
   const [filterType, setFilterType] = useState('All');
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
@@ -42,6 +43,7 @@ export default function GlobalModules() {
     setIndustryType(filterType !== 'All' ? filterType : 'All');
     setIsMasterEnabled(true);
     setSubModules([]);
+    setDeletedSubModules([]);
     setShowModal(true);
   };
 
@@ -52,7 +54,12 @@ export default function GlobalModules() {
     setIcon(mod.icon);
     setIndustryType(mod.industryType || 'All');
     setIsMasterEnabled(mod.isMasterEnabled);
-    setSubModules([]); // Editing sub-modules is not supported via this modal in this version
+    
+    // Load existing sub-modules
+    const existingSubModules = modules.filter(m => m.parentId === mod.id);
+    setSubModules(existingSubModules.map(sm => ({ id: sm.id, name: sm.name, frontendRoute: sm.frontendRoute })));
+    setDeletedSubModules([]);
+    
     setShowModal(true);
   };
 
@@ -87,20 +94,44 @@ export default function GlobalModules() {
         const savedMod = await res.json();
         
         // Save sub-modules
-        if (!editingId && subModules.length > 0) {
+        if (subModules.length > 0) {
           for (const sm of subModules) {
-            await apiFetch('https://erp-api.neurolinx.in/api/admin/menu-items', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                name: sm.name, 
-                frontendRoute: sm.frontendRoute, 
-                icon: icon, // inherit icon
-                isMasterEnabled: true, 
-                industryType,
-                parentId: savedMod.id 
-              })
-            });
+            if (sm.id) {
+              // Update existing sub-module
+              await apiFetch('https://erp-api.neurolinx.in/api/admin/menu-items/' + sm.id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  name: sm.name, 
+                  frontendRoute: sm.frontendRoute, 
+                  icon: icon, // inherit icon
+                  isMasterEnabled: isMasterEnabled, 
+                  industryType,
+                  parentId: savedMod.id 
+                })
+              });
+            } else {
+              // Create new sub-module
+              await apiFetch('https://erp-api.neurolinx.in/api/admin/menu-items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  name: sm.name, 
+                  frontendRoute: sm.frontendRoute, 
+                  icon: icon, // inherit icon
+                  isMasterEnabled: isMasterEnabled, 
+                  industryType,
+                  parentId: savedMod.id 
+                })
+              });
+            }
+          }
+        }
+        
+        // Delete removed sub-modules
+        if (deletedSubModules.length > 0) {
+          for (const id of deletedSubModules) {
+            await apiFetch('https://erp-api.neurolinx.in/api/admin/menu-items/' + id, { method: 'DELETE' });
           }
         }
         
@@ -126,7 +157,10 @@ export default function GlobalModules() {
 
   const removeSubModuleRow = (index: number) => {
     const updated = [...subModules];
-    updated.splice(index, 1);
+    const removed = updated.splice(index, 1)[0];
+    if (removed.id) {
+      setDeletedSubModules(prev => [...prev, removed.id!]);
+    }
     setSubModules(updated);
   };
 
@@ -342,45 +376,43 @@ export default function GlobalModules() {
               </div>
 
               {/* Sub Modules Section */}
-              {!editingId && (
-                <div style={{ marginTop: '0.5rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px dashed #d1d5db' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <label style={{ fontSize: '0.875rem', color: '#374151', fontWeight: '600' }}>Sub Modules (Optional)</label>
-                    <button type="button" onClick={addSubModuleRow} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', backgroundColor: '#10b981', color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', border: 'none', cursor: 'pointer' }}>
-                      <Plus size={14} /> Add Sub Module
+              <div style={{ marginTop: '0.5rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px dashed #d1d5db' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <label style={{ fontSize: '0.875rem', color: '#374151', fontWeight: '600' }}>Sub Modules (Optional)</label>
+                  <button type="button" onClick={addSubModuleRow} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', backgroundColor: '#10b981', color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', border: 'none', cursor: 'pointer' }}>
+                    <Plus size={14} /> Add Sub Module
+                  </button>
+                </div>
+                
+                {subModules.map((sm, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <input
+                        type="text"
+                        value={sm.name}
+                        onChange={e => updateSubModule(idx, 'name', e.target.value)}
+                        placeholder="Sub Module Name"
+                        required
+                        style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box', marginBottom: '0.25rem', fontSize: '0.875rem' }}
+                      />
+                      <input
+                        type="text"
+                        value={sm.frontendRoute}
+                        onChange={e => updateSubModule(idx, 'frontendRoute', e.target.value)}
+                        placeholder="Sub Frontend Route (e.g. /pos/settings)"
+                        required
+                        style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box', fontSize: '0.875rem' }}
+                      />
+                    </div>
+                    <button type="button" onClick={() => removeSubModuleRow(idx)} style={{ padding: '0.5rem', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                      <X size={16} />
                     </button>
                   </div>
-                  
-                  {subModules.map((sm, idx) => (
-                    <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <input
-                          type="text"
-                          value={sm.name}
-                          onChange={e => updateSubModule(idx, 'name', e.target.value)}
-                          placeholder="Sub Module Name"
-                          required
-                          style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box', marginBottom: '0.25rem', fontSize: '0.875rem' }}
-                        />
-                        <input
-                          type="text"
-                          value={sm.frontendRoute}
-                          onChange={e => updateSubModule(idx, 'frontendRoute', e.target.value)}
-                          placeholder="Sub Frontend Route (e.g. /pos/settings)"
-                          required
-                          style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', boxSizing: 'border-box', fontSize: '0.875rem' }}
-                        />
-                      </div>
-                      <button type="button" onClick={() => removeSubModuleRow(idx)} style={{ padding: '0.5rem', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ))}
-                  {subModules.length === 0 && (
-                    <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>Click + to quickly create nested child modules under this module.</p>
-                  )}
-                </div>
-              )}
+                ))}
+                {subModules.length === 0 && (
+                  <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>Click + to quickly create nested child modules under this module.</p>
+                )}
+              </div>
 
               {editingId && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
