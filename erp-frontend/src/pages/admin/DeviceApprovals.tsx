@@ -49,6 +49,7 @@ export default function DeviceApprovals() {
     try {
       const res = await apiFetch('https://erp-api.neurolinx.in/api/admin/companies/' + companyId + '/bypass-limit', {
         method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bypass })
       });
       if (res.ok) {
