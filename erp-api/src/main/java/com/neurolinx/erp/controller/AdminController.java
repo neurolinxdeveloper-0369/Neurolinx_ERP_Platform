@@ -71,8 +71,31 @@ public class AdminController {
     // --- COMPANIES (Clients) ---
 
     @GetMapping("/companies")
-    public ResponseEntity<List<Company>> getAllCompanies() {
-        return ResponseEntity.ok(companyRepository.findAll());
+    public ResponseEntity<?> getCompanies() {
+        // Return lightweight list without the heavy logoBase64 field
+        java.util.List<Company> list = companyRepository.findAll();
+        var dtoList = list.stream().map(c -> {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", c.getId());
+            map.put("name", c.getName());
+            map.put("industryType", c.getIndustryType());
+            map.put("isActive", c.getIsActive());
+            map.put("contactNumber", c.getContactNumber());
+            map.put("address", c.getAddress());
+            map.put("clientName", c.getClientName());
+            map.put("websiteUrl", c.getWebsiteUrl());
+            map.put("totalTables", c.getTotalTables());
+            map.put("bypassDeviceLimit", c.getBypassDeviceLimit());
+            return map;
+        }).collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(dtoList);
+    }
+
+    @GetMapping("/companies/{id}")
+    public ResponseEntity<Company> getCompany(@PathVariable Long id) {
+        return companyRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/companies/{id}")
