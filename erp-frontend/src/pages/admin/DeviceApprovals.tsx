@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../../api';
-import { MonitorSmartphone, Shield, ShieldAlert, ShieldCheck, Smartphone, Check, X, Building2 } from 'lucide-react';
+import { MonitorSmartphone, Shield, ShieldAlert, ShieldCheck, Smartphone, Check, Building2 } from 'lucide-react';
 
 export default function DeviceApprovals() {
   const [devices, setDevices] = useState<any[]>([]);
