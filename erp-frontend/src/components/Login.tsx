@@ -136,6 +136,12 @@ export default function Login() {
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     setError('');
+    
+    if (!credentialResponse || !credentialResponse.credential) {
+      setError('Google Login failed: Missing credential. Ensure your origin is authorized in Google Cloud Console.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch('https://erp-api.neurolinx.in/api/auth/google', {
