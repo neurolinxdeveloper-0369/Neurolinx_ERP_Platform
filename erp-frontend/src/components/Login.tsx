@@ -18,6 +18,8 @@ export default function Login() {
     if (data.role) localStorage.setItem('role', data.role);
     if (data.industryType) localStorage.setItem('industryType', data.industryType);
     if (data.companySlug) localStorage.setItem('companySlug', data.companySlug);
+    if (data.companyName) localStorage.setItem('companyName', data.companyName);
+    if (data.companyLogo) localStorage.setItem('companyLogo', data.companyLogo);
 
     if (data.role === 'Master Admin') {
       navigate('/dashboard');

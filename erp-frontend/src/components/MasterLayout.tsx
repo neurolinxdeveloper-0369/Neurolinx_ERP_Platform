@@ -10,6 +10,9 @@ export default function MasterLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const username = localStorage.getItem('username');
+  const todayDateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const companyName = localStorage.getItem('companyName') || (localStorage.getItem('industryType') === 'Restaurant' ? 'Restaurant POS' : 'Admin Portal');
+  const companyLogo = localStorage.getItem('companyLogo');
 
   useEffect(() => {
     if (!localStorage.getItem('token')) {
@@ -55,9 +58,9 @@ export default function MasterLayout() {
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb' }}>
       {/* Sidebar */}
-      <div style={{ width: '250px', backgroundColor: 'white', borderRight: '1px solid #e5e7eb', color: '#374151', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ height: '70px', display: 'flex', alignItems: 'center', padding: '0 1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: '1px solid #e5e7eb', color: '#0f172a', boxSizing: 'border-box' }}>
-          Neurolinx One
+      <div style={{ width: '250px', backgroundColor: 'white', borderRight: 'none', boxShadow: '4px 0 15px rgba(0,0,0,0.05)', color: '#374151', display: 'flex', flexDirection: 'column', zIndex: 50 }}>
+        <div style={{ height: '80px', display: 'flex', alignItems: 'center', padding: '0 1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: 'none', boxSizing: 'border-box' }}>
+          <span style={{ color: '#2563eb' }}>Neurolinx</span><span style={{ color: '#1e293b' }}>One</span>
         </div>
         <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', overflowY: 'auto' }}>
           {parentMenus.map((menu, index) => {
@@ -127,91 +130,99 @@ export default function MasterLayout() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <header style={{ height: '80px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', boxSizing: 'border-box', position: 'relative', zIndex: 40 }}>
           
-          {/* Left Pill: Title */}
-          <div style={{ backgroundColor: 'white', padding: '0.5rem 1.25rem', borderRadius: '9999px', boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{ width: '8px', height: '8px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
-            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
-              {localStorage.getItem('industryType') === 'Restaurant' ? 'Restaurant POS' : 'Admin Portal'}
+          {/* Left Pill: Company Logo & Title */}
+          <div style={{ backgroundColor: 'white', padding: '0.5rem 1.25rem', borderRadius: '9999px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {companyLogo && <img src={companyLogo} alt="Logo" style={{ width: '24px', height: '24px', borderRadius: '4px', objectFit: 'contain' }} />}
+            <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.95rem', letterSpacing: '-0.01em' }}>
+              {companyName}
             </span>
           </div>
 
           {/* Center Pill: Search & Filters */}
-          <div style={{ backgroundColor: 'white', padding: '0.35rem 0.5rem 0.35rem 1.25rem', borderRadius: '9999px', boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)', display: 'flex', alignItems: 'center', width: '400px', maxWidth: '40%' }}>
+          <div style={{ backgroundColor: 'white', padding: '0.35rem 0.5rem 0.35rem 1.25rem', borderRadius: '9999px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', width: '600px', maxWidth: '50%' }}>
             <Icons.Search size={18} color="#64748b" />
             <input 
               type="text" 
               placeholder="Search anything..." 
               style={{ border: 'none', outline: 'none', background: 'transparent', padding: '0.5rem 0.75rem', flex: 1, fontSize: '0.9rem', color: '#334155' }} 
             />
-            <button style={{ background: '#f1f5f9', border: 'none', borderRadius: '9999px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }} title="Filters">
-              <Icons.SlidersHorizontal size={16} />
+            <button style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '9999px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }} title="Filters">
+              <Icons.SlidersHorizontal size={14} />
             </button>
           </div>
 
-          {/* Right Pill: Profile & Notifications */}
-          <div style={{ backgroundColor: 'white', padding: '0.25rem 0.5rem 0.25rem 1rem', borderRadius: '9999px', boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            
-            {/* Notification Bell */}
-            <button style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icons.Bell size={18} />
-              <span style={{ position: 'absolute', top: -1, right: -1, width: 8, height: 8, backgroundColor: '#ef4444', borderRadius: '50%', border: '2px solid white' }}></span>
-            </button>
-            
-            <div style={{ width: '1px', height: '20px', backgroundColor: '#e2e8f0' }}></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Date Pill */}
+            <div style={{ backgroundColor: 'white', padding: '0.5rem 1.25rem', borderRadius: '9999px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#475569', fontSize: '0.85rem', fontWeight: 600 }}>
+              <Icons.Calendar size={16} color="#64748b" />
+              {todayDateStr}
+            </div>
 
-            {/* User Profile Dropdown */}
-            <div 
-              style={{ position: 'relative' }}
-              onMouseEnter={() => setShowProfileMenu(true)}
-              onMouseLeave={() => setShowProfileMenu(false)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <span style={{ color: '#0f172a', fontSize: '0.8rem', fontWeight: 700, lineHeight: '1.2' }}>{username ? (username.split('@')[0].length > 12 ? username.split('@')[0].substring(0, 12) + '...' : username.split('@')[0]) : 'User'}</span>
-                  <span style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 500, lineHeight: '1.2' }}>{localStorage.getItem('role') || 'Master Admin'}</span>
+            {/* Right Pill: Profile & Notifications */}
+            <div style={{ backgroundColor: 'white', padding: '0.25rem 0.5rem 0.25rem 1rem', borderRadius: '9999px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              
+              {/* Notification Bell */}
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icons.Bell size={18} />
+                <span style={{ position: 'absolute', top: -1, right: -1, width: 8, height: 8, backgroundColor: '#ef4444', borderRadius: '50%', border: '2px solid white' }}></span>
+              </button>
+              
+              <div style={{ width: '1px', height: '20px', backgroundColor: '#e2e8f0' }}></div>
+
+              {/* User Profile Dropdown */}
+              <div 
+                style={{ position: 'relative' }}
+                onMouseEnter={() => setShowProfileMenu(true)}
+                onMouseLeave={() => setShowProfileMenu(false)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <span style={{ color: '#0f172a', fontSize: '0.8rem', fontWeight: 700, lineHeight: '1.2' }}>{username ? (username.split('@')[0].length > 12 ? username.split('@')[0].substring(0, 12) + '...' : username.split('@')[0]) : 'User'}</span>
+                    <span style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 500, lineHeight: '1.2' }}>{localStorage.getItem('role') || 'Master Admin'}</span>
+                  </div>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', fontWeight: 600, border: '1px solid #bfdbfe' }}>
+                    {username ? username.charAt(0).toUpperCase() : 'U'}
+                  </div>
                 </div>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', fontWeight: 600, border: '1px solid #bfdbfe' }}>
-                  {username ? username.charAt(0).toUpperCase() : 'U'}
-                </div>
+
+                {/* Dropdown Menu */}
+                {showProfileMenu && (
+                  <div style={{ 
+                    position: 'absolute', 
+                    top: '100%', 
+                    right: 0, 
+                    marginTop: '0.5rem',
+                    width: '200px', 
+                    backgroundColor: 'white', 
+                    borderRadius: '16px', 
+                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                    border: '1px solid #f1f5f9',
+                    padding: '0.5rem',
+                    zIndex: 50
+                  }}>
+                    <button 
+                      style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Icons.Settings size={16} />
+                      Account Settings
+                    </button>
+                    
+                    <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '0.25rem 0' }}></div>
+                    
+                    <button 
+                      onClick={handleLogout}
+                      style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#ef4444', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Icons.LogOut size={16} />
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
-
-              {/* Dropdown Menu */}
-              {showProfileMenu && (
-                <div style={{ 
-                  position: 'absolute', 
-                  top: '100%', 
-                  right: 0, 
-                  marginTop: '0.5rem',
-                  width: '200px', 
-                  backgroundColor: 'white', 
-                  borderRadius: '16px', 
-                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                  border: '1px solid #f1f5f9',
-                  padding: '0.5rem',
-                  zIndex: 50
-                }}>
-                  <button 
-                    style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
-                    onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                  >
-                    <Icons.Settings size={16} />
-                    Account Settings
-                  </button>
-                  
-                  <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '0.25rem 0' }}></div>
-                  
-                  <button 
-                    onClick={handleLogout}
-                    style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#ef4444', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
-                    onMouseOver={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
-                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                  >
-                    <Icons.LogOut size={16} />
-                    Logout
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </header>
