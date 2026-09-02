@@ -74,6 +74,10 @@ public class AuthController {
             }
             if (user.getCompany() != null) {
                 res.put("industryType", user.getCompany().getIndustryType());
+                res.put("companyName", user.getCompany().getName());
+                if (user.getCompany().getLogoBase64() != null) {
+                    res.put("companyLogo", user.getCompany().getLogoBase64());
+                }
                 String url = user.getCompany().getWebsiteUrl();
                 if (url != null && url.contains("/")) {
                     res.put("companySlug", url.substring(url.lastIndexOf('/') + 1));
