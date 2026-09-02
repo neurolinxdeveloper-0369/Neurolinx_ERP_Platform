@@ -187,19 +187,8 @@ export default function MasterLayout() {
 
                 {/* Dropdown Menu */}
                 {showProfileMenu && (
-                  <div style={{ 
-                    position: 'absolute', 
-                    top: '100%', 
-                    right: 0, 
-                    marginTop: '0.5rem',
-                    width: '200px', 
-                    backgroundColor: 'white', 
-                    borderRadius: '16px', 
-                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                    border: '1px solid #f1f5f9',
-                    padding: '0.5rem',
-                    zIndex: 50
-                  }}>
+                <div style={{ position: 'absolute', top: '100%', right: 0, paddingTop: '0.5rem', width: '200px', zIndex: 50 }}>
+                  <div style={{ backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)', border: '1px solid #f1f5f9', padding: '0.5rem' }}>
                     <button 
                       style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
                       onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
@@ -221,7 +210,8 @@ export default function MasterLayout() {
                       Logout
                     </button>
                   </div>
-                )}
+                </div>
+              )}
               </div>
             </div>
           </div>
