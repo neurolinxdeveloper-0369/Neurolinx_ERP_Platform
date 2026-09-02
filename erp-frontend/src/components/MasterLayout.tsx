@@ -125,15 +125,39 @@ export default function MasterLayout() {
 
       {/* Main Content Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <header style={{ height: '70px', backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', boxSizing: 'border-box', position: 'relative', zIndex: 40 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <header style={{ height: '80px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', boxSizing: 'border-box', position: 'relative', zIndex: 40 }}>
+          
+          {/* Left Pill: Title */}
+          <div style={{ backgroundColor: 'white', padding: '0.5rem 1.25rem', borderRadius: '9999px', boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '8px', height: '8px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
+            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
+              {localStorage.getItem('industryType') === 'Restaurant' ? 'Restaurant POS' : 'Admin Portal'}
+            </span>
+          </div>
+
+          {/* Center Pill: Search & Filters */}
+          <div style={{ backgroundColor: 'white', padding: '0.35rem 0.5rem 0.35rem 1.25rem', borderRadius: '9999px', boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)', display: 'flex', alignItems: 'center', width: '400px', maxWidth: '40%' }}>
+            <Icons.Search size={18} color="#64748b" />
+            <input 
+              type="text" 
+              placeholder="Search anything..." 
+              style={{ border: 'none', outline: 'none', background: 'transparent', padding: '0.5rem 0.75rem', flex: 1, fontSize: '0.9rem', color: '#334155' }} 
+            />
+            <button style={{ background: '#f1f5f9', border: 'none', borderRadius: '9999px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }} title="Filters">
+              <Icons.SlidersHorizontal size={16} />
+            </button>
+          </div>
+
+          {/* Right Pill: Profile & Notifications */}
+          <div style={{ backgroundColor: 'white', padding: '0.25rem 0.5rem 0.25rem 1rem', borderRadius: '9999px', boxShadow: '0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            
             {/* Notification Bell */}
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icons.Bell size={20} />
-              <span style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, backgroundColor: '#ef4444', borderRadius: '50%' }}></span>
+              <Icons.Bell size={18} />
+              <span style={{ position: 'absolute', top: -1, right: -1, width: 8, height: 8, backgroundColor: '#ef4444', borderRadius: '50%', border: '2px solid white' }}></span>
             </button>
             
-            <div style={{ width: '1px', height: '24px', backgroundColor: '#e2e8f0' }}></div>
+            <div style={{ width: '1px', height: '20px', backgroundColor: '#e2e8f0' }}></div>
 
             {/* User Profile Dropdown */}
             <div 
@@ -141,15 +165,14 @@ export default function MasterLayout() {
               onMouseEnter={() => setShowProfileMenu(true)}
               onMouseLeave={() => setShowProfileMenu(false)}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '0.5rem 0' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6', fontWeight: 600 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                  <span style={{ color: '#0f172a', fontSize: '0.8rem', fontWeight: 700, lineHeight: '1.2' }}>{username ? (username.split('@')[0].length > 12 ? username.split('@')[0].substring(0, 12) + '...' : username.split('@')[0]) : 'User'}</span>
+                  <span style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 500, lineHeight: '1.2' }}>{localStorage.getItem('role') || 'Master Admin'}</span>
+                </div>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', fontWeight: 600, border: '1px solid #bfdbfe' }}>
                   {username ? username.charAt(0).toUpperCase() : 'U'}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ color: '#0f172a', fontSize: '0.875rem', fontWeight: 600 }}>{username ? (username.split('@')[0].length > 15 ? username.split('@')[0].substring(0, 15) + '...' : username.split('@')[0]) : 'User'}</span>
-                  <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>{localStorage.getItem('role') || 'Master Admin'}</span>
-                </div>
-                <Icons.ChevronDown size={16} color="#64748b" />
               </div>
 
               {/* Dropdown Menu */}
@@ -158,17 +181,17 @@ export default function MasterLayout() {
                   position: 'absolute', 
                   top: '100%', 
                   right: 0, 
-                  marginTop: '-0.25rem',
+                  marginTop: '0.5rem',
                   width: '200px', 
                   backgroundColor: 'white', 
-                  borderRadius: '8px', 
-                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
+                  borderRadius: '16px', 
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
                   border: '1px solid #f1f5f9',
                   padding: '0.5rem',
                   zIndex: 50
                 }}>
                   <button 
-                    style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
+                    style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
                     onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
                     onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
@@ -180,7 +203,7 @@ export default function MasterLayout() {
                   
                   <button 
                     onClick={handleLogout}
-                    style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#ef4444', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
+                    style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#ef4444', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
                     onMouseOver={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
                     onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
