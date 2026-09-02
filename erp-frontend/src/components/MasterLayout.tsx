@@ -6,6 +6,7 @@ import { apiFetch } from '../api';
 export default function MasterLayout() {
   const [menus, setMenus] = useState<any[]>([]);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const username = localStorage.getItem('username');
@@ -124,16 +125,71 @@ export default function MasterLayout() {
 
       {/* Main Content Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <header style={{ height: '70px', backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', boxSizing: 'border-box' }}>
-          <h2 style={{ margin: 0, color: '#111827', fontSize: '1.25rem' }}>Neurolinx One</h2>
+        <header style={{ height: '70px', backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 2rem', boxSizing: 'border-box', position: 'relative', zIndex: 40 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <span style={{ color: '#64748b', fontSize: '0.875rem', fontWeight: '500' }}>{username}</span>
-            <button 
-              onClick={handleLogout}
-              style={{ padding: '0.5rem 1rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}
-            >
-              Logout
+            {/* Notification Bell */}
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icons.Bell size={20} />
+              <span style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, backgroundColor: '#ef4444', borderRadius: '50%' }}></span>
             </button>
+            
+            <div style={{ width: '1px', height: '24px', backgroundColor: '#e2e8f0' }}></div>
+
+            {/* User Profile Dropdown */}
+            <div 
+              style={{ position: 'relative' }}
+              onMouseEnter={() => setShowProfileMenu(true)}
+              onMouseLeave={() => setShowProfileMenu(false)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '0.5rem 0' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6', fontWeight: 600 }}>
+                  {username ? username.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ color: '#0f172a', fontSize: '0.875rem', fontWeight: 600 }}>{username ? (username.split('@')[0].length > 15 ? username.split('@')[0].substring(0, 15) + '...' : username.split('@')[0]) : 'User'}</span>
+                  <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>{localStorage.getItem('role') || 'Master Admin'}</span>
+                </div>
+                <Icons.ChevronDown size={16} color="#64748b" />
+              </div>
+
+              {/* Dropdown Menu */}
+              {showProfileMenu && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '100%', 
+                  right: 0, 
+                  marginTop: '-0.25rem',
+                  width: '200px', 
+                  backgroundColor: 'white', 
+                  borderRadius: '8px', 
+                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
+                  border: '1px solid #f1f5f9',
+                  padding: '0.5rem',
+                  zIndex: 50
+                }}>
+                  <button 
+                    style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
+                    onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <Icons.Settings size={16} />
+                    Account Settings
+                  </button>
+                  
+                  <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '0.25rem 0' }}></div>
+                  
+                  <button 
+                    onClick={handleLogout}
+                    style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#ef4444', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
+                    onMouseOver={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
+                    onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <Icons.LogOut size={16} />
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
         <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
