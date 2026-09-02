@@ -9,6 +9,7 @@ import ClientPortal from './pages/ClientPortal';
 
 // Industry specific modules
 import RestaurantDashboard from './pages/restaurant/Dashboard';
+import RestaurantOrders from './pages/restaurant/Orders';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
           
           {/* Client Modules */}
           <Route path="/res-dashboard" element={<RestaurantDashboard />} />
+            <Route path="/res-orders" element={<RestaurantOrders />} />
         </Route>
         
         <Route path="/:slug" element={<ClientPortal />} />
