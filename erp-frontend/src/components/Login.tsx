@@ -17,13 +17,14 @@ export default function Login() {
     localStorage.setItem('username', userEmail);
     if (data.role) localStorage.setItem('role', data.role);
     if (data.industryType) localStorage.setItem('industryType', data.industryType);
+    if (data.companySlug) localStorage.setItem('companySlug', data.companySlug);
 
     if (data.role === 'Master Admin') {
       navigate('/dashboard');
     } else if (data.industryType === 'Restaurant') {
       navigate('/res-dashboard');
     } else {
-      navigate('/dashboard');
+      navigate('/' + (data.companySlug || 'client'));
     }
   };
 
