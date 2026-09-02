@@ -11,6 +11,22 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
+  const handleSuccessRedirect = (data: any, userEmail: string) => {
+    localStorage.setItem('token', data.token);
+    if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+    localStorage.setItem('username', userEmail);
+    if (data.role) localStorage.setItem('role', data.role);
+    if (data.industryType) localStorage.setItem('industryType', data.industryType);
+
+    if (data.role === 'Master Admin') {
+      navigate('/dashboard');
+    } else if (data.industryType === 'Restaurant') {
+      navigate('/res-dashboard');
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
   const getDeviceId = () => {
     let deviceId = localStorage.getItem('deviceId');
     if (!deviceId) {
@@ -35,10 +51,7 @@ export default function Login() {
         if (data.requiresDeviceOtp) {
           setLoginMode('DEVICE_OTP');
         } else {
-          localStorage.setItem('token', data.token);
-          if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-          localStorage.setItem('username', email);
-          navigate('/dashboard');
+          handleSuccessRedirect(data, email);
         }
       } else {
         setError(data.message || 'Login failed');
@@ -93,10 +106,7 @@ export default function Login() {
           setLoginMode('DEVICE_OTP');
           setOtp(''); // clear OTP for next step
         } else {
-          localStorage.setItem('token', data.token);
-          if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-          localStorage.setItem('username', email);
-          navigate('/dashboard');
+          handleSuccessRedirect(data, email);
         }
       } else {
         setError(data.message || 'Invalid OTP');
@@ -120,10 +130,7 @@ export default function Login() {
       });
       const data = await res.json();
       if (res.ok) {
-        localStorage.setItem('token', data.token);
-        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-        localStorage.setItem('username', email);
-        navigate('/dashboard');
+        handleSuccessRedirect(data, email);
       } else {
         setError(data.message || 'Invalid OTP');
       }
@@ -155,10 +162,7 @@ export default function Login() {
           setEmail(data.email);
           setLoginMode('DEVICE_OTP');
         } else {
-          localStorage.setItem('token', data.token);
-          if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
-          localStorage.setItem('username', data.email);
-          navigate('/dashboard');
+          handleSuccessRedirect(data, data.email);
         }
       } else {
         setError(data.message || 'No user found for this Google account.');

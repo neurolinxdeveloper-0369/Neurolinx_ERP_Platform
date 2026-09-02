@@ -16,6 +16,21 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const role = localStorage.getItem('role');
+    const username = localStorage.getItem('username');
+    if (role !== 'Master Admin' && username !== 'admin' && username !== 'neurolinxdeveloper@gmail.com') {
+      const industry = localStorage.getItem('industryType');
+      if (industry === 'Restaurant') {
+        navigate('/res-dashboard');
+      } else {
+        navigate('/' + (localStorage.getItem('companySlug') || 'client'));
+      }
+    }
+  }, [navigate]);
+
+
+
+  useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         const [companiesRes, devicesRes, modulesRes] = await Promise.all([
