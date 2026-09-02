@@ -1,6 +1,7 @@
 package com.neurolinx.erp.controller;
 
 import com.neurolinx.erp.model.DeviceSession;
+import com.neurolinx.erp.model.User;
 import com.neurolinx.erp.repository.DeviceSessionRepository;
 import com.neurolinx.erp.repository.CompanyRepository;
 import com.neurolinx.erp.repository.UserRepository;
@@ -58,6 +59,29 @@ public class AuthController {
                 .compact();
     }
 
+    private java.util.Map<String, Object> buildLoginResponse(String email, String refreshToken) {
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        res.put("token", generateJwt(email));
+        res.put("refreshToken", refreshToken);
+        res.put("message", "Login successful");
+        res.put("email", email);
+        
+        var userOpt = userRepository.findByEmail(email);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            if (user.getRole() != null) {
+                res.put("role", user.getRole().getName());
+            }
+            if (user.getCompany() != null) {
+                res.put("industryType", user.getCompany().getIndustryType());
+            }
+        }
+        if (email.equalsIgnoreCase("neurolinxdeveloper@gmail.com")) {
+            res.put("role", "Master Admin");
+        }
+        return res;
+    }
+
     private ResponseEntity<?> handleDeviceSession(String email, String deviceId) {
         if (deviceId == null || deviceId.isEmpty()) {
             return ResponseEntity.status(400).body(Map.of("message", "Device ID is required"));
@@ -71,7 +95,7 @@ public class AuthController {
             newSession.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
             newSession.setIsApproved(true);
             deviceSessionRepository.save(newSession);
-            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful", "email", email));
+            return ResponseEntity.ok(buildLoginResponse(email, refreshToken));
         }
 
         var sessionOpt = deviceSessionRepository.findByEmailAndDeviceId(email, deviceId);
@@ -86,7 +110,7 @@ public class AuthController {
             session.setRefreshToken(refreshToken);
             session.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
             deviceSessionRepository.save(session);
-            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful", "email", email));
+            return ResponseEntity.ok(buildLoginResponse(email, refreshToken));
         }
 
         // New Device
@@ -107,7 +131,7 @@ public class AuthController {
             newSession.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
             newSession.setIsApproved(true);
             deviceSessionRepository.save(newSession);
-            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful", "email", email));
+            return ResponseEntity.ok(buildLoginResponse(email, refreshToken));
         } else if (count == 2) {
             // 3rd device requires OTP
             otpService.generateAndSendOtp(email);
@@ -134,7 +158,7 @@ public class AuthController {
             newSession.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
             newSession.setIsApproved(true);
             deviceSessionRepository.save(newSession);
-            return ResponseEntity.ok(Map.of("token", generateJwt(email), "refreshToken", refreshToken, "message", "Login successful", "email", email));
+            return ResponseEntity.ok(buildLoginResponse(email, refreshToken));
         }
         return ResponseEntity.status(401).body(Map.of("message", "Invalid or expired OTP"));
     }
