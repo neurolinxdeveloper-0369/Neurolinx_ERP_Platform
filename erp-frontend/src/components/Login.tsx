@@ -211,7 +211,6 @@ export default function Login() {
                   text="signin_with"
                   shape="rectangular"
                   logo_alignment="left"
-                  locale="en"
                   width="380"
                 />
               </div>
