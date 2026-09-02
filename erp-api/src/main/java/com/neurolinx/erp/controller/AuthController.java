@@ -74,6 +74,12 @@ public class AuthController {
             }
             if (user.getCompany() != null) {
                 res.put("industryType", user.getCompany().getIndustryType());
+                String url = user.getCompany().getWebsiteUrl();
+                if (url != null && url.contains("/")) {
+                    res.put("companySlug", url.substring(url.lastIndexOf('/') + 1));
+                } else if (url != null) {
+                    res.put("companySlug", url);
+                }
             }
         }
         if (email.equalsIgnoreCase("neurolinxdeveloper@gmail.com")) {
