@@ -4,7 +4,11 @@ import { IndianRupee, ShoppingBag, Utensils, TrendingUp, Clock, ChefHat, Bell } 
 
 interface ResStats {
   todayRevenue: number;
+  todayRevenueDineIn: number;
+  todayRevenueTakeaway: number;
   todayOrders: number;
+  todayOrdersDineIn: number;
+  todayOrdersTakeaway: number;
   activeTables: number;
   avgOrderValue: number;
   weeklyRevenue: { day: string; amount: number }[];
@@ -15,7 +19,11 @@ interface ResStats {
 export default function Dashboard() {
   const [stats, setStats] = useState<ResStats>({
     todayRevenue: 0,
+    todayRevenueDineIn: 0,
+    todayRevenueTakeaway: 0,
     todayOrders: 0,
+    todayOrdersDineIn: 0,
+    todayOrdersTakeaway: 0,
     activeTables: 0,
     avgOrderValue: 0,
     weeklyRevenue: [
@@ -102,41 +110,51 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
-        <StatCard 
-          title="Today's Revenue" 
-          value={`₹${stats.todayRevenue.toLocaleString()}`} 
-          icon={<IndianRupee size={24} strokeWidth={2.5} />} 
-          subtitle="Net sales (excluding taxes)"
-          color="#2563eb" 
-          bgColor="#eff6ff" 
-        />
-        <StatCard 
-          title="Total Orders" 
-          value={stats.todayOrders} 
-          icon={<ShoppingBag size={24} strokeWidth={2.5} />} 
-          subtitle="Completed & processing"
-          color="#7c3aed" 
-          bgColor="#f5f3ff" 
-        />
-        <StatCard 
-          title="Active Tables" 
-          value={stats.activeTables} 
-          icon={<Utensils size={24} strokeWidth={2.5} />} 
-          subtitle="Currently seated"
-          color="#ea580c" 
-          bgColor="#fff7ed" 
-        />
-        <StatCard 
-          title="Average Order Value" 
-          value={`₹${stats.avgOrderValue.toLocaleString()}`} 
-          icon={<TrendingUp size={24} strokeWidth={2.5} />} 
-          subtitle="Across all today's orders"
-          color="#059669" 
-          bgColor="#ecfdf5" 
-        />
-      </div>
+          <StatCard 
+            title="Today's Revenue" 
+            value={`₹${stats.todayRevenue.toLocaleString()}`} 
+            icon={<IndianRupee size={24} strokeWidth={2.5} />} 
+            subtitle={
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <span>Dine-in: ₹{stats.todayRevenueDineIn.toLocaleString()}</span>
+                <span>Takeaway: ₹{stats.todayRevenueTakeaway.toLocaleString()}</span>
+              </div>
+            }
+            color="#2563eb" 
+            bgColor="#eff6ff" 
+          />
+          <StatCard 
+            title="Today's Orders" 
+            value={stats.todayOrders} 
+            icon={<ShoppingBag size={24} strokeWidth={2.5} />} 
+            subtitle={
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <span>Dine-in: {stats.todayOrdersDineIn}</span>
+                <span>Takeaway: {stats.todayOrdersTakeaway}</span>
+              </div>
+            }
+            color="#7c3aed" 
+            bgColor="#f5f3ff" 
+          />
+          <StatCard 
+            title="Active Tables" 
+            value={stats.activeTables} 
+            icon={<Utensils size={24} strokeWidth={2.5} />} 
+            subtitle="Total currently seated across all zones"
+            color="#ea580c" 
+            bgColor="#fff7ed" 
+          />
+          <StatCard 
+            title="Average Order Value" 
+            value={`₹${stats.avgOrderValue.toLocaleString()}`} 
+            icon={<TrendingUp size={24} strokeWidth={2.5} />} 
+            subtitle="Combined average across all today's orders"
+            color="#059669" 
+            bgColor="#ecfdf5" 
+          />
+        </div>
 
-      <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
         
         {/* Weekly Revenue Graph (Left Column) */}
         <div style={{ flex: '2 1 500px', backgroundColor: 'white', borderRadius: '16px', padding: '1.75rem', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
