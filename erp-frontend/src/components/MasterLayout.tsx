@@ -60,7 +60,7 @@ export default function MasterLayout() {
       {/* Sidebar */}
       <div style={{ width: '250px', backgroundColor: 'white', borderRight: 'none', boxShadow: '4px 0 15px rgba(0,0,0,0.05)', color: '#374151', display: 'flex', flexDirection: 'column', zIndex: 50 }}>
         <div style={{ height: '80px', display: 'flex', alignItems: 'center', padding: '0 1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: 'none', boxSizing: 'border-box' }}>
-          <span style={{ color: '#2563eb' }}>Neurolinx</span><span style={{ color: '#1e293b' }}>One</span>
+          <span style={{ color: '#1d4ed8' }}>Neurolinx</span><span style={{ color: '#1e293b' }}>One</span>
         </div>
         <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', overflowY: 'auto' }}>
           {parentMenus.map((menu, index) => {
@@ -75,7 +75,7 @@ export default function MasterLayout() {
                   onClick={hasChildren ? (e) => toggleExpand(menu.id, e) : undefined}
                   style={{ 
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                    padding: '0.75rem', color: '#475569', textDecoration: 'none', 
+                    padding: '0.75rem', color: location.pathname === menu.route ? '#0284c7' : '#475569', textDecoration: 'none', 
                     borderRadius: '8px', fontWeight: '500',
                     backgroundColor: location.pathname === menu.route ? '#f0f9ff' : 'transparent'
                   }}
@@ -103,11 +103,11 @@ export default function MasterLayout() {
                         key={child.id}
                         to={child.route}
                         style={{ 
-                          display: 'block', padding: '0.5rem 0.75rem', color: '#64748b', 
+                          display: 'block', padding: '0.5rem 0.75rem', color: location.pathname === child.route ? '#0284c7' : '#64748b', 
                           textDecoration: 'none', borderRadius: '6px', fontSize: '0.875rem',
                           backgroundColor: location.pathname === child.route ? '#f0f9ff' : 'transparent'
                         }}
-                        onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.color = '#0f172a'; }}
+                        onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f0f9ff'; e.currentTarget.style.color = '#0284c7'; }}
                         onMouseOut={e => { 
                           if (location.pathname !== child.route) {
                             e.currentTarget.style.backgroundColor = 'transparent'; 
