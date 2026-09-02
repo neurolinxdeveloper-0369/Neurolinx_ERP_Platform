@@ -208,6 +208,10 @@ export default function Login() {
                   onError={() => setError('Google Login Failed')}
                   theme="outline"
                   size="large"
+                  text="signin_with"
+                  shape="rectangular"
+                  logo_alignment="left"
+                  locale="en"
                   width="380"
                 />
               </div>
