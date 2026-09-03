@@ -12,6 +12,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleSuccessRedirect = (data: any, userEmail: string) => {
+    localStorage.clear(); // Clear previous session data
     localStorage.setItem('token', data.token);
     if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('username', userEmail);

@@ -22,35 +22,44 @@ public class PosController {
     
     private Company getUserCompany() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        System.out.println("GETUSERCOMPANY: email=" + email);
         var userOpt = userRepo.findByEmail(email);
-        return userOpt.map(user -> user.getRole() != null ? user.getRole().getCompany() : null).orElse(null);
+        if (userOpt.isEmpty()) {
+            System.out.println("GETUSERCOMPANY: User not found in DB");
+            return null;
+        }
+        com.neurolinx.erp.model.User user = userOpt.get();
+        System.out.println("GETUSERCOMPANY: found user, role=" + (user.getRole() != null ? user.getRole().getName() : "null"));
+        com.neurolinx.erp.model.Company comp = user.getRole() != null ? user.getRole().getCompany() : null;
+        System.out.println("GETUSERCOMPANY: company=" + (comp != null ? comp.getName() : "null"));
+        return comp;
     }
 
     @GetMapping("/categories")
     public ResponseEntity<?> getCategories() {
         Company company = getUserCompany();
-        if (company == null) return ResponseEntity.status(403).body("Company not found");
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user: " + SecurityContextHolder.getContext().getAuthentication().getName()));
         return ResponseEntity.ok(categoryRepo.findByCompany(company));
     }
 
     @GetMapping("/dishes")
     public ResponseEntity<?> getDishes() {
         Company company = getUserCompany();
-        if (company == null) return ResponseEntity.status(403).body("Company not found");
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user: " + SecurityContextHolder.getContext().getAuthentication().getName()));
         return ResponseEntity.ok(dishRepo.findByCompany(company));
     }
 
     @GetMapping("/tables")
     public ResponseEntity<?> getTables() {
         Company company = getUserCompany();
-        if (company == null) return ResponseEntity.status(403).body("Company not found");
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user: " + SecurityContextHolder.getContext().getAuthentication().getName()));
         return ResponseEntity.ok(tableRepo.findByCompany(company));
     }
     
     @PostMapping("/orders")
     public ResponseEntity<?> createOrder(@RequestBody Map<String, Object> payload) {
         Company company = getUserCompany();
-        if (company == null) return ResponseEntity.status(403).body("Company not found");
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user: " + SecurityContextHolder.getContext().getAuthentication().getName()));
         
         CustomerOrder order = new CustomerOrder();
         order.setCompany(company);
@@ -73,7 +82,7 @@ public class PosController {
     @PostMapping("/categories")
     public ResponseEntity<?> createCategory(@RequestBody Map<String, Object> payload) {
         Company company = getUserCompany();
-        if (company == null) return ResponseEntity.status(403).body("Company not found");
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user: " + SecurityContextHolder.getContext().getAuthentication().getName()));
         DishCategory cat = new DishCategory();
         cat.setName((String) payload.get("name"));
         cat.setCompany(company);
@@ -83,7 +92,7 @@ public class PosController {
     @PostMapping("/dishes")
     public ResponseEntity<?> createDish(@RequestBody Map<String, Object> payload) {
         Company company = getUserCompany();
-        if (company == null) return ResponseEntity.status(403).body("Company not found");
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user: " + SecurityContextHolder.getContext().getAuthentication().getName()));
         Dish dish = new Dish();
         dish.setName((String) payload.get("name"));
         dish.setPrice(new BigDecimal(payload.get("price").toString()));
