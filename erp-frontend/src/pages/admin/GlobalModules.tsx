@@ -238,7 +238,7 @@ export default function GlobalModules() {
               </thead>
               <tbody>
                 {(() => {
-                  const parentModules = modules.filter(m => !m.parentId || m.parentId === 0);
+                  const parentModules = modules.filter(m => !m.parentId || m.parentId === 0).filter(m => selectedIndustry === 'All' ? true : (m.industryType === selectedIndustry || m.industryType === 'All' || !m.industryType));
                   
                   if (parentModules.length === 0) {
                     return (
