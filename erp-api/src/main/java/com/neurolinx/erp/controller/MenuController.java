@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/menus")
-@CrossOrigin(origins = "*")
+
 public class MenuController {
 
     @Autowired private UserRepository userRepository;

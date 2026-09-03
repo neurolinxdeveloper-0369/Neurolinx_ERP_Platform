@@ -6,7 +6,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api/restaurant")
-@CrossOrigin(origins = "*")
+
 public class RestaurantController {
 
     @GetMapping("/dashboard-stats")
