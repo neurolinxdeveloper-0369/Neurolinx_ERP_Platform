@@ -11,7 +11,7 @@ interface Printer {
 }
 
 export default function PrinterCanvas() {
-  const { connectedDevice, isConnecting, connectBluetoothPrinter, sendEscPos, disconnect } = usePrinter();
+  const { connectedDevice, isConnecting, connectBluetoothPrinter, sendEscPos, disconnect, logs, clearLogs } = usePrinter();
   const [printers, setPrinters] = useState<Printer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -156,8 +156,10 @@ const removePrinter = (id: number) => {
         </form>
       )}
 
-      {/* Connection Panel */}
-      <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '2rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          {/* Connection Panel */}
+          <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <Icons.Bluetooth size={24} color={connectedDevice ? "#16a34a" : "#0284c7"} />
@@ -200,6 +202,26 @@ const removePrinter = (id: number) => {
           </button>
         </div>
       </div>
+      
+      </div>
+      
+      {/* Logs Panel */}
+      <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', color: '#f8fafc', display: 'flex', flexDirection: 'column', height: '100%', minHeight: '350px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#94a3b8' }}>
+            <Icons.Terminal size={18} /> Diagnostic Logs
+          </h2>
+          <button onClick={clearLogs} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Clear</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#0f172a', padding: '1rem', borderRadius: '8px', fontFamily: 'monospace', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {logs && logs.length === 0 && <span style={{ color: '#475569' }}>Awaiting connection...</span>}
+          {logs && logs.map((log, idx) => (
+            <div key={idx} style={{ color: log.includes('❌') ? '#ef4444' : log.includes('✅') ? '#22c55e' : '#cbd5e1', lineHeight: '1.4' }}>{log}</div>
+          ))}
+        </div>
+      </div>
+      
+    </div>
 
       {/* Saved Printers List */}
       <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>

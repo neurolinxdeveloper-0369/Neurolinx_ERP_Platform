@@ -5,6 +5,8 @@ interface PrinterContextType {
   connectedDevice: any;
   connectedCharacteristic: any;
   isConnecting: boolean;
+  logs: string[];
+  clearLogs: () => void;
   connectBluetoothPrinter: () => Promise<any>;
   sendEscPos: (payload: Uint8Array) => Promise<void>;
   disconnect: () => void;
@@ -13,6 +15,9 @@ interface PrinterContextType {
 const PrinterContext = createContext<PrinterContextType | undefined>(undefined);
 
 export function PrinterProvider({ children }: { children: ReactNode }) {
+  const [logs, setLogs] = useState<string[]>([]);
+  const addLog = (msg: string) => setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  const clearLogs = () => setLogs([]);
   const [connectedDevice, setConnectedDevice] = useState<any>(null);
   const [connectedCharacteristic, setConnectedCharacteristic] = useState<any>(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -20,19 +25,24 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
   const connectBluetoothPrinter = async (): Promise<any> => {
     try {
       setIsConnecting(true);
+      addLog("Requesting Bluetooth Device...");
       const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '49535343-fe7d-4ae5-8fa9-9fafd205e455', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
       });
 
+      addLog(`Selected device: ${device.name}`);
       const server = await device.gatt.connect();
+      addLog("GATT Server connected. Discovering services...");
       const services = await server.getPrimaryServices();
+      addLog(`Found ${services.length} services.`);
 
       let characteristicFound = null;
       for (const service of services) {
         const characteristics = await service.getCharacteristics();
         for (const characteristic of characteristics) {
           if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
+            addLog(`Found writable characteristic: ${characteristic.uuid}`);
             characteristicFound = characteristic;
             break;
           }
@@ -43,6 +53,7 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
       if (characteristicFound) {
         setConnectedDevice(device);
         setConnectedCharacteristic(characteristicFound);
+        addLog("✅ Printer successfully connected and ready to print!");
         
         device.addEventListener('gattserverdisconnected', () => {
           console.warn("Printer disconnected. Attempting robust auto-reconnect...");
@@ -51,7 +62,8 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
           const tryReconnect = async () => {
             attempts++;
             if (attempts > 10) {
-                setConnectedDevice(null);
+                addLog("Printer disconnected.");
+    setConnectedDevice(null);
                 setConnectedCharacteristic(null);
                 alert("Printer disconnected and could not automatically reconnect. Please try pairing again.");
                 return;
@@ -72,10 +84,12 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
         
         return device;
       } else {
+        addLog("❌ Error: Could not find a writable characteristic.");
         throw new Error("Could not find a writable characteristic.");
         server.disconnect();
       }
     } catch (error: any) {
+      addLog(`❌ Connection failed: ${error.message}`);
       throw error;
     } finally {
       setIsConnecting(false);
@@ -108,12 +122,13 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
     if (connectedDevice && connectedDevice.gatt.connected) {
       connectedDevice.gatt.disconnect();
     }
+    addLog("Printer disconnected.");
     setConnectedDevice(null);
     setConnectedCharacteristic(null);
   };
 
   return (
-    <PrinterContext.Provider value={{ connectedDevice, connectedCharacteristic, isConnecting, connectBluetoothPrinter, sendEscPos, disconnect }}>
+    <PrinterContext.Provider value={{ connectedDevice, connectedCharacteristic, isConnecting, connectBluetoothPrinter, sendEscPos, disconnect, logs, clearLogs }}>
       {children}
     </PrinterContext.Provider>
   );
