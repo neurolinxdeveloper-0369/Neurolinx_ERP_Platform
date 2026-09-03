@@ -26,7 +26,7 @@ export default function Login() {
     } else if (data.industryType === 'Restaurant') {
       navigate('/res-dashboard');
     } else {
-      navigate('/' + (data.companySlug || 'client'));
+      navigate('/welcome');
     }
   };
 
