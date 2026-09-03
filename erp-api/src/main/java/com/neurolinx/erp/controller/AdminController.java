@@ -129,22 +129,26 @@ public class AdminController {
     @Transactional
     @DeleteMapping("/companies/{id}")
     public ResponseEntity<?> deleteCompany(@PathVariable Long id) {
-        // Master Admin Client Purge - Manually cascade deletes to bypass missing JPA cascade annotations
-        jdbcTemplate.update("DELETE FROM device_sessions WHERE email IN (SELECT email FROM users WHERE company_id = ?)", id);
-        jdbcTemplate.update("DELETE FROM users WHERE company_id = ?", id);
-        jdbcTemplate.update("DELETE FROM role_privileges WHERE role_id IN (SELECT id FROM roles WHERE company_id = ?)", id);
-        jdbcTemplate.update("DELETE FROM roles WHERE company_id = ?", id);
-        
-        jdbcTemplate.update("DELETE FROM order_items WHERE order_id IN (SELECT id FROM customer_orders WHERE company_id = ?)", id);
-        jdbcTemplate.update("DELETE FROM customer_orders WHERE company_id = ?", id);
-        jdbcTemplate.update("DELETE FROM dishes WHERE company_id = ?", id);
-        jdbcTemplate.update("DELETE FROM dish_categories WHERE company_id = ?", id);
-        jdbcTemplate.update("DELETE FROM restaurant_tables WHERE company_id = ?", id);
-        jdbcTemplate.update("DELETE FROM restaurant_settings WHERE company_id = ?", id);
-        jdbcTemplate.update("DELETE FROM restaurant_printers WHERE company_id = ?", id);
-        
-        companyRepository.deleteById(id);
-        return ResponseEntity.ok().build();
+        try {
+            jdbcTemplate.update("DELETE FROM device_sessions WHERE email IN (SELECT email FROM users WHERE company_id = ?)", id);
+            jdbcTemplate.update("DELETE FROM users WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM role_privileges WHERE role_id IN (SELECT id FROM roles WHERE company_id = ?)", id);
+            jdbcTemplate.update("DELETE FROM roles WHERE company_id = ?", id);
+            
+            jdbcTemplate.update("DELETE FROM order_items WHERE order_id IN (SELECT id FROM customer_orders WHERE company_id = ?)", id);
+            jdbcTemplate.update("DELETE FROM customer_orders WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM dishes WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM dish_categories WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM restaurant_tables WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM restaurant_settings WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM restaurant_printers WHERE company_id = ?", id);
+            
+            companyRepository.deleteById(id);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(java.util.Map.of("message", e.getMessage(), "error", e.toString()));
+        }
     }
 
     @PostMapping("/companies")
