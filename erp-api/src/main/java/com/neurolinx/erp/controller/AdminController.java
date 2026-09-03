@@ -5,6 +5,8 @@ import com.neurolinx.erp.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import jakarta.transaction.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -13,6 +15,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/admin")
 
 public class AdminController {
+
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     @Autowired private CompanyRepository companyRepository;
     @Autowired private MenuItemRepository menuItemRepository;
@@ -122,8 +126,23 @@ public class AdminController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    @Transactional
     @DeleteMapping("/companies/{id}")
     public ResponseEntity<?> deleteCompany(@PathVariable Long id) {
+        // Master Admin Client Purge - Manually cascade deletes to bypass missing JPA cascade annotations
+        jdbcTemplate.update("DELETE FROM device_sessions WHERE email IN (SELECT email FROM users WHERE company_id = ?)", id);
+        jdbcTemplate.update("DELETE FROM users WHERE company_id = ?)", id);
+        jdbcTemplate.update("DELETE FROM role_privileges WHERE role_id IN (SELECT id FROM roles WHERE company_id = ?)", id);
+        jdbcTemplate.update("DELETE FROM roles WHERE company_id = ?", id);
+        
+        jdbcTemplate.update("DELETE FROM order_items WHERE order_id IN (SELECT id FROM customer_orders WHERE company_id = ?)", id);
+        jdbcTemplate.update("DELETE FROM customer_orders WHERE company_id = ?", id);
+        jdbcTemplate.update("DELETE FROM dishes WHERE company_id = ?", id);
+        jdbcTemplate.update("DELETE FROM dish_categories WHERE company_id = ?", id);
+        jdbcTemplate.update("DELETE FROM restaurant_tables WHERE company_id = ?", id);
+        jdbcTemplate.update("DELETE FROM restaurant_settings WHERE company_id = ?", id);
+        jdbcTemplate.update("DELETE FROM restaurant_printers WHERE company_id = ?", id);
+        
         companyRepository.deleteById(id);
         return ResponseEntity.ok().build();
     }
