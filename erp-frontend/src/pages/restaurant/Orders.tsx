@@ -32,6 +32,7 @@ export default function RestaurantOrders() {
   
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [orderType, setOrderType] = useState<'Table' | 'Reservation'>('Table');
+  const [selectedTable, setSelectedTable] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
 
@@ -105,7 +106,7 @@ export default function RestaurantOrders() {
     if (settings?.gstNumber) payload = new Uint8Array([...payload, ...encoder.encode(`GST: ${settings.gstNumber}\n`)]);
     
     payload = new Uint8Array([...payload, ...encoder.encode("--------------------------------\n")]);
-    payload = new Uint8Array([...payload, ...encoder.encode(`Order: ${orderNumber} | ${orderType}\n`)]);
+    payload = new Uint8Array([...payload, ...encoder.encode(`Order: ${orderNumber} | ${orderType} ${orderType === 'Table' && selectedTable ? '('+selectedTable+')' : ''}\n`)]);
     payload = new Uint8Array([...payload, ...encoder.encode("--------------------------------\n"), ESC, 0x61, 0x00]);
     
     cart.forEach(item => {
@@ -308,6 +309,37 @@ export default function RestaurantOrders() {
             <Icons.Calendar size={18} /> Reservation
           </button>
         </div>
+
+        {/* Table Selection Dropdown */}
+        {orderType === 'Table' && (
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Select Table</label>
+            <select 
+              value={selectedTable} 
+              onChange={e => setSelectedTable(e.target.value)}
+              style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '1rem', color: '#1e293b' }}
+            >
+              <option value="">-- Choose Table --</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                <option key={num} value={`Table ${num}`}>Table {num}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Reservation Inputs */}
+        {orderType === 'Reservation' && (
+          <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Customer Name</label>
+              <input type="text" placeholder="e.g. John Doe" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '1rem', color: '#1e293b', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Time</label>
+              <input type="time" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '1rem', color: '#1e293b', boxSizing: 'border-box' }} />
+            </div>
+          </div>
+        )}
 
         {/* Cart Items */}
         <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1.5rem' }}>
