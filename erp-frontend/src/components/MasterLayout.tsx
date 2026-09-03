@@ -90,8 +90,13 @@ export default function MasterLayout() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     {renderIcon(menu.icon)}
                     {menu.name}
-                  </div>
-                  {hasChildren && (
+                      {hasChildren && (
+                        <span style={{ backgroundColor: location.pathname.startsWith(menu.route) ? '#bae6fd' : '#e2e8f0', color: location.pathname.startsWith(menu.route) ? '#0369a1' : '#64748b', padding: '0.1rem 0.5rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600 }}>
+                          {children.length}
+                        </span>
+                      )}
+                    </div>
+                    {hasChildren && (
                     isExpanded ? <Icons.ChevronDown size={16} /> : <Icons.ChevronRight size={16} />
                   )}
                 </Link>
