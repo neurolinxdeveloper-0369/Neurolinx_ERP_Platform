@@ -13,6 +13,27 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/menus")
 
 public class MenuController {
+    @GetMapping("/debug-privileges/{email}")
+    public ResponseEntity<?> debugPrivileges(@PathVariable String email) {
+        var userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) return ResponseEntity.ok("User not found");
+        
+        User user = userOpt.get();
+        Role role = user.getRole();
+        if (role == null) return ResponseEntity.ok("No role for user");
+        
+        var privs = rolePrivilegeRepository.findByRole(role).stream().map(p -> {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("menuName", p.getMenuItem().getName());
+            map.put("menuId", p.getMenuItem().getId());
+            map.put("parentId", p.getMenuItem().getParentId());
+            map.put("canRead", p.getCanRead());
+            return map;
+        }).collect(Collectors.toList());
+        
+        return ResponseEntity.ok(privs);
+    }
+
 
     @Autowired private UserRepository userRepository;
     @Autowired private RolePrivilegeRepository rolePrivilegeRepository;
