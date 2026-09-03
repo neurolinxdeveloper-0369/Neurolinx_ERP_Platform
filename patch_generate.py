@@ -1,189 +1,19 @@
-import { useState, useEffect } from 'react';
-import * as Icons from 'lucide-react';
-import { apiFetch } from '../../api';
-import { usePrinter } from '../../context/PrinterContext';
+import os
 
-interface Dish {
-  id: number;
-  name: string;
-  price: number;
-  category: { id: number, name: string };
-  isAvailable: boolean;
-  imageBase64?: string;
-  isTodaysSpecial?: boolean;
-}
+path = 'erp-frontend/src/pages/restaurant/Orders.tsx'
 
-interface Category {
-  id: number;
-  name: string;
-}
+with open('orders_part1.txt', 'r') as f:
+    part1 = f.read()
 
-interface OrderItem {
-  dish: Dish;
-  quantity: number;
-}
+part1 = part1.replace(
+    "const [orderType, setOrderType] = useState<'Table' | 'Reservation'>('Table');",
+    "const [orderType, setOrderType] = useState<'Dine-In' | 'Takeaway'>('Dine-In');\n  const [viewMode, setViewMode] = useState<'POS' | 'Tables' | 'Reservations'>('POS');"
+)
 
-export default function RestaurantOrders() {
-  const { sendEscPos, connectedDevice } = usePrinter();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [dishes, setDishes] = useState<Dish[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  const [cart, setCart] = useState<OrderItem[]>([]);
-  const [orderType, setOrderType] = useState<'Dine-In' | 'Takeaway'>('Dine-In');
-  const [viewMode, setViewMode] = useState<'POS' | 'Tables' | 'Reservations'>('POS');
-  const [selectedTable, setSelectedTable] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [settings, setSettings] = useState<any>(null);
+part1 = part1.replace("${orderType === 'Table' && selectedTable", "${orderType === 'Dine-In' && selectedTable")
+part1 = part1.replace("if (orderType === 'Table') {", "if (orderType === 'Dine-In') {")
 
-  // Modals
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Card'>('UPI');
-
-  useEffect(() => {
-    Promise.all([
-      apiFetch('https://erp-api.neurolinx.in/api/pos/categories').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/pos/dishes').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/settings').then(res => res.json())
-    ]).then(([cats, items, sets]) => {
-      setCategories(cats);
-      setDishes(items);
-      setSettings(sets);
-      setIsLoading(false);
-    }).catch(err => {
-      console.error(err);
-      setIsLoading(false);
-    });
-  }, []);
-
-  const addToCart = (dish: Dish) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.dish.id === dish.id);
-      if (existing) {
-        return prev.map(item => item.dish.id === dish.id ? { ...item, quantity: item.quantity + 1 } : item);
-      }
-      return [...prev, { dish, quantity: 1 }];
-    });
-  };
-
-  const updateQuantity = (id: number, delta: number) => {
-    setCart(prev => prev.map(item => {
-      if (item.dish.id === id) {
-        const newQ = item.quantity + delta;
-        return newQ > 0 ? { ...item, quantity: newQ } : item;
-      }
-      return item;
-    }).filter(item => item.quantity > 0));
-  };
-  
-  // removeItem commented
-
-  const generateKotReceipt = (orderNumber: string) => {
-    const ESC = 0x1b; const GS = 0x1d; const encoder = new TextEncoder();
-    let payload = new Uint8Array([ESC, 0x40, ESC, 0x61, 0x01, ESC, 0x21, 0x10]); // init, center, double height
-    
-    payload = new Uint8Array([...payload, ...encoder.encode("** KOT **\n"), ESC, 0x21, 0x00]);
-    payload = new Uint8Array([...payload, ...encoder.encode(`Order: ${orderNumber} | ${orderType}\n`), ESC, 0x61, 0x00, ...encoder.encode("--------------------------------\n"), ESC, 0x21, 0x08]);
-    
-    cart.forEach(item => {
-      payload = new Uint8Array([...payload, ...encoder.encode(`${item.quantity}x ${item.dish.name}\n`)]);
-    });
-    
-    payload = new Uint8Array([...payload, ESC, 0x21, 0x00, ...encoder.encode("--------------------------------\n\n\n\n\n"), GS, 0x56, 0x41, 0x00]);
-    return payload;
-  };
-
-  const generateCustomerReceipt = (orderNumber: string, total: number, tax: number) => {
-    const ESC = 0x1b; const GS = 0x1d; const encoder = new TextEncoder();
-    let payload = new Uint8Array([ESC, 0x40, ESC, 0x61, 0x01]);
-    
-    let storeName = settings?.storeName || "Neurolinx POS";
-    payload = new Uint8Array([...payload, ESC, 0x21, 0x10, ...encoder.encode(`${storeName.toUpperCase()}\n`), ESC, 0x21, 0x00]);
-    
-    if (settings?.address) payload = new Uint8Array([...payload, ...encoder.encode(`${settings.address}\n`)]);
-    if (settings?.gstNumber) payload = new Uint8Array([...payload, ...encoder.encode(`GST: ${settings.gstNumber}\n`)]);
-    
-    payload = new Uint8Array([...payload, ...encoder.encode("--------------------------------\n")]);
-    payload = new Uint8Array([...payload, ...encoder.encode(`Order: ${orderNumber} | ${orderType} ${orderType === 'Dine-In' && selectedTable ? '('+selectedTable+')' : ''}\n`)]);
-    payload = new Uint8Array([...payload, ...encoder.encode("--------------------------------\n"), ESC, 0x61, 0x00]);
-    
-    cart.forEach(item => {
-      let line = `${item.quantity}x ${item.dish.name}`;
-      let priceStr = `Rs.${(item.dish.price * item.quantity).toFixed(2)}`;
-      let spaces = 32 - line.length - priceStr.length;
-      if (spaces < 1) spaces = 1;
-      payload = new Uint8Array([...payload, ...encoder.encode(`${line}${' '.repeat(spaces)}${priceStr}\n`)]);
-    });
-    
-    payload = new Uint8Array([...payload, ...encoder.encode("--------------------------------\n")]);
-    payload = new Uint8Array([...payload, ESC, 0x61, 0x02, ...encoder.encode(`Subtotal: Rs.${(total - tax).toFixed(2)}\n`)]);
-    payload = new Uint8Array([...payload, ...encoder.encode(`Tax: Rs.${tax.toFixed(2)}\n`)]);
-    payload = new Uint8Array([...payload, ESC, 0x21, 0x10, ...encoder.encode(`TOTAL: Rs.${total.toFixed(2)}\n`), ESC, 0x21, 0x00, ESC, 0x61, 0x01]);
-    
-    if (orderType === 'Dine-In') {
-        payload = new Uint8Array([...payload, ...encoder.encode("\nSCAN TO PAY (UPI)\n")]);
-        // Here we just put a placeholder until image rasterizer is built
-        payload = new Uint8Array([...payload, ...encoder.encode("[ QR CODE ]\n")]); 
-    }
-    
-    if (settings?.receiptFooter) payload = new Uint8Array([...payload, ...encoder.encode(`\n${settings.receiptFooter}\n`)]);
-    
-    payload = new Uint8Array([...payload, ...encoder.encode("\n\n\n\n\n"), GS, 0x56, 0x41, 0x00]);
-    return payload;
-  };
-
-  const placeOrder = (status: 'Completed' | 'Parked') => {
-    if (cart.length === 0) return;
-    const total = cart.reduce((sum, item) => sum + (item.dish.price * item.quantity), 0);
-    const taxRate = settings?.defaultTaxRate || 5.0;
-    const tax = total * (taxRate / 100);
-    const finalTotal = total + tax;
-    
-    apiFetch('https://erp-api.neurolinx.in/api/pos/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        orderType, 
-        totalAmount: finalTotal, 
-        taxApplied: tax,
-        paymentMethod: status === 'Parked' ? null : paymentMethod,
-        status: status,
-        items: cart.map(c => ({ dishId: c.dish.id, quantity: c.quantity })) 
-      })
-    }).then(res => res.json()).then(order => {
-      if (status === 'Completed') {
-        alert("Order placed successfully!");
-        
-        if (connectedDevice) {
-          // Print KOT
-          sendEscPos(generateKotReceipt(order.orderNumber)).then(() => {
-            // Then print Bill
-            setTimeout(() => {
-              sendEscPos(generateCustomerReceipt(order.orderNumber, finalTotal, tax));
-            }, 3000); // 3 second delay to let KOT finish cutting
-          });
-        }
-      } else {
-        alert("Order Parked successfully!");
-      }
-      setCart([]);
-      setShowCheckout(false);
-    });
-  };
-
-  const subtotal = cart.reduce((sum, item) => sum + (item.dish.price * item.quantity), 0);
-  const taxRate = settings?.defaultTaxRate || 5.0;
-  const tax = subtotal * (taxRate / 100);
-  const total = subtotal + tax;
-
-  const filteredDishes = dishes
-    .filter(d => selectedCategory ? d.category && d.category.id === selectedCategory : true)
-    .filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase()));
-
-  if (isLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>Loading POS Terminal...</div>;
-
-  return (
+part2 = """return (
     <div style={{ display: 'flex', height: '100%', gap: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
       
       {/* Checkout Modal */}
@@ -400,3 +230,8 @@ export default function RestaurantOrders() {
     </div>
   );
 }
+"""
+
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(part1 + part2)
+print("Wrote Orders.tsx successfully!")
