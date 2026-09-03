@@ -199,7 +199,7 @@ export default function Login() {
             </div>
           )}
 
-          {false && loginMode === 'SELECT' && (
+          {loginMode === 'SELECT' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               
               <div style={{ display: 'flex', justifyContent: 'center' }}>
