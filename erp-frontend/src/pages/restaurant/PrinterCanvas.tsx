@@ -1,44 +1,69 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
+import { apiFetch } from '../../api';
+
+interface Printer {
+  id: number;
+  name: string;
+  printerType: 'KOT' | 'BILLING';
+  connectionType: string;
+}
 
 export default function PrinterCanvas() {
-  const [printerDevice, setPrinterDevice] = useState<any>(null);
-  const [printerCharacteristic, setPrinterCharacteristic] = useState<any>(null);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [printers, setPrinters] = useState<Printer[]>([]);
+  const [connectedDevice, setConnectedDevice] = useState<any>(null);
+  const [connectedCharacteristic, setConnectedCharacteristic] = useState<any>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const addLog = (msg: string) => setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  // Add Printer Form
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newPrinterName, setNewPrinterName] = useState('');
+  const [newPrinterType, setNewPrinterType] = useState<'KOT' | 'BILLING'>('KOT');
+
+  const fetchPrinters = () => {
+    apiFetch('https://erp-api.neurolinx.in/api/settings/printers')
+      .then(res => res.json())
+      .then(data => {
+        setPrinters(data);
+        setIsLoading(false);
+      });
+  };
+
+  useEffect(() => { fetchPrinters(); }, []);
+
+  const handleAddPrinter = (e: React.FormEvent) => {
+    e.preventDefault();
+    apiFetch('https://erp-api.neurolinx.in/api/settings/printers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newPrinterName, printerType: newPrinterType, connectionType: 'BLUETOOTH' })
+    }).then(() => {
+      setShowAddForm(false);
+      setNewPrinterName('');
+      fetchPrinters();
+    });
+  };
+
+  const removePrinter = (id: number) => {
+    apiFetch(`https://erp-api.neurolinx.in/api/settings/printers/${id}`, { method: 'DELETE' }).then(fetchPrinters);
+  };
 
   const connectBluetoothPrinter = async () => {
     try {
       setIsConnecting(true);
-      addLog("Requesting Bluetooth Device (Make sure HOP-E200 is paired to your OS)...");
-      
-      // Request any bluetooth device to allow user to pick their printer
       const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: [
-          '000018f0-0000-1000-8000-00805f9b34fb', // Common printer service
-          '49535343-fe7d-4ae5-8fa9-9fafd205e455', // BLE Serial
-          'e7810a71-73ae-499d-8c15-faa9aef0c3f2'  // Another common serial
-        ]
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '49535343-fe7d-4ae5-8fa9-9fafd205e455', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
       });
 
-      addLog(`Selected device: ${device.name}`);
-      
       const server = await device.gatt.connect();
-      addLog("GATT Server connected. Discovering services...");
-
       const services = await server.getPrimaryServices();
-      addLog(`Found ${services.length} services.`);
 
       let characteristicFound = null;
-
       for (const service of services) {
-        addLog(`Scanning Service: ${service.uuid}`);
         const characteristics = await service.getCharacteristics();
         for (const characteristic of characteristics) {
-          addLog(`  -> Characteristic: ${characteristic.uuid} (Write: ${characteristic.properties.write})`);
           if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
             characteristicFound = characteristic;
             break;
@@ -48,122 +73,205 @@ export default function PrinterCanvas() {
       }
 
       if (characteristicFound) {
-        setPrinterDevice(device);
-        setPrinterCharacteristic(characteristicFound);
-        addLog("✅ Printer successfully connected and ready to print!");
-        
+        setConnectedDevice(device);
+        setConnectedCharacteristic(characteristicFound);
         device.addEventListener('gattserverdisconnected', () => {
-          addLog("❌ Printer disconnected.");
-          setPrinterDevice(null);
-          setPrinterCharacteristic(null);
+          setConnectedDevice(null);
+          setConnectedCharacteristic(null);
         });
+        alert(`Successfully connected to ${device.name}!`);
       } else {
-        addLog("❌ Error: Could not find a writable characteristic on this device. Ensure it supports BLE.");
+        alert("Error: Could not find a writable characteristic.");
         server.disconnect();
       }
     } catch (error: any) {
-      addLog(`❌ Connection failed: ${error.message}`);
+      alert(`Connection failed: ${error.message}`);
     } finally {
       setIsConnecting(false);
     }
   };
 
-  const printSampleReceipt = async () => {
-    if (!printerCharacteristic) {
-      addLog("No printer connected!");
+  const sendEscPos = async (payload: Uint8Array) => {
+    if (!connectedCharacteristic) {
+      alert("No active Bluetooth connection. Please pair first.");
       return;
     }
-
     try {
-      addLog("Sending ESC/POS payload to printer...");
-      
-      // Standard ESC/POS commands
-      const ESC = 0x1b;
-      const GS = 0x1d;
-      
-      // Build the buffer
-      const encoder = new TextEncoder();
-      
-      let payload = new Uint8Array([
-        ESC, 0x40, // Initialize printer
-        ESC, 0x61, 0x01, // Center align
-        ...encoder.encode("NEUROLINX POS\n"),
-        ...encoder.encode("Test Receipt\n"),
-        ESC, 0x61, 0x00, // Left align
-        ...encoder.encode("--------------------------------\n"),
-        ...encoder.encode("1x Butter Chicken       Rs. 220\n"),
-        ...encoder.encode("1x Roti                 Rs. 10\n"),
-        ...encoder.encode("--------------------------------\n"),
-        ESC, 0x61, 0x02, // Right align
-        ...encoder.encode("TOTAL: Rs. 230\n"),
-        ESC, 0x61, 0x00, // Left align
-        ...encoder.encode("\n\nThank you!\n\n\n\n"), // Feed lines
-        GS, 0x56, 0x41, 0x00 // Partial cut paper (if supported)
-      ]);
-
-      // Split payload into 512-byte chunks (BLE MTU limits)
       const chunkSize = 512;
       for (let i = 0; i < payload.length; i += chunkSize) {
         const chunk = payload.slice(i, i + chunkSize);
-        await printerCharacteristic.writeValue(chunk);
+        await connectedCharacteristic.writeValue(chunk);
       }
-      
-      addLog("✅ Print job completed!");
     } catch (error: any) {
-      addLog(`❌ Printing failed: ${error.message}`);
+      alert(`Printing failed: ${error.message}`);
     }
   };
 
+  const testKotPrint = () => {
+    const ESC = 0x1b; const GS = 0x1d; const encoder = new TextEncoder();
+    const payload = new Uint8Array([
+      ESC, 0x40,
+      ESC, 0x61, 0x01, // Center align
+      ESC, 0x21, 0x10, // Double height
+      ...encoder.encode("** KOT **\n"),
+      ESC, 0x21, 0x00, // Normal font
+      ...encoder.encode("Table: 12  |  Dine-In\n"),
+      ESC, 0x61, 0x00, // Left align
+      ...encoder.encode("--------------------------------\n"),
+      ESC, 0x21, 0x08, // Bold
+      ...encoder.encode("1x Butter Chicken\n"),
+      ...encoder.encode("2x Roti\n"),
+      ESC, 0x21, 0x00, // Normal
+      ...encoder.encode("--------------------------------\n"),
+      ...encoder.encode("\n\n\n\n"),
+      GS, 0x56, 0x41, 0x00 // Cut
+    ]);
+    sendEscPos(payload);
+  };
+
+  const testCustomerBill = () => {
+    const ESC = 0x1b; const GS = 0x1d; const encoder = new TextEncoder();
+    
+    // We simulate Dine-In bill (needs QR) vs Takeaway
+    const isDineIn = true;
+
+    let textPayload = "DINEFINE RESTAURANT\n";
+    textPayload += "123 Culinary Avenue\n";
+    textPayload += "Phone: (555) 123-4567\n";
+    textPayload += "--------------------------------\n";
+    textPayload += "Date: 30/09/2025 20:15\n";
+    textPayload += "Receipt: #R-2547\n";
+    textPayload += "--------------------------------\n";
+    textPayload += "2x Caesar Salad           $24.00\n";
+    textPayload += "1x Grilled Salmon         $22.00\n";
+    textPayload += "--------------------------------\n";
+    textPayload += "Subtotal:                 $46.00\n";
+    textPayload += "Tax (5%):                 $2.30 \n";
+    textPayload += "TOTAL:                    $48.30\n";
+    textPayload += "--------------------------------\n";
+    
+    let baseCmds = [ESC, 0x40, ESC, 0x61, 0x01]; // init, center
+    let textBuffer = encoder.encode(textPayload);
+    
+    let qrCommands: number[] = [];
+    if (isDineIn) {
+        // Just print text representation for the mockup since actual QR ESC/POS is complex
+        qrCommands = [
+          ...encoder.encode("\nSCAN TO PAY (UPI)\n"),
+          ...encoder.encode("[ QR CODE IMAGE ]\n")
+        ];
+    }
+
+    let footer = [
+      ...encoder.encode("\nThank you for dining with us!\n\n\n\n"),
+      GS, 0x56, 0x41, 0x00
+    ];
+
+    const payload = new Uint8Array([...baseCmds, ...textBuffer, ...qrCommands, ...footer]);
+    sendEscPos(payload);
+  };
+
+  if (isLoading) return <div style={{ padding: '2rem' }}>Loading Printers...</div>;
+
   return (
     <div style={{ padding: '2rem', fontFamily: 'Inter, sans-serif', maxWidth: '1000px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.875rem', fontWeight: 700, color: '#1e293b', margin: '0 0 0.5rem 0' }}>Printer Canvas</h1>
-        <p style={{ color: '#64748b', margin: 0 }}>Configure and test your thermal ESC/POS printers (e.g., HOP-E200) via Web Bluetooth.</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.875rem', fontWeight: 700, color: '#1e293b', margin: '0 0 0.5rem 0' }}>Printer Canvas</h1>
+          <p style={{ color: '#64748b', margin: 0 }}>Manage Bluetooth POS and KOT printers.</p>
+        </div>
+        <button 
+          onClick={() => setShowAddForm(!showAddForm)}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#0284c7', color: 'white', padding: '0.75rem 1.25rem', borderRadius: '8px', border: 'none', fontWeight: 600, cursor: 'pointer' }}>
+          <Icons.Plus size={18} /> Add Printer
+        </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-        
-        {/* Connection Panel */}
-        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <Icons.Bluetooth size={24} color="#0284c7" />
-            <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.25rem' }}>Bluetooth Printer</h2>
+      {showAddForm && (
+        <form onSubmit={handleAddPrinter} style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '2rem', border: '1px solid #e2e8f0', display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#475569', marginBottom: '0.5rem' }}>Printer Name</label>
+            <input required type="text" value={newPrinterName} onChange={e => setNewPrinterName(e.target.value)} placeholder="e.g. Kitchen Printer 1" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }} />
           </div>
+          <div style={{ width: '200px' }}>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#475569', marginBottom: '0.5rem' }}>Printer Type</label>
+            <select value={newPrinterType} onChange={e => setNewPrinterType(e.target.value as any)} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', backgroundColor: 'white' }}>
+              <option value="KOT">KOT (Kitchen)</option>
+              <option value="BILLING">Billing (Cashier)</option>
+            </select>
+          </div>
+          <button type="submit" style={{ backgroundColor: '#16a34a', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', border: 'none', fontWeight: 600, cursor: 'pointer' }}>Save</button>
+        </form>
+      )}
 
-          <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
-            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600, color: '#334155' }}>Status: {printerDevice ? <span style={{ color: '#16a34a' }}>Connected ({printerDevice.name})</span> : <span style={{ color: '#ef4444' }}>Disconnected</span>}</p>
-            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>Make sure your HOP-E200 printer is turned on and paired with your PC/Tablet operating system before connecting.</p>
+      {/* Connection Panel */}
+      <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Icons.Bluetooth size={24} color={connectedDevice ? "#16a34a" : "#0284c7"} />
+            <div>
+              <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.25rem' }}>Active Bluetooth Connection</h2>
+              <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+                {connectedDevice ? <span style={{ color: '#16a34a', fontWeight: 600 }}>Connected to {connectedDevice.name}</span> : 'Pair your device (e.g. HOP-E200) to test printing.'}
+              </p>
+            </div>
           </div>
-
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button 
-              onClick={connectBluetoothPrinter}
-              disabled={isConnecting || printerDevice !== null}
-              style={{ flex: 1, padding: '0.75rem', backgroundColor: printerDevice ? '#e2e8f0' : '#0284c7', color: printerDevice ? '#94a3b8' : 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: printerDevice ? 'not-allowed' : 'pointer' }}>
-              {isConnecting ? 'Scanning...' : 'Pair Printer'}
-            </button>
-            <button 
-              onClick={printSampleReceipt}
-              disabled={!printerDevice}
-              style={{ flex: 1, padding: '0.75rem', backgroundColor: !printerDevice ? '#e2e8f0' : '#16a34a', color: !printerDevice ? '#94a3b8' : 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: !printerDevice ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <Icons.Printer size={18} /> Test Print
-            </button>
-          </div>
+          <button 
+            onClick={connectBluetoothPrinter}
+            disabled={isConnecting || connectedDevice !== null}
+            style={{ padding: '0.75rem 1.5rem', backgroundColor: connectedDevice ? '#e2e8f0' : '#0284c7', color: connectedDevice ? '#94a3b8' : 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: connectedDevice ? 'not-allowed' : 'pointer' }}>
+            {isConnecting ? 'Scanning...' : 'Pair Printer'}
+          </button>
         </div>
 
-        {/* Logs Panel */}
-        <div style={{ backgroundColor: '#1e293b', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', color: '#f8fafc', display: 'flex', flexDirection: 'column', height: '400px' }}>
-          <h2 style={{ margin: '0 0 1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#94a3b8' }}>
-            <Icons.Terminal size={18} /> Diagnostic Logs
-          </h2>
-          <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#0f172a', padding: '1rem', borderRadius: '8px', fontFamily: 'monospace', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            {logs.length === 0 && <span style={{ color: '#475569' }}>Awaiting connection...</span>}
-            {logs.map((log, idx) => (
-              <div key={idx} style={{ color: log.includes('❌') ? '#ef4444' : log.includes('✅') ? '#22c55e' : '#cbd5e1' }}>{log}</div>
-            ))}
-          </div>
+        <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
+          <button 
+            onClick={testKotPrint}
+            disabled={!connectedDevice}
+            style={{ flex: 1, padding: '1rem', backgroundColor: !connectedDevice ? '#f8fafc' : '#f0fdf4', color: !connectedDevice ? '#94a3b8' : '#166534', border: !connectedDevice ? '1px dashed #cbd5e1' : '1px solid #bbf7d0', borderRadius: '8px', fontWeight: 600, cursor: !connectedDevice ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            <Icons.ChefHat size={20} /> Test KOT Bill (No Prices)
+          </button>
+          <button 
+            onClick={testCustomerBill}
+            disabled={!connectedDevice}
+            style={{ flex: 1, padding: '1rem', backgroundColor: !connectedDevice ? '#f8fafc' : '#eff6ff', color: !connectedDevice ? '#94a3b8' : '#1d4ed8', border: !connectedDevice ? '1px dashed #cbd5e1' : '1px solid #bfdbfe', borderRadius: '8px', fontWeight: 600, cursor: !connectedDevice ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            <Icons.Receipt size={20} /> Test Customer Bill (With Prices)
+          </button>
         </div>
+      </div>
 
+      {/* Saved Printers List */}
+      <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+        {printers.length === 0 ? (
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No printers added yet.</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Printer Name</th>
+                <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Type</th>
+                <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Connection</th>
+                <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {printers.map(p => (
+                <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '1rem', color: '#1e293b', fontWeight: 500 }}>{p.name}</td>
+                  <td style={{ padding: '1rem' }}>
+                    <span style={{ backgroundColor: p.printerType === 'KOT' ? '#fef3c7' : '#e0e7ff', color: p.printerType === 'KOT' ? '#b45309' : '#3730a3', padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 }}>{p.printerType}</span>
+                  </td>
+                  <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.875rem' }}>
+                    <Icons.Bluetooth size={14} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} /> {p.connectionType}
+                  </td>
+                  <td style={{ padding: '1rem', textAlign: 'right' }}>
+                    <button onClick={() => removePrinter(p.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Icons.Trash2 size={18} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
