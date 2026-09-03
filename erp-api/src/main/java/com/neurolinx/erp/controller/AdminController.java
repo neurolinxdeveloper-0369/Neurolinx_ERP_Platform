@@ -131,7 +131,7 @@ public class AdminController {
     public ResponseEntity<?> deleteCompany(@PathVariable Long id) {
         // Master Admin Client Purge - Manually cascade deletes to bypass missing JPA cascade annotations
         jdbcTemplate.update("DELETE FROM device_sessions WHERE email IN (SELECT email FROM users WHERE company_id = ?)", id);
-        jdbcTemplate.update("DELETE FROM users WHERE company_id = ?)", id);
+        jdbcTemplate.update("DELETE FROM users WHERE company_id = ?", id);
         jdbcTemplate.update("DELETE FROM role_privileges WHERE role_id IN (SELECT id FROM roles WHERE company_id = ?)", id);
         jdbcTemplate.update("DELETE FROM roles WHERE company_id = ?", id);
         
