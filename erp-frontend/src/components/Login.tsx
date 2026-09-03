@@ -7,7 +7,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
-  const [loginMode, setLoginMode] = useState<'SELECT' | 'PASSWORD' | 'OTP_VERIFY' | 'DEVICE_OTP'>('SELECT');
+  const [loginMode, setLoginMode] = useState<'SELECT' | 'PASSWORD' | 'OTP_VERIFY' | 'DEVICE_OTP'>('PASSWORD');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -199,7 +199,7 @@ export default function Login() {
             </div>
           )}
 
-          {loginMode === 'SELECT' && (
+          {false && loginMode === 'SELECT' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               
               <div style={{ display: 'flex', justifyContent: 'center' }}>
