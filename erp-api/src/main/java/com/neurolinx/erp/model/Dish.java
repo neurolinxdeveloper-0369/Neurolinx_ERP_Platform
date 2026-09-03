@@ -16,6 +16,11 @@ public class Dish {
     @Column(nullable = false)
     private Boolean isAvailable = true;
     private String stockLevel;
+    @Column(columnDefinition = "TEXT")
+    private String imageBase64;
+    private Boolean isTodaysSpecial = false;
+    private BigDecimal discountPercentage = BigDecimal.ZERO;
+
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
@@ -40,6 +45,13 @@ public class Dish {
     public void setStockLevel(String stockLevel) { this.stockLevel = stockLevel; }
     public DishCategory getCategory() { return category; }
     public void setCategory(DishCategory category) { this.category = category; }
-    public Company getCompany() { return company; }
+    
+    public String getImageBase64() { return imageBase64; }
+    public void setImageBase64(String imageBase64) { this.imageBase64 = imageBase64; }
+    public Boolean getIsTodaysSpecial() { return isTodaysSpecial; }
+    public void setIsTodaysSpecial(Boolean isTodaysSpecial) { this.isTodaysSpecial = isTodaysSpecial; }
+    public BigDecimal getDiscountPercentage() { return discountPercentage; }
+    public void setDiscountPercentage(BigDecimal discountPercentage) { this.discountPercentage = discountPercentage; }
+public Company getCompany() { return company; }
     public void setCompany(Company company) { this.company = company; }
 }

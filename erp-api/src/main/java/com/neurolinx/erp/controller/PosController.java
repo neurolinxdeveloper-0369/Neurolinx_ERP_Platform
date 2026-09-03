@@ -57,6 +57,14 @@ public class PosController {
         order.setOrderNumber("ORD-" + System.currentTimeMillis());
         order.setOrderType((String) payload.getOrDefault("orderType", "Dine-In"));
         order.setTotalAmount(new BigDecimal(payload.getOrDefault("totalAmount", "0").toString()));
+        order.setPaymentMethod((String) payload.get("paymentMethod"));
+        order.setTaxApplied(new BigDecimal(payload.getOrDefault("taxApplied", "0").toString()));
+        order.setDiscountApplied(new BigDecimal(payload.getOrDefault("discountApplied", "0").toString()));
+        
+        if (payload.containsKey("status")) {
+            order.setStatus((String) payload.get("status"));
+        }
+        
         order = orderRepo.save(order);
         
         return ResponseEntity.ok(order);
@@ -82,6 +90,11 @@ public class PosController {
         Long catId = Long.parseLong(payload.get("categoryId").toString());
         dish.setCategory(categoryRepo.findById(catId).orElse(null));
         dish.setCompany(company);
+        
+        if (payload.containsKey("imageBase64")) dish.setImageBase64((String) payload.get("imageBase64"));
+        if (payload.containsKey("isTodaysSpecial")) dish.setIsTodaysSpecial((Boolean) payload.get("isTodaysSpecial"));
+        if (payload.containsKey("discountPercentage")) dish.setDiscountPercentage(new BigDecimal(payload.get("discountPercentage").toString()));
+        
         return ResponseEntity.ok(dishRepo.save(dish));
     }
 

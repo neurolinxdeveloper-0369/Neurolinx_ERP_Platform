@@ -17,6 +17,10 @@ public class CustomerOrder {
     @Column(nullable = false)
     private String status = "Pending";
     private BigDecimal totalAmount;
+    private String paymentMethod;
+    private BigDecimal discountApplied = BigDecimal.ZERO;
+    private BigDecimal taxApplied = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     
@@ -48,6 +52,13 @@ public class CustomerOrder {
     public void setRestaurantTable(RestaurantTable restaurantTable) { this.restaurantTable = restaurantTable; }
     public Company getCompany() { return company; }
     public void setCompany(Company company) { this.company = company; }
-    public List<OrderItem> getItems() { return items; }
+    
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public BigDecimal getDiscountApplied() { return discountApplied; }
+    public void setDiscountApplied(BigDecimal discountApplied) { this.discountApplied = discountApplied; }
+    public BigDecimal getTaxApplied() { return taxApplied; }
+    public void setTaxApplied(BigDecimal taxApplied) { this.taxApplied = taxApplied; }
+public List<OrderItem> getItems() { return items; }
     public void setItems(List<OrderItem> items) { this.items = items; }
 }
