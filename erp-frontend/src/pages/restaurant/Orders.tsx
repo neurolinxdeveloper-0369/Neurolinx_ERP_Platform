@@ -31,7 +31,7 @@ export default function RestaurantOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const [cart, setCart] = useState<OrderItem[]>([]);
-  const [orderType, setOrderType] = useState<'Dine-In' | 'Takeaway'>('Dine-In');
+  const [orderType, setOrderType] = useState<'Table' | 'Reservation'>('Table');
   const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
 
@@ -121,7 +121,7 @@ export default function RestaurantOrders() {
     payload = new Uint8Array([...payload, ...encoder.encode(`Tax: Rs.${tax.toFixed(2)}\n`)]);
     payload = new Uint8Array([...payload, ESC, 0x21, 0x10, ...encoder.encode(`TOTAL: Rs.${total.toFixed(2)}\n`), ESC, 0x21, 0x00, ESC, 0x61, 0x01]);
     
-    if (orderType === 'Dine-In') {
+    if (orderType === 'Table') {
         payload = new Uint8Array([...payload, ...encoder.encode("\nSCAN TO PAY (UPI)\n")]);
         // Here we just put a placeholder until image rasterizer is built
         payload = new Uint8Array([...payload, ...encoder.encode("[ QR CODE ]\n")]); 
@@ -298,14 +298,14 @@ export default function RestaurantOrders() {
         {/* Order Type Toggle */}
         <div style={{ display: 'flex', backgroundColor: '#f1f5f9', borderRadius: '8px', padding: '0.25rem', marginBottom: '1.5rem' }}>
           <button 
-            onClick={() => setOrderType('Dine-In')}
-            style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Dine-In' ? 'white' : 'transparent', color: orderType === 'Dine-In' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Dine-In' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
-            Dine-In
+            onClick={() => setOrderType('Table')}
+            style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Table' ? 'white' : 'transparent', color: orderType === 'Table' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Table' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            <Icons.Monitor size={18} /> Table
           </button>
           <button 
-            onClick={() => setOrderType('Takeaway')}
-            style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Takeaway' ? 'white' : 'transparent', color: orderType === 'Takeaway' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Takeaway' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
-            Takeaway
+            onClick={() => setOrderType('Reservation')}
+            style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Reservation' ? 'white' : 'transparent', color: orderType === 'Reservation' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Reservation' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            <Icons.Calendar size={18} /> Reservation
           </button>
         </div>
 
