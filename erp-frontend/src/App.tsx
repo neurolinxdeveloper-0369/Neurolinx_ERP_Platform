@@ -9,6 +9,8 @@ import ClientPortal from './pages/ClientPortal';
 
 // Industry specific modules
 import RestaurantDashboard from './pages/restaurant/Dashboard';
+import PrinterCanvas from './pages/restaurant/PrinterCanvas';
+import RestaurantSettings from './pages/restaurant/Settings';
 import RestaurantOrders from './pages/restaurant/Orders';
 import RestaurantInventory from './pages/restaurant/Inventory';
 import PlaceholderModule from './components/PlaceholderModule';
@@ -40,8 +42,8 @@ function App() {
             <Route path="/res-documents" element={<PlaceholderModule title="Documents" iconName="FileText" description="Store compliance documents, licenses, and contracts." />} />
             <Route path="/res-staff" element={<PlaceholderModule title="Staff" iconName="UserCog" description="Manage employees, roles, shifts, and payroll." />} />
             <Route path="/res-support" element={<PlaceholderModule title="Support" iconName="LifeBuoy" description="Contact Neurolinx support for help and troubleshooting." />} />
-            <Route path="/res-printers" element={<PlaceholderModule title="Printer Canvas" iconName="Printer" description="Configure receipt routing to kitchen/bar thermal printers." />} />
-            <Route path="/res-settings" element={<PlaceholderModule title="Settings" iconName="Settings" description="Manage tax rates, store details, and platform preferences." />} />
+            <Route path="/res-printers" element={<PrinterCanvas />} />
+            <Route path="/res-settings" element={<RestaurantSettings />} />
         </Route>
         
         <Route path="/:slug" element={<ClientPortal />} />
