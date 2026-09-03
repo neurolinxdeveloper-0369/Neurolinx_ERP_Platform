@@ -21,9 +21,9 @@ public class RestaurantController {
         stats.put("todayOrdersTakeaway", 0);
         stats.put("activeTables", 0);
         stats.put("avgOrderValue", 0);
-        
+
         List<Map<String, Object>> weeklyRevenue = new ArrayList<>();
-        String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+        String[] days = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
         for (String day : days) {
             Map<String, Object> daily = new HashMap<>();
             daily.put("day", day);
@@ -31,7 +31,7 @@ public class RestaurantController {
             weeklyRevenue.add(daily);
         }
         stats.put("weeklyRevenue", weeklyRevenue);
-        
+
         stats.put("recentOrders", new ArrayList<>());
         stats.put("pendingKots", 0);
 
