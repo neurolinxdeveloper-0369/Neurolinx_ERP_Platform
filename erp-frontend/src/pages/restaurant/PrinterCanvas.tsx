@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { apiFetch } from '../../api';
+import { usePrinter } from '../../context/PrinterContext';
 
 interface Printer {
   id: number;
@@ -10,10 +11,8 @@ interface Printer {
 }
 
 export default function PrinterCanvas() {
+  const { connectedDevice, isConnecting, connectBluetoothPrinter, sendEscPos, disconnect } = usePrinter();
   const [printers, setPrinters] = useState<Printer[]>([]);
-  const [connectedDevice, setConnectedDevice] = useState<any>(null);
-  const [connectedCharacteristic, setConnectedCharacteristic] = useState<any>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Add Printer Form
@@ -47,64 +46,6 @@ export default function PrinterCanvas() {
 
   const removePrinter = (id: number) => {
     apiFetch(`https://erp-api.neurolinx.in/api/settings/printers/${id}`, { method: 'DELETE' }).then(fetchPrinters);
-  };
-
-  const connectBluetoothPrinter = async () => {
-    try {
-      setIsConnecting(true);
-      const device = await (navigator as any).bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '49535343-fe7d-4ae5-8fa9-9fafd205e455', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
-      });
-
-      const server = await device.gatt.connect();
-      const services = await server.getPrimaryServices();
-
-      let characteristicFound = null;
-      for (const service of services) {
-        const characteristics = await service.getCharacteristics();
-        for (const characteristic of characteristics) {
-          if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
-            characteristicFound = characteristic;
-            break;
-          }
-        }
-        if (characteristicFound) break;
-      }
-
-      if (characteristicFound) {
-        setConnectedDevice(device);
-        setConnectedCharacteristic(characteristicFound);
-        device.addEventListener('gattserverdisconnected', () => {
-          setConnectedDevice(null);
-          setConnectedCharacteristic(null);
-        });
-        alert(`Successfully connected to ${device.name}!`);
-      } else {
-        alert("Error: Could not find a writable characteristic.");
-        server.disconnect();
-      }
-    } catch (error: any) {
-      alert(`Connection failed: ${error.message}`);
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const sendEscPos = async (payload: Uint8Array) => {
-    if (!connectedCharacteristic) {
-      alert("No active Bluetooth connection. Please pair first.");
-      return;
-    }
-    try {
-      const chunkSize = 512;
-      for (let i = 0; i < payload.length; i += chunkSize) {
-        const chunk = payload.slice(i, i + chunkSize);
-        await connectedCharacteristic.writeValue(chunk);
-      }
-    } catch (error: any) {
-      alert(`Printing failed: ${error.message}`);
-    }
   };
 
   const testKotPrint = () => {
@@ -155,7 +96,6 @@ export default function PrinterCanvas() {
     
     let qrCommands: number[] = [];
     if (isDineIn) {
-        // Just print text representation for the mockup since actual QR ESC/POS is complex
         qrCommands = [
           ...encoder.encode("\nSCAN TO PAY (UPI)\n"),
           ...encoder.encode("[ QR CODE IMAGE ]\n")
@@ -212,16 +152,25 @@ export default function PrinterCanvas() {
             <div>
               <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.25rem' }}>Active Bluetooth Connection</h2>
               <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
-                {connectedDevice ? <span style={{ color: '#16a34a', fontWeight: 600 }}>Connected to {connectedDevice.name}</span> : 'Pair your device (e.g. HOP-E200) to test printing.'}
+                {connectedDevice ? <span style={{ color: '#16a34a', fontWeight: 600 }}>Connected to {connectedDevice.name} (Global)</span> : 'Pair your device (e.g. HOP-E200) to keep it active across all screens.'}
               </p>
             </div>
           </div>
-          <button 
-            onClick={connectBluetoothPrinter}
-            disabled={isConnecting || connectedDevice !== null}
-            style={{ padding: '0.75rem 1.5rem', backgroundColor: connectedDevice ? '#e2e8f0' : '#0284c7', color: connectedDevice ? '#94a3b8' : 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: connectedDevice ? 'not-allowed' : 'pointer' }}>
-            {isConnecting ? 'Scanning...' : 'Pair Printer'}
-          </button>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            {connectedDevice && (
+              <button 
+                onClick={disconnect}
+                style={{ padding: '0.75rem 1.5rem', backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
+                Disconnect
+              </button>
+            )}
+            <button 
+              onClick={connectBluetoothPrinter}
+              disabled={isConnecting || connectedDevice !== null}
+              style={{ padding: '0.75rem 1.5rem', backgroundColor: connectedDevice ? '#e2e8f0' : '#0284c7', color: connectedDevice ? '#94a3b8' : 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: connectedDevice ? 'not-allowed' : 'pointer' }}>
+              {isConnecting ? 'Scanning...' : 'Pair Printer'}
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '1rem', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
