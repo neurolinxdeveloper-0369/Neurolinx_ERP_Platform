@@ -45,17 +45,29 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
         setConnectedCharacteristic(characteristicFound);
         
         device.addEventListener('gattserverdisconnected', () => {
-          console.warn("Printer disconnected. Attempting to auto-reconnect...");
-          setTimeout(async () => {
-             try {
-               await device.gatt.connect();
-               console.log("Auto-reconnected successfully.");
-             } catch (e) {
-               console.error("Auto-reconnect failed.", e);
-               setConnectedDevice(null);
-               setConnectedCharacteristic(null);
-             }
-          }, 2000);
+          console.warn("Printer disconnected. Attempting robust auto-reconnect...");
+          
+          let attempts = 0;
+          const tryReconnect = async () => {
+            attempts++;
+            if (attempts > 10) {
+                setConnectedDevice(null);
+                setConnectedCharacteristic(null);
+                alert("Printer disconnected and could not automatically reconnect. Please try pairing again.");
+                return;
+            }
+            
+            try {
+                console.log(`Auto-reconnect attempt ${attempts}...`);
+                await device.gatt.connect();
+                console.log("Auto-reconnected successfully.");
+            } catch (e) {
+                console.error("Auto-reconnect failed.", e);
+                setTimeout(tryReconnect, 3000);
+            }
+          };
+          
+          setTimeout(tryReconnect, 2000);
         });
         
         alert(`Successfully connected to ${device.name}!`);
