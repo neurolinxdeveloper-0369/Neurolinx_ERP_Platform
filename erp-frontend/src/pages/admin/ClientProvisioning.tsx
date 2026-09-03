@@ -628,6 +628,7 @@ export default function ClientProvisioning() {
                 </div>
               </div>
 
+              {(industryType === 'Restaurant' || industryType === 'Hotel') && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <input 
                   type="text" 
@@ -648,6 +649,7 @@ export default function ClientProvisioning() {
                   onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
                 />
               </div>
+              )}
 
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
