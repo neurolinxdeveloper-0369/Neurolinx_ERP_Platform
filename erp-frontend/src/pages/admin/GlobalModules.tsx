@@ -12,6 +12,7 @@ export default function GlobalModules() {
   const [isMasterEnabled, setIsMasterEnabled] = useState(true);
   const [industryType, setIndustryType] = useState('All');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
 
   // Sub-modules state for the current editing module
@@ -156,6 +157,8 @@ export default function GlobalModules() {
     }
   };
 
+  const toggleExpand = (id: number) => { setExpandedModules(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; }); };
+
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this module? This will break any clients using it!")) return;
     try {
@@ -228,13 +231,18 @@ export default function GlobalModules() {
                     return (
                       <React.Fragment key={parent.id}>
                         {/* Parent Row */}
-                        <tr style={{ backgroundColor: '#ffffff', borderTop: '1px solid #f1f5f9' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'} onMouseOut={e => e.currentTarget.style.backgroundColor = '#ffffff'}>
+                        <tr onClick={() => toggleExpand(parent.id)} style={{ backgroundColor: '#ffffff', borderTop: '1px solid #f1f5f9', cursor: children.length > 0 ? 'pointer' : 'default' }} onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'} onMouseOut={e => e.currentTarget.style.backgroundColor = '#ffffff'}>
                           <td style={{ padding: '1.25rem 1.5rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                               <div style={{ backgroundColor: '#f1f5f9', padding: '0.5rem', borderRadius: '8px', color: '#64748b' }}>
                                 <Folder size={18} />
                               </div>
                               <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9375rem' }}>{parent.name}</span>
+                              {children.length > 0 && (
+                                <span style={{ backgroundColor: '#e0e7ff', color: '#4f46e5', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 700, marginLeft: '0.5rem' }}>
+                                  {children.length} Sub-modules
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td style={{ padding: '1.25rem 1.5rem', color: '#475569', fontFamily: 'monospace', fontSize: '0.875rem' }}>{parent.frontendRoute}</td>
@@ -261,7 +269,7 @@ export default function GlobalModules() {
                         </tr>
                         
                         {/* Children Rows */}
-                        {children.map(child => (
+                        {expandedModules.has(parent.id) && children.map(child => (
                           <tr key={child.id} style={{ backgroundColor: '#fafafa', borderTop: '1px solid #f8fafc' }}>
                             <td style={{ padding: '1rem 1.5rem' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingLeft: '2rem' }}>
