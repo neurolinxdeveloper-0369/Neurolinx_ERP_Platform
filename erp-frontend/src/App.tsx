@@ -47,6 +47,7 @@ function App() {
               <Route path="/res-support" element={<PlaceholderModule title="Support" iconName="LifeBuoy" description="Contact Neurolinx support for help and troubleshooting." />} />
               <Route path="/res-printers" element={<PrinterCanvas />} />
               <Route path="/res-settings" element={<RestaurantSettings />} />
+              <Route path="/hybs-dashboard" element={<PlaceholderModule title="Hybrid Dashboard" iconName="LayoutDashboard" description="Hybrid Software & Hardware Dashboard is under construction." />} />
           </Route>
           
           <Route path="/:slug" element={<ClientPortal />} />
