@@ -5,7 +5,7 @@ interface PrinterContextType {
   connectedDevice: any;
   connectedCharacteristic: any;
   isConnecting: boolean;
-  connectBluetoothPrinter: () => Promise<void>;
+  connectBluetoothPrinter: () => Promise<any>;
   sendEscPos: (payload: Uint8Array) => Promise<void>;
   disconnect: () => void;
 }
@@ -17,7 +17,7 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
   const [connectedCharacteristic, setConnectedCharacteristic] = useState<any>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const connectBluetoothPrinter = async () => {
+  const connectBluetoothPrinter = async (): Promise<any> => {
     try {
       setIsConnecting(true);
       const device = await (navigator as any).bluetooth.requestDevice({
@@ -70,13 +70,13 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
           setTimeout(tryReconnect, 2000);
         });
         
-        alert(`Successfully connected to ${device.name}!`);
+        return device;
       } else {
-        alert("Error: Could not find a writable characteristic.");
+        throw new Error("Could not find a writable characteristic.");
         server.disconnect();
       }
     } catch (error: any) {
-      alert(`Connection failed: ${error.message}`);
+      throw error;
     } finally {
       setIsConnecting(false);
     }

@@ -44,7 +44,19 @@ export default function PrinterCanvas() {
     });
   };
 
-  const removePrinter = (id: number) => {
+    const handlePairAndAdd = async () => {
+    try {
+      const device = await connectBluetoothPrinter();
+      if (device) {
+        setNewPrinterName(device.name || 'Bluetooth Printer');
+        setShowAddForm(true);
+      }
+    } catch (err: any) {
+      alert(`Bluetooth Pairing Failed: ${err.message}`);
+    }
+  };
+
+const removePrinter = (id: number) => {
     apiFetch(`https://erp-api.neurolinx.in/api/settings/printers/${id}`, { method: 'DELETE' }).then(fetchPrinters);
   };
 
@@ -165,7 +177,7 @@ export default function PrinterCanvas() {
               </button>
             )}
             <button 
-              onClick={connectBluetoothPrinter}
+              onClick={handlePairAndAdd}
               disabled={isConnecting || connectedDevice !== null}
               style={{ padding: '0.75rem 1.5rem', backgroundColor: connectedDevice ? '#e2e8f0' : '#0284c7', color: connectedDevice ? '#94a3b8' : 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: connectedDevice ? 'not-allowed' : 'pointer' }}>
               {isConnecting ? 'Scanning...' : 'Pair Printer'}
@@ -211,7 +223,15 @@ export default function PrinterCanvas() {
                     <span style={{ backgroundColor: p.printerType === 'KOT' ? '#fef3c7' : '#e0e7ff', color: p.printerType === 'KOT' ? '#b45309' : '#3730a3', padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 }}>{p.printerType}</span>
                   </td>
                   <td style={{ padding: '1rem', color: '#64748b', fontSize: '0.875rem' }}>
-                    <Icons.Bluetooth size={14} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} /> {p.connectionType}
+                    {connectedDevice && p.connectionType === 'BLUETOOTH' ? (
+                      <span style={{ color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Icons.Bluetooth size={14} /> Active (Paired)
+                      </span>
+                    ) : (
+                      <span style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Icons.Bluetooth size={14} /> Offline / Not Paired
+                      </span>
+                    )}
                   </td>
                   <td style={{ padding: '1rem', textAlign: 'right' }}>
                     <button onClick={() => removePrinter(p.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Icons.Trash2 size={18} /></button>
