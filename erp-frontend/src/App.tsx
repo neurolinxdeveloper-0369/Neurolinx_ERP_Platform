@@ -28,6 +28,7 @@ function App() {
             {/* Master Admin Routes */}
             <Route path="/dashboard" element={<AdminDashboard />} />
             <Route path="/clients" element={<ClientProvisioning />} />
+            <Route path="/welcome" element={<div style={{padding: '2rem', fontSize: '1.5rem', fontWeight: 'bold'}}>Welcome to Neurolinx ERP. Your industry-specific dashboard is under construction!</div>} />
             <Route path="/settings" element={<GlobalModules />} />
             <Route path="/approvals" element={<DeviceApprovals />} />
             
