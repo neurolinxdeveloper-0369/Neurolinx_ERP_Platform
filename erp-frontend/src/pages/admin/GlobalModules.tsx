@@ -19,45 +19,13 @@ export default function GlobalModules() {
   const [subModules, setSubModules] = useState<{ id?: number, name: string, frontendRoute: string }[]>([]);
   const [deletedSubModules, setDeletedSubModules] = useState<number[]>([]);
 
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [selectedClient, setSelectedClient] = useState<string>('All');
-  const [clientModuleIds, setClientModuleIds] = useState<number[]>([]);
+  const [selectedIndustry, setSelectedIndustry] = useState<string>('All');
 
   useEffect(() => {
     fetchModules();
-    fetchCompanies();
   }, []);
 
-  const fetchCompanies = async () => {
-    try {
-      const res = await apiFetch('https://erp-api.neurolinx.in/api/admin/companies');
-      if (res.ok) {
-        const data = await res.json();
-        setCompanies(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
-  const fetchClientModules = async (clientId: number) => {
-    try {
-      const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${clientId}/modules`);
-      if (res.ok) {
-        const data = await res.json();
-        setClientModuleIds(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleClientSelect = (clientId: string) => {
-    setSelectedClient(clientId);
-    if (clientId !== 'All') {
-      fetchClientModules(parseInt(clientId));
-    }
-  };
 
   const fetchModules = async () => {
     setIsLoading(true);
@@ -230,33 +198,16 @@ export default function GlobalModules() {
       </div>
 
       <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-        <button
-          onClick={() => handleClientSelect('All')}
-          style={{
-            padding: '0.5rem 1.25rem',
-            borderRadius: '9999px',
-            backgroundColor: selectedClient === 'All' ? '#0f172a' : 'white',
-            color: selectedClient === 'All' ? 'white' : '#64748b',
-            border: `1px solid ${selectedClient === 'All' ? '#0f172a' : '#e2e8f0'}`,
-            fontWeight: 600,
-            fontSize: '0.875rem',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s'
-          }}
-        >
-          All Modules (Master)
-        </button>
-        {companies.map(company => (
+        {['All', 'Restaurant', 'Hotel', 'Hybrid (Hotel & Restaurant)', 'Software', 'Hybrid (Software & Hardware)', 'Electronics (Manufacturing & Assembly)', 'Ecommerce'].map(industry => (
           <button
-            key={company.id}
-            onClick={() => handleClientSelect(company.id.toString())}
+            key={industry}
+            onClick={() => setSelectedIndustry(industry)}
             style={{
               padding: '0.5rem 1.25rem',
               borderRadius: '9999px',
-              backgroundColor: selectedClient === company.id.toString() ? '#0284c7' : 'white',
-              color: selectedClient === company.id.toString() ? 'white' : '#64748b',
-              border: `1px solid ${selectedClient === company.id.toString() ? '#0284c7' : '#e2e8f0'}`,
+              backgroundColor: selectedIndustry === industry ? '#0284c7' : 'white',
+              color: selectedIndustry === industry ? 'white' : '#64748b',
+              border: `1px solid ${selectedIndustry === industry ? '#0284c7' : '#e2e8f0'}`,
               fontWeight: 600,
               fontSize: '0.875rem',
               cursor: 'pointer',
@@ -264,7 +215,7 @@ export default function GlobalModules() {
               transition: 'all 0.2s'
             }}
           >
-            {company.name}
+            {industry === 'All' ? 'All Master Modules' : industry}
           </button>
         ))}
       </div>
@@ -303,7 +254,7 @@ export default function GlobalModules() {
                   }
 
                   return parentModules.map(parent => {
-                    const children = modules.filter(m => m.parentId === parent.id).filter(m => selectedClient === 'All' ? true : clientModuleIds.includes(m.id));
+                    const children = modules.filter(m => m.parentId === parent.id);
                     return (
                       <React.Fragment key={parent.id}>
                         {/* Parent Row */}
