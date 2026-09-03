@@ -19,9 +19,45 @@ export default function GlobalModules() {
   const [subModules, setSubModules] = useState<{ id?: number, name: string, frontendRoute: string }[]>([]);
   const [deletedSubModules, setDeletedSubModules] = useState<number[]>([]);
 
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [selectedClient, setSelectedClient] = useState<string>('All');
+  const [clientModuleIds, setClientModuleIds] = useState<number[]>([]);
+
   useEffect(() => {
     fetchModules();
+    fetchCompanies();
   }, []);
+
+  const fetchCompanies = async () => {
+    try {
+      const res = await apiFetch('https://erp-api.neurolinx.in/api/admin/companies');
+      if (res.ok) {
+        const data = await res.json();
+        setCompanies(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchClientModules = async (clientId: number) => {
+    try {
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${clientId}/modules`);
+      if (res.ok) {
+        const data = await res.json();
+        setClientModuleIds(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleClientSelect = (clientId: string) => {
+    setSelectedClient(clientId);
+    if (clientId !== 'All') {
+      fetchClientModules(parseInt(clientId));
+    }
+  };
 
   const fetchModules = async () => {
     setIsLoading(true);
@@ -227,7 +263,7 @@ export default function GlobalModules() {
                   }
 
                   return parentModules.map(parent => {
-                    const children = modules.filter(m => m.parentId === parent.id);
+                    const children = modules.filter(m => m.parentId === parent.id).filter(m => selectedClient === 'All' ? true : clientModuleIds.includes(m.id));
                     return (
                       <React.Fragment key={parent.id}>
                         {/* Parent Row */}
