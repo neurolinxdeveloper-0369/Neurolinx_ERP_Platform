@@ -76,10 +76,16 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const chunkSize = 512;
+      const chunkSize = 100; // Safer BLE MTU size
       for (let i = 0; i < payload.length; i += chunkSize) {
         const chunk = payload.slice(i, i + chunkSize);
-        await connectedCharacteristic.writeValue(chunk);
+        if (connectedCharacteristic.properties.writeWithoutResponse) {
+          await connectedCharacteristic.writeValueWithoutResponse(chunk);
+        } else {
+          await connectedCharacteristic.writeValue(chunk);
+        }
+        // Add a tiny delay to prevent overwhelming the printer buffer
+        await new Promise(resolve => setTimeout(resolve, 20));
       }
     } catch (error: any) {
       alert(`Printing failed: ${error.message}`);
