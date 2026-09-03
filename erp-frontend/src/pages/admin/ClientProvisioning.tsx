@@ -470,6 +470,7 @@ export default function ClientProvisioning() {
                 }
                 
                 const availableModules = allModules.filter(mod => {
+                  if (assignedModuleIds.includes(mod.id)) return true;
                   if (!mod.industryType || mod.industryType === 'All') return true;
                   if (selectedCompanyType === mod.industryType) return true;
                   if (selectedCompanyType === 'Hybrid (Hotel & Restaurant)' && (mod.industryType === 'Hotel' || mod.industryType === 'Restaurant')) return true;
