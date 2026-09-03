@@ -277,10 +277,16 @@ export default function ClientProvisioning() {
     if (!window.confirm("Are you sure you want to delete this client? This cannot be undone!")) return;
     try {
       const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchCompanies();
-    } catch (err) {
-      console.error(err);
-    }
+        if (res.ok) {
+          fetchCompanies();
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          alert(`Failed to delete client! Error: ${errData.message || res.statusText}`);
+        }
+      } catch (err: any) {
+        console.error(err);
+        alert("Network Error: " + err.message);
+      }
   };
 
   const handleSaveClient = async (e: React.FormEvent) => {
