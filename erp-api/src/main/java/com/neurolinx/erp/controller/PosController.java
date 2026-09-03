@@ -61,4 +61,35 @@ public class PosController {
         
         return ResponseEntity.ok(order);
     }
+
+    @PostMapping("/categories")
+    public ResponseEntity<?> createCategory(@RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body("Company not found");
+        DishCategory cat = new DishCategory();
+        cat.setName((String) payload.get("name"));
+        cat.setCompany(company);
+        return ResponseEntity.ok(categoryRepo.save(cat));
+    }
+
+    @PostMapping("/dishes")
+    public ResponseEntity<?> createDish(@RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body("Company not found");
+        Dish dish = new Dish();
+        dish.setName((String) payload.get("name"));
+        dish.setPrice(new BigDecimal(payload.get("price").toString()));
+        Long catId = Long.parseLong(payload.get("categoryId").toString());
+        dish.setCategory(categoryRepo.findById(catId).orElse(null));
+        dish.setCompany(company);
+        return ResponseEntity.ok(dishRepo.save(dish));
+    }
+
+    @PutMapping("/dishes/{id}/availability")
+    public ResponseEntity<?> toggleDishAvailability(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        return dishRepo.findById(id).map(dish -> {
+            dish.setIsAvailable((Boolean) payload.get("isAvailable"));
+            return ResponseEntity.ok(dishRepo.save(dish));
+        }).orElse(ResponseEntity.notFound().build());
+    }
 }
