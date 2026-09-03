@@ -25,6 +25,25 @@ public class DataSeeder {
             try {
                 log.info("Checking and seeding Menu Items...");
 
+                // To prevent duplicates and bad routes, we clear and re-create Restaurant menus natively
+                List<MenuItem> allMenus = menuItemRepository.findAll();
+                boolean needsClean = allMenus.stream().filter(m -> "Restaurant".equals(m.getIndustryType())).count() > 15;
+                
+                if (needsClean) {
+                    log.info("Found duplicate Restaurant menus. Cleaning up...");
+                    List<RolePrivilege> allPrivs = rolePrivilegeRepository.findAll();
+                    for (RolePrivilege rp : allPrivs) {
+                        if (rp.getMenuItem() != null && "Restaurant".equals(rp.getMenuItem().getIndustryType())) {
+                            rolePrivilegeRepository.delete(rp);
+                        }
+                    }
+                    for (MenuItem m : allMenus) {
+                        if ("Restaurant".equals(m.getIndustryType())) {
+                            menuItemRepository.delete(m);
+                        }
+                    }
+                }
+
                 java.util.function.Function<String[], MenuItem> seedMenu = (String[] data) -> {
                     String name = data[0];
                     String route = data[1];
