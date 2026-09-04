@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.time.Year;
 
 @RestController
 @RequestMapping("/api/pos")
@@ -63,7 +64,21 @@ public class PosController {
         
         CustomerOrder order = new CustomerOrder();
         order.setCompany(company);
-        order.setOrderNumber("ORD-" + System.currentTimeMillis());
+        
+        String yearPrefix = String.valueOf(Year.now().getValue()).substring(2);
+        String nextSequence = "0001";
+        try {
+            CustomerOrder lastOrder = orderRepo.findTopByCompanyOrderByIdDesc(company);
+            if (lastOrder != null && lastOrder.getOrderNumber() != null && lastOrder.getOrderNumber().startsWith(yearPrefix)) {
+                String lastSeqStr = lastOrder.getOrderNumber().substring(2);
+                int lastSeq = Integer.parseInt(lastSeqStr);
+                nextSequence = String.format("%04d", lastSeq + 1);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        order.setOrderNumber(yearPrefix + nextSequence);
+
         order.setOrderType((String) payload.getOrDefault("orderType", "Dine-In"));
         order.setTotalAmount(new BigDecimal(payload.getOrDefault("totalAmount", "0").toString()));
         order.setPaymentMethod((String) payload.get("paymentMethod"));

@@ -82,7 +82,9 @@ const removePrinter = (id: number) => {
     sendEscPos(payload);
   };
 
-  const testCustomerBill = () => {
+  
+  const testCustomerBill = async () => {
+
     const ESC = 0x1b; const GS = 0x1d; const encoder = new TextEncoder();
     
     // We simulate Dine-In bill (needs QR) vs Takeaway
@@ -106,12 +108,10 @@ const removePrinter = (id: number) => {
     let baseCmds = [ESC, 0x40, ESC, 0x61, 0x01]; // init, center
     let textBuffer = encoder.encode(textPayload);
     
-    let qrCommands: number[] = [];
+    let qrCommands: Uint8Array = new Uint8Array(0);
+    // Note: Since this is a test page and we don't fetch settings here, we can't test actual image rasterization here unless we fetch settings. We will just leave it as placeholder for the test bill, or skip it.
     if (isDineIn) {
-        qrCommands = [
-          ...encoder.encode("\nSCAN TO PAY (UPI)\n"),
-          ...encoder.encode("[ QR CODE IMAGE ]\n")
-        ];
+        qrCommands = new Uint8Array([...encoder.encode("\n[ QR CODE prints here for Dine-In ]\n")]);
     }
 
     let footer = [
