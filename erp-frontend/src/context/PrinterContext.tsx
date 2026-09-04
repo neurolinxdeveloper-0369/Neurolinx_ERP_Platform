@@ -118,11 +118,12 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
 
   const sendEscPos = async (payload: Uint8Array) => {
     if (!connectedCharacteristic) {
+      addLog("❌ No active Bluetooth connection.");
       alert("No active Bluetooth connection. Please pair a printer in the Printer Canvas first.");
       return;
     }
     try {
-      const chunkSize = 100; // Safer BLE MTU size
+      const chunkSize = 20; // Absolute safest BLE 4.0 MTU limit
       for (let i = 0; i < payload.length; i += chunkSize) {
         const chunk = payload.slice(i, i + chunkSize);
         if (connectedCharacteristic.properties.writeWithoutResponse) {
@@ -131,9 +132,11 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
           await connectedCharacteristic.writeValue(chunk);
         }
         // Add a tiny delay to prevent overwhelming the printer buffer
-        await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
+      addLog("✅ Print job transmitted successfully!");
     } catch (error: any) {
+      addLog(`❌ Printing failed: ${error.message}`);
       alert(`Printing failed: ${error.message}`);
     }
   };
