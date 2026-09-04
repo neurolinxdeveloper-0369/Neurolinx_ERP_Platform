@@ -32,10 +32,30 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
       });
 
       addLog(`Selected device: ${device.name}`);
-      const server = await device.gatt.connect();
-      addLog("GATT Server connected. Discovering services...");
-      const services = await server.getPrimaryServices();
-      addLog(`Found ${services.length} services.`);
+      
+      let server;
+      let services;
+      let retries = 3;
+      
+      while (retries > 0) {
+        try {
+          server = await device.gatt.connect();
+          addLog("GATT Server connected. Stabilizing connection...");
+          
+          // CRITICAL: Many thermal printers drop GATT if queried immediately. Wait 1500ms.
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          addLog("Discovering services...");
+          services = await server.getPrimaryServices();
+          addLog(`Found ${services.length} services.`);
+          break;
+        } catch (e: any) {
+          retries--;
+          addLog(`GATT dropped during discovery. Retrying... (${retries} left)`);
+          if (retries === 0) throw e;
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
 
       let characteristicFound = null;
       for (const service of services) {
