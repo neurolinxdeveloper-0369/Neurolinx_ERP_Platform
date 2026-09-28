@@ -12,7 +12,8 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleSuccessRedirect = (data: any, userEmail: string) => {
-    localStorage.clear(); // Clear previous session data
+    // Clear only session auth keys to avoid wiping offline restaurant and order cache
+    ['token', 'refreshToken', 'username', 'role', 'industryType', 'companySlug', 'companyName', 'companyLogo'].forEach(k => localStorage.removeItem(k));
     localStorage.setItem('token', data.token);
     if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('username', userEmail);

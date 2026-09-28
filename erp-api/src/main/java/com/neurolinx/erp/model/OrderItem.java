@@ -2,8 +2,12 @@ package com.neurolinx.erp.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Entity
 @Table(name = "order_items")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class OrderItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -11,6 +15,7 @@ public class OrderItem {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonIgnore
     private CustomerOrder order;
     
     @ManyToOne(fetch = FetchType.LAZY)

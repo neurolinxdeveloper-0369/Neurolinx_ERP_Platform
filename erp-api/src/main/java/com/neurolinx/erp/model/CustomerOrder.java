@@ -1,11 +1,14 @@
 package com.neurolinx.erp.model;
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
 @Table(name = "customer_orders")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class CustomerOrder {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,6 +33,7 @@ public class CustomerOrder {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
+    @JsonIgnore
     private Company company;
     
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)

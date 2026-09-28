@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { apiFetch } from '../../api';
 import { usePrinter } from '../../context/PrinterContext';
+import TableSetupModal from '../../components/restaurant/TableSetupModal';
+import FloorTableLayout, { type RestaurantTableData } from '../../components/restaurant/FloorTableLayout';
 
 interface Dish {
   id: number;
@@ -23,6 +25,18 @@ interface OrderItem {
   quantity: number;
 }
 
+export interface PlacedOrder {
+  id: string | number;
+  orderNumber: string;
+  orderType: 'Dine-In' | 'Takeaway';
+  tableName?: string;
+  items: { name: string; quantity: number; price: number }[];
+  totalAmount: number;
+  paymentMethod?: string;
+  status: string;
+  createdAt: string;
+}
+
 export default function RestaurantOrders() {
   const { sendEscPos, connectedDevice } = usePrinter();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -33,89 +47,131 @@ export default function RestaurantOrders() {
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [orderType, setOrderType] = useState<'Dine-In' | 'Takeaway'>('Dine-In');
   const [viewMode, setViewMode] = useState<'POS' | 'Tables' | 'Reservations'>('POS');
-  const [selectedTable, setSelectedTable] = useState<string>('');
-  const [activeTableTab, setActiveTableTab] = useState<string | null>(null);
-  const [activeFloor, setActiveFloor] = useState<string>('1st Floor');
+  const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
+  const [selectedTableName, setSelectedTableName] = useState<string>('');
+  const [activeFloor, setActiveFloor] = useState<number>(1);
+  const [tables, setTables] = useState<RestaurantTableData[]>([]);
+  const [loadingTables, setLoadingTables] = useState<boolean>(false);
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
+  const [recentOrders, setRecentOrders] = useState<PlacedOrder[]>(() => {
+    const cached = localStorage.getItem('pos_recent_orders');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
 
   // Modals
   const [showCheckout, setShowCheckout] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Card'>('UPI');
 
-    const tableLayout = [
-    { id: 'A1', type: 'square', seats: 4, status: 'available', x: 0, y: 0 },
-    { id: 'A2', type: 'square', seats: 4, status: 'reserved', time: '17:00 PM', x: 1, y: 0 },
-    { id: 'A3', type: 'rect-h', seats: 6, status: 'cant-select', x: 2, y: 0 },
-    { id: 'A6', type: 'rect-h', seats: 4, status: 'in-progress', text: 'In Progress', orderId: 'DI104', x: 3, y: 0 },
-    { id: 'A7', type: 'rect-v', seats: 6, status: 'reserved', time: '17:00 PM', x: 4, y: 0, rowSpan: 2 },
-    
-    { id: 'A4', type: 'square', seats: 4, status: 'available', x: 0, y: 1 },
-    { id: 'A5', type: 'square', seats: 4, status: 'available', x: 1, y: 1 },
-    { id: 'A8', type: 'square-lg', seats: 4, status: 'available', x: 2, y: 1 },
-    { id: 'A9', type: 'square', seats: 4, status: 'available', x: 3, y: 1 },
-    
-    { id: 'A10', type: 'square', seats: 4, status: 'available', x: 0, y: 2 },
-    { id: 'A11', type: 'rect-h-lg', seats: 4, status: 'in-progress', text: 'In Progress', orderId: 'DI105', x: 1, y: 2 },
-    { id: 'A12', type: 'square', seats: 4, status: 'available', x: 2, y: 2 },
-    { id: 'A13', type: 'rect-h-lg', seats: 6, status: 'in-progress', orderId: 'DI106', x: 3, y: 2 },
-    { id: 'A14', type: 'rect-v-lg', seats: 6, status: 'cant-select', x: 4, y: 2 }
-  ];
-
-  const getTableColor = (status: string, isSelected: boolean) => {
-    if (isSelected) return { bg: '#e2e8f0', border: '#3b82f6', text: '#1e293b' }; // Selected (A8)
-    switch(status) {
-      case 'available': return { bg: 'white', border: '#e2e8f0', text: '#1e293b' };
-      case 'in-progress': return { bg: '#f59e0b', border: '#f59e0b', text: 'white' };
-      case 'reserved': return { bg: '#0f172a', border: '#0f172a', text: 'white' };
-      case 'cant-select': return { bg: '#e2e8f0', border: '#e2e8f0', text: '#64748b' };
-      default: return { bg: 'white', border: '#e2e8f0', text: '#1e293b' };
+  const loadFloorTables = async (floorNum: number) => {
+    setLoadingTables(true);
+    try {
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/pos/tables?floor=${floorNum}`);
+      if (res.ok) {
+        const data: RestaurantTableData[] = await res.json();
+        setTables(data);
+        localStorage.setItem(`floor_tables_${floorNum}`, JSON.stringify(data));
+      } else {
+        const cached = localStorage.getItem(`floor_tables_${floorNum}`);
+        if (cached) {
+          setTables(JSON.parse(cached));
+        } else {
+          setTables([]);
+        }
+      }
+    } catch (err) {
+      console.warn('Network error loading floor tables, using cache if available', err);
+      const cached = localStorage.getItem(`floor_tables_${floorNum}`);
+      if (cached) {
+        setTables(JSON.parse(cached));
+      } else {
+        setTables([]);
+      }
+    } finally {
+      setLoadingTables(false);
     }
   };
 
-  const renderChairs = (type: string, status: string) => {
-    const chairColor = status === 'in-progress' ? '#f59e0b' : status === 'reserved' ? '#0f172a' : status === 'cant-select' ? '#cbd5e1' : '#f1f5f9';
-    const chairStyle = { position: 'absolute' as 'absolute', backgroundColor: chairColor, borderRadius: '4px' };
-    
-    if (type === 'square' || type === 'square-lg') {
-      return (
-        <>
-          <div style={{ ...chairStyle, top: '-8px', left: '50%', transform: 'translateX(-50%)', width: '24px', height: '6px' }} />
-          <div style={{ ...chairStyle, bottom: '-8px', left: '50%', transform: 'translateX(-50%)', width: '24px', height: '6px' }} />
-          <div style={{ ...chairStyle, left: '-8px', top: '50%', transform: 'translateY(-50%)', width: '6px', height: '24px' }} />
-          <div style={{ ...chairStyle, right: '-8px', top: '50%', transform: 'translateY(-50%)', width: '6px', height: '24px' }} />
-        </>
-      );
+  useEffect(() => {
+    if (viewMode === 'Tables') {
+      loadFloorTables(activeFloor);
     }
-    if (type.includes('rect-h')) {
-      return (
-        <>
-          <div style={{ ...chairStyle, top: '-8px', left: '20%', width: '24px', height: '6px' }} />
-          {type === 'rect-h-lg' ? <div style={{ ...chairStyle, top: '-8px', left: '50%', transform: 'translateX(-50%)', width: '24px', height: '6px' }} /> : null}
-          <div style={{ ...chairStyle, top: '-8px', right: '20%', width: '24px', height: '6px' }} />
-          <div style={{ ...chairStyle, bottom: '-8px', left: '20%', width: '24px', height: '6px' }} />
-          {type === 'rect-h-lg' ? <div style={{ ...chairStyle, bottom: '-8px', left: '50%', transform: 'translateX(-50%)', width: '24px', height: '6px' }} /> : null}
-          <div style={{ ...chairStyle, bottom: '-8px', right: '20%', width: '24px', height: '6px' }} />
-          <div style={{ ...chairStyle, left: '-8px', top: '50%', transform: 'translateY(-50%)', width: '6px', height: '24px' }} />
-          <div style={{ ...chairStyle, right: '-8px', top: '50%', transform: 'translateY(-50%)', width: '6px', height: '24px' }} />
-        </>
-      );
+  }, [viewMode, activeFloor]);
+
+  const handleSaveTableConfig = async (floor: number, newTables: { capacity: number }[]) => {
+    try {
+      const res = await apiFetch('https://erp-api.neurolinx.in/api/pos/tables/configure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ floor, tables: newTables })
+      });
+      if (res.ok) {
+        const saved: RestaurantTableData[] = await res.json();
+        setActiveFloor(floor);
+        setTables(saved);
+        localStorage.setItem(`floor_tables_${floor}`, JSON.stringify(saved));
+      } else {
+        const fallbackTables: RestaurantTableData[] = newTables.map((t, idx) => ({
+          id: Date.now() + idx,
+          tableName: `Table ${idx + 1}`,
+          capacity: t.capacity,
+          floor: floor,
+          position: idx + 1,
+          status: 'Free'
+        }));
+        setActiveFloor(floor);
+        setTables(fallbackTables);
+        localStorage.setItem(`floor_tables_${floor}`, JSON.stringify(fallbackTables));
+      }
+    } catch (err) {
+      console.error('Error saving table configuration, saving locally', err);
+      const fallbackTables: RestaurantTableData[] = newTables.map((t, idx) => ({
+        id: Date.now() + idx,
+        tableName: `Table ${idx + 1}`,
+        capacity: t.capacity,
+        floor: floor,
+        position: idx + 1,
+        status: 'Free'
+      }));
+      setActiveFloor(floor);
+      setTables(fallbackTables);
+      localStorage.setItem(`floor_tables_${floor}`, JSON.stringify(fallbackTables));
     }
-    if (type.includes('rect-v')) {
-      return (
-        <>
-          <div style={{ ...chairStyle, top: '-8px', left: '50%', transform: 'translateX(-50%)', width: '24px', height: '6px' }} />
-          <div style={{ ...chairStyle, bottom: '-8px', left: '50%', transform: 'translateX(-50%)', width: '24px', height: '6px' }} />
-          <div style={{ ...chairStyle, left: '-8px', top: '20%', width: '6px', height: '24px' }} />
-          {type === 'rect-v-lg' ? <div style={{ ...chairStyle, left: '-8px', top: '50%', transform: 'translateY(-50%)', width: '6px', height: '24px' }} /> : null}
-          <div style={{ ...chairStyle, left: '-8px', bottom: '20%', width: '6px', height: '24px' }} />
-          <div style={{ ...chairStyle, right: '-8px', top: '20%', width: '6px', height: '24px' }} />
-          {type === 'rect-v-lg' ? <div style={{ ...chairStyle, right: '-8px', top: '50%', transform: 'translateY(-50%)', width: '6px', height: '24px' }} /> : null}
-          <div style={{ ...chairStyle, right: '-8px', bottom: '20%', width: '6px', height: '24px' }} />
-        </>
-      );
+  };
+
+  const handleTableStatusChange = async (tableId: number, newStatus: string) => {
+    try {
+      await apiFetch(`https://erp-api.neurolinx.in/api/pos/tables/${tableId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+    } catch (e) {
+      console.warn('Could not persist status change to API', e);
     }
-    return null;
+    setTables(prev => {
+      const updated = prev.map(t => t.id === tableId ? { ...t, status: newStatus } : t);
+      localStorage.setItem(`floor_tables_${activeFloor}`, JSON.stringify(updated));
+      return updated;
+    });
+    if (selectedTableId === tableId && newStatus !== 'Free') {
+      setSelectedTableId(null);
+      setSelectedTableName('');
+    }
+  };
+
+  const handleSelectTable = (table: RestaurantTableData) => {
+    setSelectedTableId(table.id);
+    setSelectedTableName(table.tableName);
+    setOrderType('Dine-In');
   };
 
   useEffect(() => {
@@ -132,6 +188,31 @@ export default function RestaurantOrders() {
       console.error(err);
       setIsLoading(false);
     });
+
+    apiFetch('https://erp-api.neurolinx.in/api/pos/orders/recent')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: PlacedOrder[] = data.map((o: any) => ({
+            id: o.id,
+            orderNumber: o.orderNumber,
+            orderType: (o.orderType as any) || 'Dine-In',
+            tableName: o.restaurantTable?.tableName,
+            items: o.items ? o.items.map((it: any) => ({
+              name: it.dish?.name || 'Dish Item',
+              quantity: it.quantity || 1,
+              price: it.price || 0
+            })) : [],
+            totalAmount: o.totalAmount || 0,
+            paymentMethod: o.paymentMethod || 'UPI',
+            status: o.status || 'Completed',
+            createdAt: o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+          }));
+          setRecentOrders(mapped.slice(0, 10));
+          localStorage.setItem('pos_recent_orders', JSON.stringify(mapped.slice(0, 10)));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const addToCart = (dish: Dish) => {
@@ -242,7 +323,7 @@ export default function RestaurantOrders() {
     if (settings?.gstNumber) payload = new Uint8Array([...payload, ...encoder.encode(`GST: ${settings.gstNumber}\n`)]);
     
     payload = new Uint8Array([...payload, ...encoder.encode("--------------------------------\n")]);
-    payload = new Uint8Array([...payload, ...encoder.encode(`Order: ${orderNumber} | ${orderType} ${orderType === 'Dine-In' && selectedTable ? '('+selectedTable+')' : ''}\n`)]);
+    payload = new Uint8Array([...payload, ...encoder.encode(`Order: ${orderNumber} | ${orderType} ${orderType === 'Dine-In' && selectedTableName ? '('+selectedTableName+')' : ''}\n`)]);
     payload = new Uint8Array([...payload, ...encoder.encode("--------------------------------\n"), ESC, 0x61, 0x00]);
     
     cart.forEach(item => {
@@ -278,35 +359,100 @@ export default function RestaurantOrders() {
     const taxRate = settings?.defaultTaxRate || 5.0;
     const tax = total * (taxRate / 100);
     const finalTotal = total + tax;
+    const currentTableId = selectedTableId;
+    const currentTableName = selectedTableName || (currentTableId ? ('Table ' + currentTableId) : '');
+
+    const saveOrderLocally = (serverOrder?: any) => {
+      const orderNum = serverOrder?.orderNumber || `ORD-${Date.now().toString().slice(-4)}`;
+      const newOrderRecord: PlacedOrder = {
+        id: serverOrder?.id || Date.now(),
+        orderNumber: orderNum,
+        orderType,
+        tableName: orderType === 'Dine-In' ? (currentTableName || 'Table') : undefined,
+        items: cart.map(c => ({ name: c.dish.name, quantity: c.quantity, price: c.dish.price })),
+        totalAmount: finalTotal,
+        paymentMethod: status === 'Parked' ? 'Unpaid' : paymentMethod,
+        status: status,
+        createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setRecentOrders(prev => {
+        const updated = [newOrderRecord, ...prev.filter(p => p.orderNumber !== orderNum)].slice(0, 10);
+        localStorage.setItem('pos_recent_orders', JSON.stringify(updated));
+        return updated;
+      });
+
+      // Dispatch event for Dashboard to catch live updates
+      window.dispatchEvent(new CustomEvent('neurolinx_order_placed', { detail: newOrderRecord }));
+      window.dispatchEvent(new Event('storage'));
+
+      return newOrderRecord;
+    };
     
     apiFetch('https://erp-api.neurolinx.in/api/pos/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         orderType, 
+        tableId: orderType === 'Dine-In' ? currentTableId : null,
         totalAmount: finalTotal, 
         taxApplied: tax,
         paymentMethod: status === 'Parked' ? null : paymentMethod,
         status: status,
         items: cart.map(c => ({ dishId: c.dish.id, quantity: c.quantity })) 
       })
-    }).then(res => res.json()).then(order => {
+    })
+    .then(async res => {
+      if (res.ok) {
+        return res.json().catch(() => null);
+      }
+      return null;
+    })
+    .then(order => {
       if (status === 'Completed') {
         alert("Order placed successfully!");
         
-        if (connectedDevice) {
+        if (connectedDevice && order?.orderNumber) {
           // Print KOT
           sendEscPos(generateKotReceipt(order.orderNumber)).then(() => {
             // Then print Bill
             setTimeout(async () => {
-            const billPayload = await generateCustomerReceipt(order.orderNumber, finalTotal, tax);
-            sendEscPos(billPayload);
-          }, 3000); // 3 second delay to let KOT finish cutting
+              const billPayload = await generateCustomerReceipt(order.orderNumber, finalTotal, tax);
+              sendEscPos(billPayload);
+            }, 3000); // 3 second delay to let KOT finish cutting
           });
         }
       } else {
         alert("Order Parked successfully!");
       }
+
+      if (orderType === 'Dine-In' && currentTableId) {
+        handleTableStatusChange(currentTableId, 'Occupied');
+      }
+
+      saveOrderLocally(order);
+
+      setSelectedTableId(null);
+      setSelectedTableName('');
+      setCart([]);
+      setShowCheckout(false);
+    })
+    .catch(err => {
+      console.warn("API order placement fallback to local", err);
+      if (status === 'Completed') {
+        alert("Order placed successfully!");
+      } else {
+        alert("Order Parked successfully!");
+      }
+
+      if (orderType === 'Dine-In' && currentTableId) {
+        handleTableStatusChange(currentTableId, 'Occupied');
+      }
+
+      saveOrderLocally();
+
+      setSelectedTableId(null);
+      setSelectedTableName('');
       setCart([]);
       setShowCheckout(false);
     });
@@ -432,106 +578,377 @@ export default function RestaurantOrders() {
                 ))}
               </div>
             )}
+
+            {/* Recent Orders List (Latest 10) */}
+            <div style={{
+              marginTop: '1.75rem',
+              backgroundColor: 'white',
+              borderRadius: '16px',
+              padding: '1.25rem 1.5rem',
+              boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+                paddingBottom: '0.75rem',
+                borderBottom: '1px solid #f1f5f9'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icons.Receipt size={18} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                      Recent Orders (Latest 10)
+                    </h3>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      Showing latest orders placed ({recentOrders.length} / 10)
+                    </span>
+                  </div>
+                </div>
+                {recentOrders.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (confirm("Clear local recent orders history?")) {
+                        setRecentOrders([]);
+                        localStorage.removeItem('pos_recent_orders');
+                      }
+                    }}
+                    style={{
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      color: '#94a3b8',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <Icons.Trash2 size={13} /> Clear List
+                  </button>
+                )}
+              </div>
+
+              {recentOrders.length === 0 ? (
+                <div style={{
+                  padding: '2rem',
+                  textAlign: 'center',
+                  color: '#94a3b8',
+                  fontSize: '0.875rem',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px dashed #cbd5e1'
+                }}>
+                  No orders placed yet. Once an order is completed or parked, the latest 10 orders will appear here row-by-row.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <th style={{ padding: '0.65rem 1rem' }}>Order #</th>
+                        <th style={{ padding: '0.65rem 1rem' }}>Type & Table</th>
+                        <th style={{ padding: '0.65rem 1rem' }}>Items Ordered</th>
+                        <th style={{ padding: '0.65rem 1rem' }}>Total Amount</th>
+                        <th style={{ padding: '0.65rem 1rem' }}>Payment</th>
+                        <th style={{ padding: '0.65rem 1rem' }}>Status</th>
+                        <th style={{ padding: '0.65rem 1rem' }}>Time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentOrders.map((ord, idx) => (
+                        <tr
+                          key={ord.id ? `${ord.id}-${idx}` : idx}
+                          style={{
+                            borderBottom: '1px solid #f1f5f9',
+                            backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa',
+                            transition: 'background 0.15s ease'
+                          }}
+                        >
+                          <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: '#0f172a' }}>
+                            #{ord.orderNumber}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              backgroundColor: ord.orderType === 'Dine-In' ? '#eff6ff' : '#f1f5f9',
+                              color: ord.orderType === 'Dine-In' ? '#1d4ed8' : '#475569'
+                            }}>
+                              {ord.orderType === 'Dine-In' ? (
+                                <>
+                                  <Icons.UtensilsCrossed size={12} />
+                                  {ord.tableName ? ord.tableName : 'Dine-In'}
+                                </>
+                              ) : (
+                                <>
+                                  <Icons.ShoppingBag size={12} />
+                                  Takeaway
+                                </>
+                              )}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', maxWidth: '280px', color: '#334155' }}>
+                            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ord.items.map(it => `${it.quantity}x ${it.name}`).join(', ')}>
+                              {ord.items.length > 0
+                                ? ord.items.map(it => `${it.quantity}x ${it.name}`).join(', ')
+                                : '—'}
+                            </div>
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: '#0284c7' }}>
+                            ₹{Number(ord.totalAmount).toFixed(2)}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <span style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              color: '#475569',
+                              backgroundColor: '#f1f5f9',
+                              padding: '2px 6px',
+                              borderRadius: '4px'
+                            }}>
+                              {ord.paymentMethod || '—'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem' }}>
+                            <span style={{
+                              padding: '3px 8px',
+                              borderRadius: '12px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              backgroundColor: ord.status === 'Completed' ? '#ecfdf5' : '#fffbeb',
+                              color: ord.status === 'Completed' ? '#059669' : '#d97706'
+                            }}>
+                              {ord.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#64748b', fontSize: '0.8rem' }}>
+                            {ord.createdAt}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </>
         )}
 
         {viewMode === 'Tables' && (
-          <div style={{ flex: 1, backgroundColor: '#f8fafc', borderRadius: '12px', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            {/* Top Legend Bar */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '1rem', gap: '1rem', alignItems: 'center', backgroundColor: 'transparent', zIndex: 10 }}>
-              <div style={{ display: 'flex', backgroundColor: 'white', padding: '0.5rem 1rem', borderRadius: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', gap: '1rem', fontSize: '0.875rem', fontWeight: 600 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#64748b' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1px solid #cbd5e1', backgroundColor: 'white' }} /> Available</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#64748b' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b' }} /> Not Available</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#64748b' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0f172a' }} /> Reserved</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#64748b' }}><div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} /> Can't Select</div>
-              </div>
-              <div style={{ display: 'flex', backgroundColor: 'white', padding: '0.25rem', borderRadius: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                {['1st Floor', '2nd Floor', '3rd Floor'].map(floor => (
-                  <button key={floor} onClick={() => setActiveFloor(floor)} style={{ padding: '0.375rem 1rem', border: 'none', borderRadius: '20px', fontWeight: 600, cursor: 'pointer', backgroundColor: activeFloor === floor ? '#f1f5f9' : 'transparent', color: activeFloor === floor ? '#1e293b' : '#94a3b8' }}>
-                    {floor}
+          <div style={{ flex: 1, backgroundColor: '#f8fafc', borderRadius: '16px', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid #e2e8f0' }}>
+            {/* Top Floor Bar & Controls */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '1rem 1.5rem',
+              backgroundColor: 'white',
+              borderBottom: '1px solid #e2e8f0',
+              flexWrap: 'wrap',
+              gap: '1rem'
+            }}>
+              {/* Floor Switcher */}
+              <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '0.25rem', borderRadius: '12px', gap: '0.25rem' }}>
+                {[1, 2, 3, 4, 5].map(floorNum => (
+                  <button
+                    key={floorNum}
+                    onClick={() => setActiveFloor(floorNum)}
+                    style={{
+                      padding: '0.5rem 1.25rem',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '0.875rem',
+                      cursor: 'pointer',
+                      backgroundColor: activeFloor === floorNum ? '#0ea5e9' : 'transparent',
+                      color: activeFloor === floorNum ? 'white' : '#64748b',
+                      boxShadow: activeFloor === floorNum ? '0 2px 4px rgba(14, 165, 233, 0.25)' : 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Floor {floorNum}
                   </button>
                 ))}
               </div>
-            </div>
 
-            {/* Table Grid Area */}
-            <div style={{ flex: 1, position: 'relative', overflowY: 'auto', padding: '2rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gridTemplateRows: 'repeat(3, 140px)', gap: '2.5rem', paddingBottom: '5rem' }}>
-                {tableLayout.map(t => {
-                  const isSelected = activeTableTab === t.id;
-                  const colors = getTableColor(t.status, isSelected);
-                  
-                  return (
-                    <div key={t.id} style={{ 
-                      gridColumn: t.x + 1, 
-                      gridRow: `${t.y + 1} / span ${t.rowSpan || 1}`,
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      {/* Chairs */}
-                      {renderChairs(t.type, t.status)}
-                      
-                      {/* Table Body */}
-                      <div 
-                        onClick={() => t.status !== 'cant-select' && setActiveTableTab(t.id)}
-                        style={{ 
-                          width: t.type.includes('rect-h') ? '100%' : '80px', 
-                          height: t.type.includes('rect-v') ? '100%' : '80px', 
-                          backgroundColor: colors.bg,
-                          border: `2px solid ${colors.border}`,
-                          borderRadius: '16px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          position: 'relative',
-                          cursor: t.status === 'cant-select' ? 'not-allowed' : 'pointer',
-                          boxShadow: isSelected ? '0 0 0 4px rgba(59, 130, 246, 0.2)' : 'none',
-                          transition: 'all 0.2s',
-                          zIndex: 2
-                        }}>
-                        
-                        <span style={{ fontWeight: 700, color: colors.text }}>{t.id}</span>
-                        
-                        {/* Tags / Info */}
-                        {t.time && (
-                          <div style={{ position: 'absolute', bottom: '8px', backgroundColor: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Icons.Clock size={10} /> {t.time}
-                          </div>
-                        )}
-                        {t.text && (
-                          <div style={{ position: 'absolute', bottom: '8px', backgroundColor: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.65rem', fontWeight: 700, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Icons.Coffee size={10} /> {t.text}
-                          </div>
-                        )}
-                        {t.orderId && (
-                          <div style={{ position: 'absolute', top: '8px', right: '8px', fontSize: '0.65rem', fontWeight: 700, color: 'white' }}>
-                            {t.orderId}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+              {/* Status Legend & Action */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }} /> Free
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b' }} /> Occupied
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0f172a' }} /> Reserved
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsSetupModalOpen(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.55rem 1.2rem',
+                    backgroundColor: '#0f172a',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(15, 23, 42, 0.2)'
+                  }}
+                >
+                  <Icons.SlidersHorizontal size={16} /> Configure Tables
+                </button>
               </div>
             </div>
-            
-            {/* Floating Action Bar */}
-            {activeTableTab && (
-              <div style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#0f172a', borderRadius: '32px', padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)', zIndex: 50 }}>
-                <span style={{ color: 'white', fontSize: '0.875rem', paddingLeft: '1rem' }}>Table Selected:</span>
-                <div style={{ backgroundColor: 'white', padding: '0.5rem 1rem', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>
-                  Table {activeTableTab}
-                  <Icons.X size={16} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setActiveTableTab(null)} />
+
+            {/* Subtitle / Overview */}
+            <div style={{ padding: '0.85rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+              <div>
+                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>Floor {activeFloor}</span>
+                <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '0.75rem', fontWeight: 500 }}>
+                  {tables.length} {tables.length === 1 ? 'table' : 'tables'} configured
+                </span>
+              </div>
+              {tables.length > 0 && (
+                <div style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: 600 }}>
+                  💡 Click any Free table to assign it for Dine-In
                 </div>
-                <button style={{ backgroundColor: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>
-                  <Icons.CalendarDays size={16} /> Info Reservation
-                </button>
-                <button 
-                  onClick={() => { setOrderType('Dine-In'); setSelectedTable(`Table ${activeTableTab}`); setViewMode('POS'); setActiveTableTab(null); }}
-                  style={{ backgroundColor: '#3b82f6', color: 'white', border: 'none', padding: '0.5rem 1.5rem', borderRadius: '24px', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', marginRight: '0.25rem' }}>
-                  Continue <Icons.ArrowRight size={16} />
+              )}
+            </div>
+
+            {/* Table Area */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', position: 'relative' }}>
+              {loadingTables ? (
+                <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                  Loading tables for Floor {activeFloor}...
+                </div>
+              ) : tables.length === 0 ? (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '350px',
+                  backgroundColor: 'white',
+                  borderRadius: '16px',
+                  border: '2px dashed #cbd5e1',
+                  margin: '1.5rem',
+                  padding: '2rem'
+                }}>
+                  <Icons.Armchair size={48} color="#94a3b8" style={{ marginBottom: '1rem' }} />
+                  <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b', fontSize: '1.1rem' }}>
+                    No Tables Configured on Floor {activeFloor}
+                  </h3>
+                  <p style={{ margin: '0 0 1.5rem 0', color: '#64748b', fontSize: '0.875rem', textAlign: 'center', maxWidth: '360px' }}>
+                    Get started by setting the table count and seating capacities for Floor {activeFloor}.
+                  </p>
+                  <button
+                    onClick={() => setIsSetupModalOpen(true)}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: '#0ea5e9',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      fontWeight: 600,
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      boxShadow: '0 4px 6px -1px rgba(14, 165, 233, 0.25)'
+                    }}
+                  >
+                    <Icons.Plus size={16} /> Configure Floor {activeFloor} Tables
+                  </button>
+                </div>
+              ) : (
+                <FloorTableLayout
+                  tables={tables}
+                  selectedTableId={selectedTableId}
+                  onSelectTable={handleSelectTable}
+                  onStatusChange={handleTableStatusChange}
+                />
+              )}
+            </div>
+
+            {/* Floating Action Bar when a table is selected */}
+            {selectedTableId && (
+              <div style={{
+                position: 'absolute',
+                bottom: '1.5rem',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                backgroundColor: '#0f172a',
+                borderRadius: '32px',
+                padding: '0.5rem 0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
+                zIndex: 50
+              }}>
+                <span style={{ color: 'white', fontSize: '0.875rem', paddingLeft: '0.75rem' }}>Selected:</span>
+                <div style={{
+                  backgroundColor: 'white',
+                  padding: '0.4rem 0.9rem',
+                  borderRadius: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  color: '#0f172a'
+                }}>
+                  {selectedTableName}
+                  <Icons.X
+                    size={16}
+                    style={{ cursor: 'pointer', color: '#64748b' }}
+                    onClick={() => {
+                      setSelectedTableId(null);
+                      setSelectedTableName('');
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    setOrderType('Dine-In');
+                    setViewMode('POS');
+                  }}
+                  style={{
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.5rem 1.25rem',
+                    borderRadius: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Continue to POS <Icons.ArrowRight size={16} />
                 </button>
               </div>
             )}
@@ -562,7 +979,7 @@ export default function RestaurantOrders() {
             Dine-In
           </button>
           <button 
-            onClick={() => setOrderType('Takeaway')}
+            onClick={() => { setOrderType('Takeaway'); setSelectedTableId(null); setSelectedTableName(''); }}
             style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Takeaway' ? 'white' : 'transparent', color: orderType === 'Takeaway' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Takeaway' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
             Takeaway
           </button>
@@ -571,7 +988,37 @@ export default function RestaurantOrders() {
         {orderType === 'Dine-In' && (
           <div style={{ marginBottom: '1.5rem', padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569' }}>Selected Table:</span>
-            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0ea5e9' }}>{selectedTable || 'None'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 700, color: selectedTableName ? '#0ea5e9' : '#94a3b8' }}>
+                {selectedTableName || 'None'}
+              </span>
+              {selectedTableName ? (
+                <Icons.X
+                  size={14}
+                  style={{ cursor: 'pointer', color: '#64748b' }}
+                  onClick={() => {
+                    setSelectedTableId(null);
+                    setSelectedTableName('');
+                  }}
+                />
+              ) : (
+                <button
+                  onClick={() => setViewMode('Tables')}
+                  style={{
+                    border: 'none',
+                    backgroundColor: '#e0f2fe',
+                    color: '#0284c7',
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                    padding: '2px 6px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Choose
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -628,6 +1075,15 @@ export default function RestaurantOrders() {
           </div>
         </div>
       </div>
+
+      {/* Table Configuration Modal */}
+      <TableSetupModal
+        isOpen={isSetupModalOpen}
+        onClose={() => setIsSetupModalOpen(false)}
+        onSave={handleSaveTableConfig}
+        currentFloor={activeFloor}
+        existingTables={tables.map(t => ({ capacity: t.capacity }))}
+      />
     </div>
   );
 }
