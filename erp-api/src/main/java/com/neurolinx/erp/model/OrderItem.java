@@ -19,8 +19,10 @@ public class OrderItem {
     private CustomerOrder order;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dish_id", nullable = false)
+    @JoinColumn(name = "dish_id")
     private Dish dish;
+    
+    private String dishName;
     
     @Column(nullable = false)
     private Integer quantity;
@@ -41,4 +43,6 @@ public class OrderItem {
     public void setPrice(BigDecimal price) { this.price = price; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public String getDishName() { return dishName; }
+    public void setDishName(String dishName) { this.dishName = dishName; }
 }

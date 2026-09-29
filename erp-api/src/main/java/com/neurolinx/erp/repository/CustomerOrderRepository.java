@@ -9,6 +9,7 @@ import java.util.List;
 public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Long> {
     List<CustomerOrder> findByCompany(Company company);
     CustomerOrder findTopByCompanyOrderByIdDesc(Company company);
+    CustomerOrder findTopByOrderByIdDesc();
     List<CustomerOrder> findTop10ByCompanyOrderByIdDesc(Company company);
     boolean existsByRestaurantTable(RestaurantTable restaurantTable);
     List<CustomerOrder> findByCompanyAndCreatedAtBetween(Company company, LocalDateTime start, LocalDateTime end);

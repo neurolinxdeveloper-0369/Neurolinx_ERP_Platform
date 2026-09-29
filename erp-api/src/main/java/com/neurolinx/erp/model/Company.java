@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "companies")
 public class Company {
+    private String subdomain;
+    public String getSubdomain() { return subdomain; }
+    public void setSubdomain(String subdomain) { this.subdomain = subdomain; }
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
