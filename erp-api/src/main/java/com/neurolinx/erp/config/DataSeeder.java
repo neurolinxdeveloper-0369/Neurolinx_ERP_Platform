@@ -81,6 +81,7 @@ public class DataSeeder {
                 MenuItem staff = seedMenu.apply(new String[]{"Staff", "/res-staff", "user-cog", "Restaurant", null});
                 MenuItem support = seedMenu.apply(new String[]{"Support", "/res-support", "life-buoy", "Restaurant", null});
                 MenuItem printer = seedMenu.apply(new String[]{"Printer Canvas", "/res-printers", "printer", "Restaurant", null});
+                MenuItem branches = seedMenu.apply(new String[]{"Branches", "/res-branches", "store", "Restaurant", null});
                 MenuItem settings = seedMenu.apply(new String[]{"Settings", "/res-settings", "settings", "Restaurant", null});
                 
                 log.info("Menu Items seeded successfully!");

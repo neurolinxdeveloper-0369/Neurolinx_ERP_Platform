@@ -23,6 +23,7 @@ import WasteManagement from './pages/restaurant/Waste';
 import Staff from './pages/restaurant/Staff';
 import Analytics from './pages/restaurant/Analytics';
 import KitchenDisplay from './pages/restaurant/Kitchen';
+import Branches from './pages/restaurant/Branches';
 import PlaceholderModule from './components/PlaceholderModule';
 
 function App() {
@@ -57,6 +58,7 @@ function App() {
               <Route path="/res-staff" element={<Staff />} />
               <Route path="/res-support" element={<PlaceholderModule title="Support" iconName="LifeBuoy" description="Contact Neurolinx support for help and troubleshooting." />} />
               <Route path="/res-printers" element={<PrinterCanvas />} />
+              <Route path="/res-branches" element={<Branches />} />
               <Route path="/res-settings" element={<RestaurantSettings />} />
               <Route path="/hybs-dashboard" element={<PlaceholderModule title="Hybrid Dashboard" iconName="LayoutDashboard" description="Hybrid Software & Hardware Dashboard is under construction." />} />
           </Route>

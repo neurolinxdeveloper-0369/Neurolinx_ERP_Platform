@@ -6,6 +6,11 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "ingredients")
 public class Ingredient {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id", nullable = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Branch branch;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -20,6 +25,9 @@ public class Ingredient {
     private String unit; // e.g. "kg", "g", "liter", "ml", "pcs"
 
     public Ingredient() {}
+    public Branch getBranch() { return branch; }
+    public void setBranch(Branch branch) { this.branch = branch; }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getName() { return name; }

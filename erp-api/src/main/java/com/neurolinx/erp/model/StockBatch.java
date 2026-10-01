@@ -9,6 +9,11 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "stock_batches")
 public class StockBatch {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id", nullable = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Branch branch;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -42,6 +47,9 @@ public class StockBatch {
     private LocalDateTime receivedAt = LocalDateTime.now();
 
     public StockBatch() {}
+
+    public Branch getBranch() { return branch; }
+    public void setBranch(Branch branch) { this.branch = branch; }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

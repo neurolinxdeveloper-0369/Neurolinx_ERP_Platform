@@ -6,6 +6,11 @@ export const apiFetch = async (url: string, options: RequestInit = {}) => {
     headers.set('Authorization', `Bearer ${token}`);
   }
   
+  const branchId = localStorage.getItem('activeBranchId');
+  if (branchId && branchId !== 'global') {
+    headers.set('X-Branch-Id', branchId);
+  }
+  
   let res = await fetch(url, { ...options, headers });
   
   if ((res.status === 401 || res.status === 403) && token && !url.includes('/api/auth/')) {

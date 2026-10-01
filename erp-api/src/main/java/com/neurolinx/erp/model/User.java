@@ -4,6 +4,11 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "users")
 public class User {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id", nullable = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Branch branch;
+
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String email;
@@ -20,6 +25,9 @@ public class User {
     public User() {}
     public User(String email, String password) { this.email = email; this.password = password; }
     
+    public Branch getBranch() { return branch; }
+    public void setBranch(Branch branch) { this.branch = branch; }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getEmail() { return email; }

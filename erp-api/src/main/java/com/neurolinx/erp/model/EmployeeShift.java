@@ -31,9 +31,17 @@ public class EmployeeShift {
     private String attendanceStatus = "Scheduled"; // Scheduled, Present, Absent, On Leave, Half Day
 
     @Column(nullable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id", nullable = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Branch branch;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public EmployeeShift() {}
+
+    public Branch getBranch() { return branch; }
+    public void setBranch(Branch branch) { this.branch = branch; }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

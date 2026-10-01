@@ -28,6 +28,11 @@ public class CustomerOrder {
     private BigDecimal taxApplied = BigDecimal.ZERO;
 
     @Column(nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id", nullable = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Branch branch;
+
     private LocalDateTime createdAt = LocalDateTime.now();
     
     @ManyToOne(fetch = FetchType.LAZY)
@@ -43,6 +48,9 @@ public class CustomerOrder {
     private List<OrderItem> items;
 
     public CustomerOrder() {}
+    public Branch getBranch() { return branch; }
+    public void setBranch(Branch branch) { this.branch = branch; }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getOrderNumber() { return orderNumber; }
