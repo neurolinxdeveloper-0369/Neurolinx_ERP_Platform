@@ -240,6 +240,13 @@ public class PosController {
         return ResponseEntity.ok(order);
     }
 
+    @GetMapping("/orders/all")
+    public ResponseEntity<?> getAllOrders() {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user"));
+        return ResponseEntity.ok(orderRepo.findByCompany(company));
+    }
+
     @GetMapping("/orders/recent")
     public ResponseEntity<?> getRecentOrders() {
         Company company = getUserCompany();

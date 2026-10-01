@@ -21,6 +21,7 @@ import Purchases from './pages/restaurant/Purchases';
 import Recipes from './pages/restaurant/Recipes';
 import WasteManagement from './pages/restaurant/Waste';
 import Staff from './pages/restaurant/Staff';
+import Analytics from './pages/restaurant/Analytics';
 import PlaceholderModule from './components/PlaceholderModule';
 
 function App() {
@@ -49,7 +50,7 @@ function App() {
               <Route path="/res-raw-materials" element={<RawMaterials />} />
               <Route path="/res-recipes" element={<Recipes />} />
               <Route path="/res-billing" element={<RestaurantBilling />} />
-              <Route path="/res-analytics" element={<PlaceholderModule title="Analytics" iconName="LineChart" description="Deep dive into sales trends, popular items, and staff performance." />} />
+              <Route path="/res-analytics" element={<Analytics />} />
               <Route path="/res-documents" element={<PlaceholderModule title="Documents" iconName="FileText" description="Store compliance documents, licenses, and contracts." />} />
               <Route path="/res-staff" element={<Staff />} />
               <Route path="/res-support" element={<PlaceholderModule title="Support" iconName="LifeBuoy" description="Contact Neurolinx support for help and troubleshooting." />} />
