@@ -122,118 +122,165 @@ export default function Dashboard() {
   const [orderToast, setOrderToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   /**
-   * Aggregates live orders and server stats.
-   * Server stats from PostgreSQL are authoritative, ensuring all accounts/devices see the exact same metrics.
+   * Aggregates live orders placed from Orders menu (localStorage + API) and backend stats
+   * Ensuring orders placed from tables immediately appear and generate all dashboard metrics!
    */
   const computeDashboardMetrics = useCallback((serverStats?: any, serverOrders?: any[], serverTables?: any[]) => {
-    // 1. Process recent orders: Server orders from PostgreSQL database are authoritative
-    let displayRecentOrders: any[] = [];
-    if (serverOrders && Array.isArray(serverOrders) && serverOrders.length > 0) {
-      displayRecentOrders = serverOrders.map((o: any) => {
-        let tableName = 'Takeaway';
-        if (o.orderType === 'Dine-In') {
-          tableName = o.restaurantTable?.tableName || 'Dine-In';
-        }
-        return {
-          id: o.orderNumber || o.id,
-          orderNumber: o.orderNumber || o.id,
-          table: tableName,
-          orderType: o.orderType || 'Dine-In',
-          time: o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today',
-          amount: Number(o.totalAmount || 0),
-          status: o.status || 'Completed',
-          paymentMethod: o.paymentMethod || 'UPI'
-        };
-      });
-      // Keep local cache in sync with true server orders
-      try {
-        localStorage.setItem('pos_recent_orders', JSON.stringify(displayRecentOrders.slice(0, 10)));
-      } catch (e) {}
-    } else if (serverStats?.recentOrders && Array.isArray(serverStats.recentOrders) && serverStats.recentOrders.length > 0) {
-      displayRecentOrders = serverStats.recentOrders.map((o: any) => ({
-        id: o.orderNumber || o.id,
-        orderNumber: o.orderNumber || o.id,
-        table: o.table || o.orderType || 'Dine-In',
-        orderType: o.orderType || 'Dine-In',
-        time: o.time || 'Today',
-        amount: Number(o.amount || 0),
-        status: o.status || 'Completed',
-        paymentMethod: o.paymentMethod || 'UPI'
-      }));
-    } else {
-      // Offline fallback: load from localStorage
-      try {
-        const cached = localStorage.getItem('pos_recent_orders');
-        if (cached) displayRecentOrders = JSON.parse(cached);
-      } catch (e) {}
+    // 1. Retrieve all locally placed orders from Orders menu
+    let localOrders: any[] = [];
+    try {
+      const cached = localStorage.getItem('pos_recent_orders');
+      if (cached) {
+        localOrders = JSON.parse(cached);
+      }
+    } catch (e) {
+      localOrders = [];
     }
 
-    // 2. Count tables: use server tables if available
+    // 2. Count occupied and total tables across all configured floors
     let activeTablesCount = 0;
     let totalTablesCount = 0;
-    if (serverTables && Array.isArray(serverTables) && serverTables.length > 0) {
-      totalTablesCount = serverTables.length;
-      activeTablesCount = serverTables.filter((t: any) => t.status === 'Occupied').length;
-    } else {
-      try {
-        for (let floor = 1; floor <= 10; floor++) {
-          const floorDataStr = localStorage.getItem(`floor_tables_${floor}`);
-          if (floorDataStr) {
-            const floorTables: any[] = JSON.parse(floorDataStr);
-            if (Array.isArray(floorTables)) {
-              totalTablesCount += floorTables.length;
-              activeTablesCount += floorTables.filter(t => t.status === 'Occupied').length;
-            }
+    try {
+      for (let floor = 1; floor <= 10; floor++) {
+        const floorDataStr = localStorage.getItem(`floor_tables_${floor}`);
+        if (floorDataStr) {
+          const floorTables: any[] = JSON.parse(floorDataStr);
+          if (Array.isArray(floorTables)) {
+            totalTablesCount += floorTables.length;
+            activeTablesCount += floorTables.filter(t => t.status === 'Occupied').length;
           }
         }
-      } catch (e) {}
+      }
+    } catch (e) {
+      console.warn('Local tables count error', e);
     }
 
-    // 3. Metrics: When serverStats is present, it is authoritative from the PostgreSQL database!
-    let todayRevenue = 0;
-    let todayRevenueDineIn = 0;
-    let todayRevenueTakeaway = 0;
-    let todayOrders = 0;
-    let todayOrdersDineIn = 0;
-    let todayOrdersTakeaway = 0;
-    let activeTables = 0;
-    let totalTables = 0;
-    let avgOrderValue = 0;
-    let pendingKots = 0;
-
-    if (serverStats) {
-      todayRevenue = Number(serverStats.todayRevenue || 0);
-      todayRevenueDineIn = Number(serverStats.todayRevenueDineIn || 0);
-      todayRevenueTakeaway = Number(serverStats.todayRevenueTakeaway || 0);
-      todayOrders = Number(serverStats.todayOrders || 0);
-      todayOrdersDineIn = Number(serverStats.todayOrdersDineIn || 0);
-      todayOrdersTakeaway = Number(serverStats.todayOrdersTakeaway || 0);
-      activeTables = serverStats.activeTables !== undefined ? Number(serverStats.activeTables) : activeTablesCount;
-      totalTables = serverStats.totalTables !== undefined ? Number(serverStats.totalTables) : totalTablesCount;
-      avgOrderValue = Number(serverStats.avgOrderValue || 0);
-      pendingKots = Number(serverStats.pendingKots || 0);
-    } else {
-      // Offline fallback: calculate from displayRecentOrders
-      const completedOrders = displayRecentOrders.filter(o => o.status !== 'Cancelled' && o.status !== 'Voided');
-      todayRevenue = completedOrders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
-      todayRevenueDineIn = completedOrders.filter(o => o.orderType === 'Dine-In').reduce((sum, o) => sum + Number(o.amount || 0), 0);
-      todayRevenueTakeaway = completedOrders.filter(o => o.orderType === 'Takeaway').reduce((sum, o) => sum + Number(o.amount || 0), 0);
-      todayOrders = displayRecentOrders.length;
-      todayOrdersDineIn = displayRecentOrders.filter(o => o.orderType === 'Dine-In').length;
-      todayOrdersTakeaway = displayRecentOrders.filter(o => o.orderType === 'Takeaway').length;
-      activeTables = activeTablesCount;
-      totalTables = totalTablesCount > 0 ? totalTablesCount : 6;
-      avgOrderValue = todayOrders > 0 ? todayRevenue / todayOrders : 0;
-      pendingKots = displayRecentOrders.filter(o => ['Pending', 'Parked', 'Preparing', 'Kitchen'].includes(o.status)).length;
+    // Fallback/augment with server tables if available
+    if (serverTables && Array.isArray(serverTables) && serverTables.length > 0) {
+      if (totalTablesCount === 0) totalTablesCount = serverTables.length;
+      const serverOccupied = serverTables.filter((t: any) => t.status === 'Occupied').length;
+      activeTablesCount = Math.max(activeTablesCount, serverOccupied);
     }
 
-    // 4. Weekly Revenue Trend calculation
+    // 3. Build unified de-duplicated recent orders list
+    const orderMap = new Map<string, any>();
+
+    // A. Local orders placed directly in Orders menu or POS
+    localOrders.forEach(o => {
+      const key = String(o.orderNumber || o.id);
+      let tableName = o.tableName;
+      if (!tableName) {
+        tableName = o.orderType === 'Takeaway' ? 'Takeaway' : 'Dine-In';
+      }
+      orderMap.set(key, {
+        id: o.orderNumber || o.id,
+        orderNumber: o.orderNumber || o.id,
+        table: tableName,
+        orderType: o.orderType || 'Dine-In',
+        time: o.createdAt || 'Today',
+        amount: Number(o.totalAmount || 0),
+        status: o.status || 'Completed',
+        paymentMethod: o.paymentMethod || 'UPI'
+      });
+    });
+
+    // B. Orders from server recent endpoint
+    if (serverOrders && Array.isArray(serverOrders)) {
+      serverOrders.forEach((o: any) => {
+        const key = String(o.orderNumber || o.id);
+        if (!orderMap.has(key)) {
+          let tableName = 'Takeaway';
+          if (o.orderType === 'Dine-In') {
+            tableName = o.restaurantTable?.tableName || 'Dine-In';
+          }
+          orderMap.set(key, {
+            id: o.orderNumber || o.id,
+            orderNumber: o.orderNumber || o.id,
+            table: tableName,
+            orderType: o.orderType || 'Dine-In',
+            time: o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today',
+            amount: Number(o.totalAmount || 0),
+            status: o.status || 'Completed',
+            paymentMethod: o.paymentMethod || 'UPI'
+          });
+        }
+      });
+    }
+
+    // C. Orders from serverStats if present
+    if (serverStats?.recentOrders && Array.isArray(serverStats.recentOrders)) {
+      serverStats.recentOrders.forEach((o: any) => {
+        const key = String(o.orderNumber || o.id);
+        if (!orderMap.has(key)) {
+          orderMap.set(key, {
+            id: o.orderNumber || o.id,
+            orderNumber: o.orderNumber || o.id,
+            table: o.table || o.orderType || 'Dine-In',
+            orderType: o.orderType || 'Dine-In',
+            time: o.time || 'Today',
+            amount: Number(o.amount || 0),
+            status: o.status || 'Completed',
+            paymentMethod: o.paymentMethod || 'UPI'
+          });
+        }
+      });
+    }
+
+    const mergedOrders = Array.from(orderMap.values());
+
+    // Also check if any active order occupies a table
+    const occupiedFromOrders = new Set(
+      mergedOrders
+        .filter(o => o.orderType === 'Dine-In' && o.table && !o.table.toLowerCase().includes('takeaway'))
+        .map(o => o.table)
+    );
+    if (occupiedFromOrders.size > activeTablesCount) {
+      activeTablesCount = occupiedFromOrders.size;
+    }
+
+    // 4. Calculate Revenue, Orders, and Breakdown
+    const computedTotalRev = mergedOrders
+      .filter(o => o.status !== 'Cancelled' && o.status !== 'Voided')
+      .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+
+    const computedDineInRev = mergedOrders
+      .filter(o => o.orderType === 'Dine-In' && o.status !== 'Cancelled' && o.status !== 'Voided')
+      .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+
+    const computedTakeawayRev = mergedOrders
+      .filter(o => o.orderType === 'Takeaway' && o.status !== 'Cancelled' && o.status !== 'Voided')
+      .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+
+    const computedDineInCount = mergedOrders.filter(o => o.orderType === 'Dine-In').length;
+    const computedTakeawayCount = mergedOrders.filter(o => o.orderType === 'Takeaway').length;
+
+    const computedPendingKots = mergedOrders.filter(
+      o => o.status === 'Pending' || o.status === 'Parked' || o.status === 'Preparing' || o.status === 'Kitchen'
+    ).length;
+
+    // Use higher value between server calculation and local verified orders
+    const todayRevenue = Math.max(serverStats?.todayRevenue || 0, computedTotalRev);
+    const todayRevenueDineIn = Math.max(serverStats?.todayRevenueDineIn || 0, computedDineInRev);
+    const todayRevenueTakeaway = Math.max(serverStats?.todayRevenueTakeaway || 0, computedTakeawayRev);
+
+    const todayOrders = Math.max(serverStats?.todayOrders || 0, mergedOrders.length);
+    const todayOrdersDineIn = Math.max(serverStats?.todayOrdersDineIn || 0, computedDineInCount);
+    const todayOrdersTakeaway = Math.max(serverStats?.todayOrdersTakeaway || 0, computedTakeawayCount);
+
+    const activeTables = Math.max(serverStats?.activeTables || 0, activeTablesCount);
+    const totalTables = Math.max(serverStats?.totalTables || 0, totalTablesCount, activeTables > 0 ? activeTables : 6);
+
+    const avgOrderValue = todayOrders > 0 ? todayRevenue / todayOrders : 0;
+    const pendingKots = Math.max(serverStats?.pendingKots || 0, computedPendingKots);
+
+    // 5. Weekly Revenue Trend calculation
     const currentDayIdx = (new Date().getDay() + 6) % 7; // 0=Mon, 6=Sun
     const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    let weeklyRevenue = (serverStats?.weeklyRevenue && Array.isArray(serverStats.weeklyRevenue) && serverStats.weeklyRevenue.length === 7)
+    let weeklyRevenue = (serverStats?.weeklyRevenue && serverStats.weeklyRevenue.length === 7)
       ? [...serverStats.weeklyRevenue]
       : dayNames.map(d => ({ day: d, amount: 0, orderCount: 0 }));
 
+    // Ensure today's bar accurately represents today's accumulated revenue
     weeklyRevenue = weeklyRevenue.map((w, idx) => {
       if (idx === currentDayIdx) {
         return {
@@ -256,7 +303,7 @@ export default function Dashboard() {
       totalTables,
       avgOrderValue,
       weeklyRevenue,
-      recentOrders: displayRecentOrders.slice(0, 10),
+      recentOrders: mergedOrders.slice(0, 10),
       pendingKots
     };
   }, []);
@@ -285,7 +332,7 @@ export default function Dashboard() {
         serverTables = await tablesRes.value.json().catch(() => []);
       }
 
-      // Compute authoritative live metrics
+      // Compute aggregated live metrics
       const aggregated = computeDashboardMetrics(serverStats, serverOrders, serverTables);
       setStats(aggregated);
       setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -303,11 +350,6 @@ export default function Dashboard() {
   useEffect(() => {
     fetchStats();
 
-    // Polling interval (every 4 seconds) ensures cross-device and multi-account real-time synchronization
-    const intervalId = setInterval(() => {
-      fetchStats();
-    }, 4000);
-
     // Event listeners to instantly update dashboard whenever an order is placed anywhere (Orders menu, POS, or modal)
     const handleOrderPlaced = () => {
       fetchStats();
@@ -318,7 +360,6 @@ export default function Dashboard() {
     window.addEventListener('focus', handleOrderPlaced);
 
     return () => {
-      clearInterval(intervalId);
       window.removeEventListener('neurolinx_order_placed', handleOrderPlaced);
       window.removeEventListener('storage', handleOrderPlaced);
       window.removeEventListener('focus', handleOrderPlaced);

@@ -31,11 +31,7 @@ export default function MasterLayout() {
 
     if (username === 'admin' || username === 'neurolinxdeveloper@gmail.com') {
       setMenus([
-        { id: 2001, name: "Restaurant Dashboard", route: "/res-dashboard", icon: "utensils", parentId: 0 },
-        { id: 2002, name: "POS & Orders", route: "/res-orders", icon: "shopping-bag", parentId: 0 },
-        { id: 2003, name: "Menu & Inventory", route: "/res-inventory", icon: "box", parentId: 0 },
-        { id: 2004, name: "Restaurant Settings", route: "/res-settings", icon: "printer", parentId: 0 },
-        { id: 1001, name: "Admin Portal", route: "/dashboard", icon: "layout-dashboard", parentId: 0 },
+        { id: 1001, name: "Dashboard", route: "/dashboard", icon: "layout-dashboard", parentId: 0 },
         { id: 1002, name: "Clients", route: "/clients", icon: "users", parentId: 0 },
         { id: 1003, name: "Device Approvals", route: "/approvals", icon: "shield-check", parentId: 0 },
         { id: 1004, name: "Global Modules", route: "/settings", icon: "settings", parentId: 0 }
