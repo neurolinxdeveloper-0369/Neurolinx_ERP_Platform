@@ -20,9 +20,14 @@ public class InventoryController {
     }
 
     @PostMapping("/ingredients")
-    public ResponseEntity<?> addIngredient(@RequestBody Ingredient payload) {
-        if (payload.getStockLevel() == null) payload.setStockLevel(BigDecimal.ZERO);
-        return ResponseEntity.ok(ingredientRepository.save(payload));
+    public ResponseEntity<?> addIngredient(@RequestBody Map<String, Object> payload) {
+        Ingredient ing = new Ingredient();
+        ing.setName(payload.get("name").toString());
+        ing.setUnit(payload.get("unit") != null ? payload.get("unit").toString() : "kg");
+        if (payload.get("stockLevel") != null) {
+            ing.setStockLevel(new BigDecimal(payload.get("stockLevel").toString()));
+        }
+        return ResponseEntity.ok(ingredientRepository.save(ing));
     }
 
     @PutMapping("/ingredients/{id}")
