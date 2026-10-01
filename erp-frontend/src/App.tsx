@@ -16,6 +16,8 @@ import RestaurantOrders from './pages/restaurant/Orders';
 import RestaurantInventory from './pages/restaurant/Inventory';
 import RawMaterials from './pages/restaurant/RawMaterials';
 import RestaurantBilling from './pages/restaurant/Billing';
+import Vendors from './pages/restaurant/Vendors';
+import Purchases from './pages/restaurant/Purchases';
 import PlaceholderModule from './components/PlaceholderModule';
 
 function App() {
@@ -39,7 +41,8 @@ function App() {
               <Route path="/res-orders" element={<RestaurantOrders />} />
               <Route path="/res-inventory" element={<RestaurantInventory />} />
               <Route path="/res-waste" element={<PlaceholderModule title="Waste Management" iconName="Trash2" description="Track and analyze kitchen waste and spoilage." />} />
-              <Route path="/res-vendors" element={<PlaceholderModule title="Vendor Management" iconName="Users" description="Manage suppliers, purchase orders, and supplier payments." />} />
+              <Route path="/res-vendors" element={<Vendors />} />
+                <Route path="/res-purchases" element={<Purchases />} />
               <Route path="/res-raw-materials" element={<RawMaterials />} />
               <Route path="/res-recipes" element={<PlaceholderModule title="Recipe Management" iconName="ChefHat" description="Build recipes to automatically deduct raw ingredients on sales." />} />
               <Route path="/res-billing" element={<RestaurantBilling />} />
