@@ -1,22 +1,21 @@
 import os
 
-path = 'erp-frontend/src/pages/restaurant/Inventory.tsx'
+path = 'erp-frontend/src/pages/restaurant/Billing.tsx'
 with open(path, 'r', encoding='utf-8') as f:
     text = f.read()
 
-# Fix the incorrect replacement in the dishes mapping
-text = text.replace("<button onClick={() => deleteCategory(c.id)} style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer' }}><Icons.Trash2 size={16} /></button>\n                      <button onClick={() => handleEditDish(d)}", "<button onClick={() => deleteDish(d.id)} style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer' }}><Icons.Trash2 size={16} /></button>\n                      <button onClick={() => handleEditDish(d)}")
-
-# Remove the unused Icons warning in RawMaterials
-path_rm = 'erp-frontend/src/pages/restaurant/RawMaterials.tsx'
-with open(path_rm, 'r', encoding='utf-8') as f:
-    rm_text = f.read()
-
-rm_text = rm_text.replace("import * as Icons from 'lucide-react';", "")
+text = text.replace("onClick={() => handlePrint(order)}", "onClick={() => handlePrint(ord)}")
 
 with open(path, 'w', encoding='utf-8') as f:
     f.write(text)
 
-with open(path_rm, 'w', encoding='utf-8') as f:
-    f.write(rm_text)
-print("Fixed TS errors")
+path2 = 'erp-frontend/src/pages/restaurant/Kitchen.tsx'
+with open(path2, 'r', encoding='utf-8') as f:
+    text2 = f.read()
+
+text2 = text2.replace("import React, { useState, useEffect } from 'react';", "import { useState, useEffect } from 'react';")
+
+with open(path2, 'w', encoding='utf-8') as f:
+    f.write(text2)
+
+print("Fixed errors")

@@ -247,6 +247,19 @@ public class PosController {
         return ResponseEntity.ok(orderRepo.findByCompany(company));
     }
 
+    @PutMapping("/orders/{id}/kitchen-status")
+    public ResponseEntity<?> updateKitchenStatus(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+        return orderRepo.findById(id).map(order -> {
+            if (!order.getCompany().getId().equals(company.getId())) return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
+            if (payload.containsKey("kitchenStatus")) {
+                order.setKitchenStatus(payload.get("kitchenStatus").toString());
+            }
+            return ResponseEntity.ok(orderRepo.save(order));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/orders/recent")
     public ResponseEntity<?> getRecentOrders() {
         Company company = getUserCompany();

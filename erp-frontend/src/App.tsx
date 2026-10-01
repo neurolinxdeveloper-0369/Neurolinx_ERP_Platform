@@ -22,6 +22,7 @@ import Recipes from './pages/restaurant/Recipes';
 import WasteManagement from './pages/restaurant/Waste';
 import Staff from './pages/restaurant/Staff';
 import Analytics from './pages/restaurant/Analytics';
+import KitchenDisplay from './pages/restaurant/Kitchen';
 import PlaceholderModule from './components/PlaceholderModule';
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
             {/* Client Modules */}
             <Route path="/res-dashboard" element={<RestaurantDashboard />} />
               <Route path="/res-orders" element={<RestaurantOrders />} />
+              <Route path="/res-kitchen" element={<KitchenDisplay />} />
               <Route path="/res-inventory" element={<RestaurantInventory />} />
               <Route path="/res-waste" element={<WasteManagement />} />
               <Route path="/res-vendors" element={<Vendors />} />

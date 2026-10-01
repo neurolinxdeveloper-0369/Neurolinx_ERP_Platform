@@ -63,6 +63,7 @@ public class DataSeeder {
                 // Seed Restaurant Menus
                 MenuItem dashboard = seedMenu.apply(new String[]{"Dashboard", "/res-dashboard", "layout-dashboard", "Restaurant", null});
                 MenuItem orders = seedMenu.apply(new String[]{"Orders", "/res-orders", "clipboard-list", "Restaurant", null});
+                MenuItem kitchen = seedMenu.apply(new String[]{"Kitchen KDS", "/res-kitchen", "monitor-play", "Restaurant", null});
                 
                 // Inventory Dropdown (Parent)
                 MenuItem inventory = seedMenu.apply(new String[]{"Inventory", "#", "archive", "Restaurant", null});
