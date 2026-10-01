@@ -151,7 +151,7 @@ export default function Analytics() {
                   <LineChart data={trendChartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value) => `₹${value}`} dx={-10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value: any) => `₹${value}`} dx={-10} />
                     <Tooltip formatter={(value: any) => [`₹${value.toFixed(2)}`, 'Revenue']} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
                     <Line type="monotone" dataKey="revenue" stroke="#0284c7" strokeWidth={3} dot={{ r: 4, fill: '#0284c7', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
                   </LineChart>
@@ -185,7 +185,7 @@ export default function Analytics() {
                   <ResponsiveContainer>
                     <BarChart data={branchChartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                      <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} />
+                      <XAxis type="number" axisLine={false} tickLine={false} tickFormatter={(value: any) => `₹${value}`} />
                       <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={100} />
                       <Tooltip formatter={(value: any) => [`₹${value.toFixed(2)}`, 'Revenue']} cursor={{fill: '#f1f5f9'}} />
                       <Bar dataKey="revenue" fill="#10b981" radius={[0, 4, 4, 0]} />
@@ -217,7 +217,7 @@ export default function Analytics() {
                   <BarChart data={topDishesRev}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                    <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value}`} />
+                    <YAxis axisLine={false} tickLine={false} tickFormatter={(value: any) => `₹${value}`} />
                     <Tooltip formatter={(value: any) => [`₹${value.toFixed(2)}`, 'Revenue']} cursor={{fill: '#f1f5f9'}} />
                     <Bar dataKey="revenue" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                   </BarChart>
