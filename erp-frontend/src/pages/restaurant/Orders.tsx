@@ -174,25 +174,12 @@ export default function RestaurantOrders() {
     setOrderType('Dine-In');
   };
 
-  useEffect(() => {
-    Promise.all([
-      apiFetch('https://erp-api.neurolinx.in/api/pos/categories').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/pos/dishes').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/settings').then(res => res.json())
-    ]).then(([cats, items, sets]) => {
-      setCategories(cats);
-      setDishes(items);
-      setSettings(sets);
-      setIsLoading(false);
-    }).catch(err => {
-      console.error(err);
-      setIsLoading(false);
-    });
-
-    apiFetch('https://erp-api.neurolinx.in/api/pos/orders/recent')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
+  const fetchRecentOrders = async () => {
+    try {
+      const res = await apiFetch('https://erp-api.neurolinx.in/api/pos/orders/recent');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
           const mapped: PlacedOrder[] = data.map((o: any) => ({
             id: o.id,
             orderNumber: o.orderNumber,
@@ -211,9 +198,50 @@ export default function RestaurantOrders() {
           setRecentOrders(mapped.slice(0, 10));
           localStorage.setItem('pos_recent_orders', JSON.stringify(mapped.slice(0, 10)));
         }
-      })
-      .catch(() => {});
-  }, []);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch recent orders:', err);
+    }
+  };
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch('https://erp-api.neurolinx.in/api/pos/categories').then(res => res.json()),
+      apiFetch('https://erp-api.neurolinx.in/api/pos/dishes').then(res => res.json()),
+      apiFetch('https://erp-api.neurolinx.in/api/settings').then(res => res.json())
+    ]).then(([cats, items, sets]) => {
+      setCategories(cats);
+      setDishes(items);
+      setSettings(sets);
+      setIsLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setIsLoading(false);
+    });
+
+    fetchRecentOrders();
+
+    // Cross-device & multi-account real-time synchronization interval (every 4 seconds)
+    const interval = setInterval(() => {
+      fetchRecentOrders();
+      if (viewMode === 'Tables') {
+        loadFloorTables(activeFloor);
+      }
+    }, 4000);
+
+    const handleOrderPlaced = () => {
+      fetchRecentOrders();
+    };
+
+    window.addEventListener('neurolinx_order_placed', handleOrderPlaced);
+    window.addEventListener('storage', handleOrderPlaced);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('neurolinx_order_placed', handleOrderPlaced);
+      window.removeEventListener('storage', handleOrderPlaced);
+    };
+  }, [viewMode, activeFloor]);
 
   const addToCart = (dish: Dish) => {
     setCart(prev => {
@@ -507,6 +535,7 @@ export default function RestaurantOrders() {
       }
 
       saveOrderLocally(order);
+      fetchRecentOrders();
 
       setSelectedTableId(null);
       setSelectedTableName('');
@@ -526,6 +555,7 @@ export default function RestaurantOrders() {
       }
 
       saveOrderLocally();
+      fetchRecentOrders();
 
       setSelectedTableId(null);
       setSelectedTableName('');

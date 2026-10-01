@@ -12,8 +12,8 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleSuccessRedirect = (data: any, userEmail: string) => {
-    // Clear only session auth keys to avoid wiping offline restaurant and order cache
-    ['token', 'refreshToken', 'username', 'role', 'industryType', 'companySlug', 'companyName', 'companyLogo'].forEach(k => localStorage.removeItem(k));
+    // Clear session auth keys and stale order cache so each session loads fresh from server DB
+    ['token', 'refreshToken', 'username', 'role', 'industryType', 'companySlug', 'companyName', 'companyLogo', 'pos_recent_orders'].forEach(k => localStorage.removeItem(k));
     localStorage.setItem('token', data.token);
     if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('username', userEmail);
@@ -23,9 +23,7 @@ export default function Login() {
     if (data.companyName) localStorage.setItem('companyName', data.companyName);
     if (data.companyLogo) localStorage.setItem('companyLogo', data.companyLogo);
 
-    if (data.role === 'Master Admin') {
-      navigate('/dashboard');
-    } else if (data.industryType === 'Restaurant') {
+    if (data.role === 'Master Admin' || data.industryType === 'Restaurant') {
       navigate('/res-dashboard');
     } else {
       navigate('/welcome');
