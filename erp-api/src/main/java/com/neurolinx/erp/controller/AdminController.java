@@ -23,6 +23,7 @@ public class AdminController {
     @Autowired private RoleRepository roleRepository;
     @Autowired private RolePrivilegeRepository rolePrivilegeRepository;
     @Autowired private UserRepository userRepository;
+    @Autowired private BranchRepository branchRepository;
     @Autowired private DeviceSessionRepository deviceSessionRepository;
     @Autowired private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
@@ -172,6 +173,17 @@ public class AdminController {
         adminUser.setCompany(company);
         adminUser.setRole(clientAdminRole);
         userRepository.save(adminUser);
+
+        // 4. Create Branches (if any)
+        if (dto.getBranches() != null && !dto.getBranches().isEmpty()) {
+            for (java.util.Map<String, String> b : dto.getBranches()) {
+                Branch branch = new Branch();
+                branch.setName(b.get("name"));
+                branch.setLocation(b.get("location"));
+                branch.setCompany(company);
+                branchRepository.save(branch);
+            }
+        }
 
         return ResponseEntity.ok(company);
     }

@@ -24,6 +24,10 @@ export default function ClientProvisioning() {
   const [address, setAddress] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [totalTables, setTotalTables] = useState<number | ''>('');
+  const [branches, setBranches] = useState<{name: string, location: string}[]>([]);
+  const [newBranchName, setNewBranchName] = useState('');
+  const [newBranchLocation, setNewBranchLocation] = useState('');
+
   
   // For new clients only
   const [email, setEmail] = useState('');
@@ -161,6 +165,7 @@ export default function ClientProvisioning() {
     setOtpSent(false);
     setOtpVerified(false);
     setOtp('');
+    setBranches([]);
     setShowModal(true);
   };
 
@@ -666,8 +671,32 @@ export default function ClientProvisioning() {
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Location / City</label>
                   <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Bangalore, India" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
+                  </div>
                 </div>
-              </div>
+
+              {!editingId && (
+                <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '1rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase' }}>Franchises / Branches (Optional)</label>
+                  <p style={{ margin: '0 0 1rem 0', fontSize: '0.875rem', color: '#64748b' }}>Pre-configure locations for this client.</p>
+                  
+                  {branches.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+                      {branches.map((b, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', padding: '0.5rem 1rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                          <div><strong style={{ fontSize: '0.875rem' }}>{b.name}</strong> <span style={{ fontSize: '0.875rem', color: '#64748b' }}>- {b.location}</span></div>
+                          <button type="button" onClick={() => setBranches(branches.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}>&times;</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                    <input type="text" value={newBranchName} onChange={e => setNewBranchName(e.target.value)} placeholder="Branch Name (e.g. MG Road)" style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
+                    <input type="text" value={newBranchLocation} onChange={e => setNewBranchLocation(e.target.value)} placeholder="Location" style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
+                    <button type="button" onClick={() => { if(newBranchName && newBranchLocation) { setBranches([...branches, {name: newBranchName, location: newBranchLocation}]); setNewBranchName(''); setNewBranchLocation(''); } }} style={{ padding: '0.5rem 1rem', backgroundColor: '#e2e8f0', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, color: '#475569' }}>Add</button>
+                  </div>
+                </div>
+              )}
 
               {editingId ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', padding: '1.25rem', backgroundColor: isActive ? '#f0fdf4' : '#f8fafc', borderRadius: '12px', border: `1px solid ${isActive ? '#bbf7d0' : '#e2e8f0'}` }}>

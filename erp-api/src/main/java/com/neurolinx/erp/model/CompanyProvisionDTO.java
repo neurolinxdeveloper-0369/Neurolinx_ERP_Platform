@@ -1,5 +1,8 @@
 package com.neurolinx.erp.model;
 
+import java.util.List;
+import java.util.Map;
+
 public class CompanyProvisionDTO {
     private String companyName;
     private String industryType;
@@ -12,6 +15,8 @@ public class CompanyProvisionDTO {
     private String clientName;
     private String websiteUrl;
     private Integer totalTables;
+
+    private List<Map<String, String>> branches;
 
     public String getCompanyName() { return companyName; }
     public void setCompanyName(String companyName) { this.companyName = companyName; }
@@ -42,4 +47,7 @@ public class CompanyProvisionDTO {
 
     public Integer getTotalTables() { return totalTables; }
     public void setTotalTables(Integer totalTables) { this.totalTables = totalTables; }
+
+    public List<Map<String, String>> getBranches() { return branches; }
+    public void setBranches(List<Map<String, String>> branches) { this.branches = branches; }
 }
