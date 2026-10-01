@@ -35,12 +35,12 @@ public class Employee {
     @JsonIgnore
     private Company company;
 
-    @Column(nullable = false, updatable = false)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id", nullable = true)
     @com.fasterxml.jackson.annotation.JsonIgnore
     private Branch branch;
 
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public Employee() {}

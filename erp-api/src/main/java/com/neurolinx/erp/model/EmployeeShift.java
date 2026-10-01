@@ -30,12 +30,12 @@ public class EmployeeShift {
     @Column(nullable = false)
     private String attendanceStatus = "Scheduled"; // Scheduled, Present, Absent, On Leave, Half Day
 
-    @Column(nullable = false, updatable = false)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id", nullable = true)
     @com.fasterxml.jackson.annotation.JsonIgnore
     private Branch branch;
 
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public EmployeeShift() {}

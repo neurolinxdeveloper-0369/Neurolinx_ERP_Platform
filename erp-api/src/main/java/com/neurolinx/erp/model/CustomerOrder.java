@@ -27,11 +27,11 @@ public class CustomerOrder {
     private BigDecimal discountApplied = BigDecimal.ZERO;
     private BigDecimal taxApplied = BigDecimal.ZERO;
 
-    @Column(nullable = false)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id", nullable = true)
     private Branch branch;
 
+    @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     
     @ManyToOne(fetch = FetchType.LAZY)
