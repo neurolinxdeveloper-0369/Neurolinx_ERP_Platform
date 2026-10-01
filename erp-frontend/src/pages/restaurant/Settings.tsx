@@ -9,6 +9,9 @@ export default function RestaurantSettings() {
   const [receiptFooter, setReceiptFooter] = useState('Thank you for dining with us!');
   const [gstNumber, setGstNumber] = useState('');
   const [address, setAddress] = useState('');
+  const [currencySymbol, setCurrencySymbol] = useState('₹');
+  const [openingTime, setOpeningTime] = useState('09:00');
+  const [closingTime, setClosingTime] = useState('22:00');
   const [upiQrImageBase64, setUpiQrImageBase64] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -78,6 +81,9 @@ export default function RestaurantSettings() {
         if (data.gstNumber) setGstNumber(data.gstNumber);
         if (data.address) setAddress(data.address);
         if (data.receiptFooter) setReceiptFooter(data.receiptFooter);
+        if (data.currencySymbol) setCurrencySymbol(data.currencySymbol);
+        if (data.openingTime) setOpeningTime(data.openingTime);
+        if (data.closingTime) setClosingTime(data.closingTime);
         if (data.defaultTaxRate !== undefined) setTaxRate(data.defaultTaxRate);
         if (data.defaultDiscount !== undefined) setDiscountPercent(data.defaultDiscount);
         if (data.upiQrImageBase64) setUpiQrImageBase64(data.upiQrImageBase64);
@@ -95,7 +101,7 @@ export default function RestaurantSettings() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         storeName, gstNumber, address, receiptFooter, 
-        defaultTaxRate: taxRate, defaultDiscount: discountPercent, upiQrImageBase64
+        defaultTaxRate: taxRate, defaultDiscount: discountPercent, upiQrImageBase64, currencySymbol, openingTime, closingTime
       })
     }).then(() => {
       alert('Settings saved successfully!');

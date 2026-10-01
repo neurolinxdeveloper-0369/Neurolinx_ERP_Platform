@@ -14,6 +14,7 @@ import RestaurantSettings from './pages/restaurant/Settings';
 import { PrinterProvider } from './context/PrinterContext';
 import RestaurantOrders from './pages/restaurant/Orders';
 import RestaurantInventory from './pages/restaurant/Inventory';
+import RawMaterials from './pages/restaurant/RawMaterials';
 import PlaceholderModule from './components/PlaceholderModule';
 
 function App() {
@@ -38,7 +39,7 @@ function App() {
               <Route path="/res-inventory" element={<RestaurantInventory />} />
               <Route path="/res-waste" element={<PlaceholderModule title="Waste Management" iconName="Trash2" description="Track and analyze kitchen waste and spoilage." />} />
               <Route path="/res-vendors" element={<PlaceholderModule title="Vendor Management" iconName="Users" description="Manage suppliers, purchase orders, and supplier payments." />} />
-              <Route path="/res-raw-materials" element={<PlaceholderModule title="Raw Materials" iconName="Box" description="Monitor raw material inventory and stock alerts." />} />
+              <Route path="/res-raw-materials" element={<RawMaterials />} />
               <Route path="/res-recipes" element={<PlaceholderModule title="Recipe Management" iconName="ChefHat" description="Build recipes to automatically deduct raw ingredients on sales." />} />
               <Route path="/res-billing" element={<PlaceholderModule title="Billing" iconName="Receipt" description="View all past invoices, receipts, and split payments." />} />
               <Route path="/res-analytics" element={<PlaceholderModule title="Analytics" iconName="LineChart" description="Deep dive into sales trends, popular items, and staff performance." />} />

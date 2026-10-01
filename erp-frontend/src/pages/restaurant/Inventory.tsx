@@ -18,6 +18,7 @@ export default function RestaurantInventory() {
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [activeTab, setActiveTab] = useState<'Dishes' | 'Categories'>('Dishes');
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Forms
   const [showForm, setShowForm] = useState(false);
@@ -27,6 +28,22 @@ export default function RestaurantInventory() {
   const [dishForm, setDishForm] = useState({ id: 0, name: '', price: '', categoryId: '', imageBase64: '', isTodaysSpecial: false });
   const [isEditingDish, setIsEditingDish] = useState(false);
 
+  
+  const deleteCategory = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) return;
+    try {
+      await apiFetch(`/api/pos/categories/${id}`, { method: 'DELETE' });
+      fetchData();
+    } catch (e) { console.error(e); }
+  };
+
+  const deleteDish = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this dish?")) return;
+    try {
+      await apiFetch(`/api/pos/dishes/${id}`, { method: 'DELETE' });
+      fetchData();
+    } catch (e) { console.error(e); }
+  };
   const fetchData = () => {
     setIsLoading(true);
     Promise.all([
@@ -132,7 +149,22 @@ export default function RestaurantInventory() {
         </button>
       </div>
 
-      {/* Tabs */}
+      
+        {/* Search Bar */}
+        <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+                <Icons.Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+                <input 
+                    type="text" 
+                    placeholder="Search dishes or categories..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }}
+                />
+            </div>
+        </div>
+
+        {/* Tabs */}
       <div style={{ display: 'flex', gap: '2rem', borderBottom: '1px solid #e2e8f0', marginBottom: '2rem' }}>
         <button onClick={() => { setActiveTab('Dishes'); setShowForm(false); }} style={{ background: 'none', border: 'none', padding: '0 0 1rem 0', fontWeight: 600, color: activeTab === 'Dishes' ? '#0284c7' : '#64748b', borderBottom: activeTab === 'Dishes' ? '2px solid #0284c7' : '2px solid transparent', cursor: 'pointer' }}>
           Dishes ({dishes.length})
@@ -223,11 +255,12 @@ export default function RestaurantInventory() {
                 </tr>
               </thead>
               <tbody>
-                {categories.map(c => (
+                {categories.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase())).map(c => (
                   <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '1rem', color: '#1e293b', fontWeight: 500 }}>{c.name}</td>
                     <td style={{ padding: '1rem', color: '#64748b' }}>{dishes.filter(d => d.category?.id === c.id).length} dishes</td>
-                    <td style={{ padding: '1rem', textAlign: 'right' }}>
+                    <td style={{ padding: '1rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+<button onClick={() => deleteCategory(c.id)} style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer' }}><Icons.Trash2 size={16} /></button>
                       <button style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Icons.Trash2 size={18} /></button>
                     </td>
                   </tr>
@@ -252,7 +285,7 @@ export default function RestaurantInventory() {
                 </tr>
               </thead>
               <tbody>
-                {dishes.map(d => (
+                {dishes.filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase()) || d.category?.name.toLowerCase().includes(searchQuery.toLowerCase())).map(d => (
                   <tr key={d.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '1rem', color: '#1e293b', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       {d.imageBase64 ? <img src={d.imageBase64} style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover' }} /> : <div style={{ width: '32px', height: '32px', borderRadius: '4px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.Image size={16} color="#cbd5e1" /></div>}
@@ -265,7 +298,8 @@ export default function RestaurantInventory() {
                         {d.isAvailable ? 'In Stock' : 'Out of Stock'}
                       </span>
                     </td>
-                    <td style={{ padding: '1rem', textAlign: 'right' }}>
+                    <td style={{ padding: '1rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+<button onClick={() => deleteDish(d.id)} style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer' }}><Icons.Trash2 size={16} /></button>
                       <button onClick={() => handleEditDish(d)} style={{ background: 'none', border: 'none', color: '#0284c7', cursor: 'pointer', marginRight: '1rem' }}><Icons.Edit size={18} /></button>
                       <button style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Icons.Trash2 size={18} /></button>
                     </td>

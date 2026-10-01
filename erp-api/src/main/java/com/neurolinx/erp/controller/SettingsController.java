@@ -41,7 +41,12 @@ public class SettingsController {
         if (payload.containsKey("defaultTaxRate")) s.setDefaultTaxRate(new BigDecimal(payload.get("defaultTaxRate").toString()));
         if (payload.containsKey("defaultDiscount")) s.setDefaultDiscount(new BigDecimal(payload.get("defaultDiscount").toString()));
         if (payload.containsKey("upiQrImageBase64")) s.setUpiQrImageBase64((String) payload.get("upiQrImageBase64"));
+        
+        if (payload.containsKey("currencySymbol")) s.setCurrencySymbol((String) payload.get("currencySymbol"));
+        if (payload.containsKey("openingTime")) s.setOpeningTime((String) payload.get("openingTime"));
+        if (payload.containsKey("closingTime")) s.setClosingTime((String) payload.get("closingTime"));
         return ResponseEntity.ok(settingsRepo.save(s));
+
     }
 
     @GetMapping("/printers")

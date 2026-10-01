@@ -46,6 +46,7 @@ interface ResStats {
     paymentMethod?: string;
   }[];
   pendingKots: number;
+  topSellingItems?: {name: string; sales: number}[];
 }
 
 interface Dish {
@@ -97,7 +98,8 @@ export default function Dashboard() {
       { day: 'Sun', amount: 0, orderCount: 0 }
     ],
     recentOrders: [],
-    pendingKots: 0
+    pendingKots: 0,
+    topSellingItems: []
   });
 
   const [isLoading, setIsLoading] = useState(true);

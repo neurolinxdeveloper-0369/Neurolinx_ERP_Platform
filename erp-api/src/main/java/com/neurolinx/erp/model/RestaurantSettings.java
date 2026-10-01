@@ -6,6 +6,17 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "restaurant_settings")
 public class RestaurantSettings {
+    private String currencySymbol = "₹";
+    private String openingTime = "09:00";
+    private String closingTime = "22:00";
+
+    public String getCurrencySymbol() { return currencySymbol; }
+    public void setCurrencySymbol(String currencySymbol) { this.currencySymbol = currencySymbol; }
+    public String getOpeningTime() { return openingTime; }
+    public void setOpeningTime(String openingTime) { this.openingTime = openingTime; }
+    public String getClosingTime() { return closingTime; }
+    public void setClosingTime(String closingTime) { this.closingTime = closingTime; }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

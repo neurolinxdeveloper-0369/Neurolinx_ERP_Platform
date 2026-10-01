@@ -28,7 +28,7 @@ interface OrderItem {
 export interface PlacedOrder {
   id: string | number;
   orderNumber: string;
-  orderType: 'Dine-In' | 'Takeaway';
+  orderType: 'Dine-In' | 'Takeaway' | 'Delivery';
   tableName?: string;
   items: { name: string; quantity: number; price: number }[];
   totalAmount: number;
@@ -45,7 +45,7 @@ export default function RestaurantOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const [cart, setCart] = useState<OrderItem[]>([]);
-  const [orderType, setOrderType] = useState<'Dine-In' | 'Takeaway'>('Dine-In');
+  const [orderType, setOrderType] = useState<'Dine-In' | 'Takeaway' | 'Delivery'>('Dine-In');
   const [viewMode, setViewMode] = useState<'POS' | 'Tables' | 'Reservations'>('POS');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string>('');
@@ -356,9 +356,12 @@ export default function RestaurantOrders() {
   const placeOrder = (status: 'Completed' | 'Parked') => {
     if (cart.length === 0) return;
     const total = cart.reduce((sum, item) => sum + (item.dish.price * item.quantity), 0);
+    const discountRate = settings?.defaultDiscount || 0.0;
+    const discountAmount = total * (discountRate / 100);
+    const subtotalAfterDiscount = total - discountAmount;
     const taxRate = settings?.defaultTaxRate || 5.0;
-    const tax = total * (taxRate / 100);
-    const finalTotal = total + tax;
+    const tax = subtotalAfterDiscount * (taxRate / 100);
+    const finalTotal = subtotalAfterDiscount + tax;
     const currentTableId = selectedTableId;
     const currentTableName = selectedTableName || (currentTableId ? ('Table ' + currentTableId) : '');
 
@@ -459,9 +462,12 @@ export default function RestaurantOrders() {
   };
 
   const subtotal = cart.reduce((sum, item) => sum + (item.dish.price * item.quantity), 0);
-  const taxRate = settings?.defaultTaxRate || 5.0;
-  const tax = subtotal * (taxRate / 100);
-  const total = subtotal + tax;
+  const discountRate = settings?.defaultDiscount || 0.0;
+    const discountAmount = subtotal * (discountRate / 100);
+    const subtotalAfterDiscount = subtotal - discountAmount;
+    const taxRate = settings?.defaultTaxRate || 5.0;
+  const tax = subtotalAfterDiscount * (taxRate / 100);
+  const total = subtotalAfterDiscount + tax;
 
   const filteredDishes = dishes
     .filter(d => selectedCategory ? d.category && d.category.id === selectedCategory : true)

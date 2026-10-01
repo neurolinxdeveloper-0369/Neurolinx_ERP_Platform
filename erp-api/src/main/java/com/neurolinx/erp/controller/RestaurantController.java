@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/restaurant")
@@ -178,6 +179,31 @@ public class RestaurantController {
         stats.put("weeklyRevenue", weeklyRevenue);
         stats.put("recentOrders", recentOrders);
         stats.put("pendingKots", pendingKots);
+
+        // Calculate Top Selling Items (all time for now, or just from all orders)
+        Map<String, Integer> itemSales = new HashMap<>();
+        List<CustomerOrder> allOrders = orderRepo.findByCompany(company);
+        for (CustomerOrder o : allOrders) {
+            if ("Completed".equals(o.getStatus())) {
+                for (OrderItem item : o.getItems()) {
+                    String dName = item.getDishName() != null ? item.getDishName() : (item.getDish() != null ? item.getDish().getName() : "Unknown");
+                    itemSales.put(dName, itemSales.getOrDefault(dName, 0) + item.getQuantity());
+                }
+            }
+        }
+        List<Map<String, Object>> topSellingItems = itemSales.entrySet().stream()
+            .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+            .limit(5)
+            .map(e -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("name", e.getKey());
+                m.put("sales", e.getValue());
+                return m;
+            })
+            .collect(Collectors.toList());
+
+        stats.put("topSellingItems", topSellingItems);
+
 
         return ResponseEntity.ok(stats);
     }
