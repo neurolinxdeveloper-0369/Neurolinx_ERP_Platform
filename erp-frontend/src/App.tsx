@@ -15,6 +15,7 @@ import { PrinterProvider } from './context/PrinterContext';
 import RestaurantOrders from './pages/restaurant/Orders';
 import RestaurantInventory from './pages/restaurant/Inventory';
 import RawMaterials from './pages/restaurant/RawMaterials';
+import RestaurantBilling from './pages/restaurant/Billing';
 import PlaceholderModule from './components/PlaceholderModule';
 
 function App() {
@@ -41,7 +42,7 @@ function App() {
               <Route path="/res-vendors" element={<PlaceholderModule title="Vendor Management" iconName="Users" description="Manage suppliers, purchase orders, and supplier payments." />} />
               <Route path="/res-raw-materials" element={<RawMaterials />} />
               <Route path="/res-recipes" element={<PlaceholderModule title="Recipe Management" iconName="ChefHat" description="Build recipes to automatically deduct raw ingredients on sales." />} />
-              <Route path="/res-billing" element={<PlaceholderModule title="Billing" iconName="Receipt" description="View all past invoices, receipts, and split payments." />} />
+              <Route path="/res-billing" element={<RestaurantBilling />} />
               <Route path="/res-analytics" element={<PlaceholderModule title="Analytics" iconName="LineChart" description="Deep dive into sales trends, popular items, and staff performance." />} />
               <Route path="/res-documents" element={<PlaceholderModule title="Documents" iconName="FileText" description="Store compliance documents, licenses, and contracts." />} />
               <Route path="/res-staff" element={<PlaceholderModule title="Staff" iconName="UserCog" description="Manage employees, roles, shifts, and payroll." />} />

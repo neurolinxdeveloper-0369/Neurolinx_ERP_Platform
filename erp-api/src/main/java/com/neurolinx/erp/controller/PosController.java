@@ -238,8 +238,12 @@ public class PosController {
         Dish dish = new Dish();
         dish.setName((String) payload.get("name"));
         dish.setPrice(new BigDecimal(payload.get("price").toString()));
-        Long catId = Long.parseLong(payload.get("categoryId").toString());
-        dish.setCategory(categoryRepo.findById(catId).orElse(null));
+        if (payload.containsKey("categoryId") && payload.get("categoryId") != null) {
+            try {
+                Long catId = Long.parseLong(payload.get("categoryId").toString());
+                dish.setCategory(categoryRepo.findById(catId).orElse(null));
+            } catch (Exception e) {}
+        }
         dish.setCompany(company);
         
         if (payload.containsKey("imageBase64")) dish.setImageBase64((String) payload.get("imageBase64"));
@@ -284,9 +288,11 @@ public class PosController {
             if (!dish.getCompany().getId().equals(company.getId())) return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
             if (payload.containsKey("name")) dish.setName((String) payload.get("name"));
             if (payload.containsKey("price")) dish.setPrice(new BigDecimal(payload.get("price").toString()));
-            if (payload.containsKey("categoryId")) {
-                Long catId = Long.parseLong(payload.get("categoryId").toString());
-                dish.setCategory(categoryRepo.findById(catId).orElse(null));
+            if (payload.containsKey("categoryId") && payload.get("categoryId") != null) {
+                try {
+                    Long catId = Long.parseLong(payload.get("categoryId").toString());
+                    dish.setCategory(categoryRepo.findById(catId).orElse(null));
+                } catch (Exception e) {}
             }
             if (payload.containsKey("imageBase64")) dish.setImageBase64((String) payload.get("imageBase64"));
             if (payload.containsKey("isTodaysSpecial")) dish.setIsTodaysSpecial((Boolean) payload.get("isTodaysSpecial"));

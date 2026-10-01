@@ -32,7 +32,7 @@ export default function RestaurantInventory() {
   const deleteCategory = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this category?")) return;
     try {
-      await apiFetch(`/api/pos/categories/${id}`, { method: 'DELETE' });
+      await apiFetch(`https://erp-api.neurolinx.in/api/pos/categories/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -40,7 +40,7 @@ export default function RestaurantInventory() {
   const deleteDish = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this dish?")) return;
     try {
-      await apiFetch(`/api/pos/dishes/${id}`, { method: 'DELETE' });
+      await apiFetch(`https://erp-api.neurolinx.in/api/pos/dishes/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -261,7 +261,6 @@ export default function RestaurantInventory() {
                     <td style={{ padding: '1rem', color: '#64748b' }}>{dishes.filter(d => d.category?.id === c.id).length} dishes</td>
                     <td style={{ padding: '1rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
 <button onClick={() => deleteCategory(c.id)} style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer' }}><Icons.Trash2 size={16} /></button>
-                      <button style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Icons.Trash2 size={18} /></button>
                     </td>
                   </tr>
                 ))}
@@ -299,9 +298,8 @@ export default function RestaurantInventory() {
                       </span>
                     </td>
                     <td style={{ padding: '1rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-<button onClick={() => deleteDish(d.id)} style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer' }}><Icons.Trash2 size={16} /></button>
-                      <button onClick={() => handleEditDish(d)} style={{ background: 'none', border: 'none', color: '#0284c7', cursor: 'pointer', marginRight: '1rem' }}><Icons.Edit size={18} /></button>
-                      <button style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Icons.Trash2 size={18} /></button>
+<button onClick={() => deleteDish(d.id)} style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer', marginRight: '0.5rem' }}><Icons.Trash2 size={16} /></button>
+                      <button onClick={() => handleEditDish(d)} style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#e0f2fe', color: '#0284c7', border: 'none', cursor: 'pointer' }}><Icons.Edit size={16} /></button>
                     </td>
                   </tr>
                 ))}
