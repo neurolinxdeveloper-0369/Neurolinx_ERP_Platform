@@ -19,6 +19,7 @@ import RestaurantBilling from './pages/restaurant/Billing';
 import Vendors from './pages/restaurant/Vendors';
 import Purchases from './pages/restaurant/Purchases';
 import Recipes from './pages/restaurant/Recipes';
+import WasteManagement from './pages/restaurant/Waste';
 import PlaceholderModule from './components/PlaceholderModule';
 
 function App() {
@@ -41,7 +42,7 @@ function App() {
             <Route path="/res-dashboard" element={<RestaurantDashboard />} />
               <Route path="/res-orders" element={<RestaurantOrders />} />
               <Route path="/res-inventory" element={<RestaurantInventory />} />
-              <Route path="/res-waste" element={<PlaceholderModule title="Waste Management" iconName="Trash2" description="Track and analyze kitchen waste and spoilage." />} />
+              <Route path="/res-waste" element={<WasteManagement />} />
               <Route path="/res-vendors" element={<Vendors />} />
                 <Route path="/res-purchases" element={<Purchases />} />
               <Route path="/res-raw-materials" element={<RawMaterials />} />
