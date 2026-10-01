@@ -77,6 +77,7 @@ public class DataSeeder {
                 // Rest of Restaurant Menus
                 MenuItem billing = seedMenu.apply(new String[]{"Billing", "/res-billing", "receipt", "Restaurant", null});
                 MenuItem analytics = seedMenu.apply(new String[]{"Analytics", "/res-analytics", "line-chart", "Restaurant", null});
+                MenuItem reports = seedMenu.apply(new String[]{"Reports (CSV)", "/res-reports", "file-spreadsheet", "Restaurant", null});
                 MenuItem documents = seedMenu.apply(new String[]{"Documents", "/res-documents", "file-text", "Restaurant", null});
                 MenuItem staff = seedMenu.apply(new String[]{"Staff", "/res-staff", "user-cog", "Restaurant", null});
                 MenuItem support = seedMenu.apply(new String[]{"Support", "/res-support", "life-buoy", "Restaurant", null});
