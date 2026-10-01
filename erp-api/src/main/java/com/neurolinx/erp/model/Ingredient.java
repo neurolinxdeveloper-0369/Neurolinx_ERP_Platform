@@ -24,6 +24,14 @@ public class Ingredient {
     @Column(nullable = false)
     private String unit; // e.g. "kg", "g", "liter", "ml", "pcs"
 
+        @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Company company;
+
+    public Company getCompany() { return company; }
+    public void setCompany(Company company) { this.company = company; }
+
     public Ingredient() {}
     public Branch getBranch() { return branch; }
     public void setBranch(Branch branch) { this.branch = branch; }

@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface StockBatchRepository extends JpaRepository<StockBatch, Long> {
     List<StockBatch> findByCompany(Company company);
+    List<StockBatch> findByCompanyAndBranchId(Company company, Long branchId);
 }
