@@ -8,6 +8,9 @@ import java.util.List;
 
 public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Long> {
     List<CustomerOrder> findByCompany(Company company);
+    List<CustomerOrder> findByCompanyAndBranchId(Company company, Long branchId);
+    List<CustomerOrder> findTop10ByCompanyAndBranchIdOrderByIdDesc(Company company, Long branchId);
+
     CustomerOrder findTopByCompanyOrderByIdDesc(Company company);
     CustomerOrder findTopByOrderByIdDesc();
     List<CustomerOrder> findTop10ByCompanyOrderByIdDesc(Company company);

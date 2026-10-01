@@ -30,7 +30,6 @@ public class CustomerOrder {
     @Column(nullable = false)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id", nullable = true)
-    @com.fasterxml.jackson.annotation.JsonIgnore
     private Branch branch;
 
     private LocalDateTime createdAt = LocalDateTime.now();

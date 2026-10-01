@@ -24,6 +24,18 @@ public class PosController {
     @Autowired private RecipeItemRepository recipeItemRepo;
     @Autowired private IngredientRepository ingredientRepo;
     
+
+    @Autowired private BranchRepository branchRepo;
+    @Autowired private jakarta.servlet.http.HttpServletRequest request;
+
+    private Long getBranchId() {
+        String header = request.getHeader("X-Branch-Id");
+        if (header != null && !header.isEmpty() && !header.equals("global")) {
+            try { return Long.parseLong(header); } catch (Exception e) {}
+        }
+        return null;
+    }
+
     private Company getUserCompany() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         var userOpt = userRepo.findByEmail(email);
@@ -244,6 +256,10 @@ public class PosController {
     public ResponseEntity<?> getAllOrders() {
         Company company = getUserCompany();
         if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user"));
+        Long branchId = getBranchId();
+        if (branchId != null) {
+            return ResponseEntity.ok(orderRepo.findByCompanyAndBranchId(company, branchId));
+        }
         return ResponseEntity.ok(orderRepo.findByCompany(company));
     }
 
@@ -264,6 +280,10 @@ public class PosController {
     public ResponseEntity<?> getRecentOrders() {
         Company company = getUserCompany();
         if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user: " + SecurityContextHolder.getContext().getAuthentication().getName()));
+        Long branchId = getBranchId();
+        if (branchId != null) {
+            return ResponseEntity.ok(orderRepo.findTop10ByCompanyAndBranchIdOrderByIdDesc(company, branchId));
+        }
         return ResponseEntity.ok(orderRepo.findTop10ByCompanyOrderByIdDesc(company));
     }
 
