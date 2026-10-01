@@ -18,6 +18,7 @@ import RawMaterials from './pages/restaurant/RawMaterials';
 import RestaurantBilling from './pages/restaurant/Billing';
 import Vendors from './pages/restaurant/Vendors';
 import Purchases from './pages/restaurant/Purchases';
+import Recipes from './pages/restaurant/Recipes';
 import PlaceholderModule from './components/PlaceholderModule';
 
 function App() {
@@ -44,7 +45,7 @@ function App() {
               <Route path="/res-vendors" element={<Vendors />} />
                 <Route path="/res-purchases" element={<Purchases />} />
               <Route path="/res-raw-materials" element={<RawMaterials />} />
-              <Route path="/res-recipes" element={<PlaceholderModule title="Recipe Management" iconName="ChefHat" description="Build recipes to automatically deduct raw ingredients on sales." />} />
+              <Route path="/res-recipes" element={<Recipes />} />
               <Route path="/res-billing" element={<RestaurantBilling />} />
               <Route path="/res-analytics" element={<PlaceholderModule title="Analytics" iconName="LineChart" description="Deep dive into sales trends, popular items, and staff performance." />} />
               <Route path="/res-documents" element={<PlaceholderModule title="Documents" iconName="FileText" description="Store compliance documents, licenses, and contracts." />} />

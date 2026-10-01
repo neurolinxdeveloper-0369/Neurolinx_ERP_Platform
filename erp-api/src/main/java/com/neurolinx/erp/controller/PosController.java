@@ -21,6 +21,8 @@ public class PosController {
     @Autowired private CustomerOrderRepository orderRepo;
     @Autowired private UserRepository userRepo;
     @Autowired private CompanyRepository companyRepo;
+    @Autowired private RecipeItemRepository recipeItemRepo;
+    @Autowired private IngredientRepository ingredientRepo;
     
     private Company getUserCompany() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -210,6 +212,30 @@ public class PosController {
         }
         
         order = orderRepo.save(order);
+
+        // Auto-deduct inventory based on Recipe
+        try {
+            if (order.getItems() != null) {
+                for (OrderItem item : order.getItems()) {
+                    if (item.getDish() != null) {
+                        List<RecipeItem> recipes = recipeItemRepo.findByDishId(item.getDish().getId());
+                        int qtyOrdered = item.getQuantity() != null ? item.getQuantity() : 1;
+                        for (RecipeItem r : recipes) {
+                            if (r.getIngredient() != null && r.getQuantityRequired() != null) {
+                                BigDecimal totalNeeded = r.getQuantityRequired().multiply(new BigDecimal(qtyOrdered));
+                                Ingredient ing = r.getIngredient();
+                                if (ing.getStockLevel() != null) {
+                                    ing.setStockLevel(ing.getStockLevel().subtract(totalNeeded));
+                                    ingredientRepo.save(ing);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         
         return ResponseEntity.ok(order);
     }
