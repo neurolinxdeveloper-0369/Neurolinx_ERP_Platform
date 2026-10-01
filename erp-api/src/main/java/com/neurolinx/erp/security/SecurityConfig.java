@@ -33,7 +33,10 @@ public class SecurityConfig {
         JwtRequestFilter jwtRequestFilter = new JwtRequestFilter(key);
 
         http
-            
+            .cors(Customizer.withDefaults())
+            .headers(headers -> headers
+                .crossOriginOpenerPolicy(coop -> coop.policy(org.springframework.security.web.header.writers.CrossOriginOpenerPolicyHeaderWriter.CrossOriginOpenerPolicy.UNSAFE_NONE))
+            )
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth

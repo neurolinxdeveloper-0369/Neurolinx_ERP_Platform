@@ -35,6 +35,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+        if (request.getMethod().equalsIgnoreCase("OPTIONS")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         if (request.getRequestURI().startsWith("/api/auth/")) {
             String ip = request.getRemoteAddr();
             Bucket bucket = resolveBucket(ip);
