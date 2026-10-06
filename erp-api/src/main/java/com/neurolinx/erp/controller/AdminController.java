@@ -131,18 +131,39 @@ public class AdminController {
     @DeleteMapping("/companies/{id}")
     public ResponseEntity<?> deleteCompany(@PathVariable Long id) {
         try {
-            jdbcTemplate.update("DELETE FROM device_sessions WHERE email IN (SELECT email FROM users WHERE company_id = ?)", id);
-            jdbcTemplate.update("DELETE FROM users WHERE company_id = ?", id);
-            jdbcTemplate.update("DELETE FROM role_privileges WHERE role_id IN (SELECT id FROM roles WHERE company_id = ?)", id);
-            jdbcTemplate.update("DELETE FROM roles WHERE company_id = ?", id);
-            
+            // 1. Employee Shifts & Employees
+            jdbcTemplate.update("DELETE FROM employee_shifts WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM employees WHERE company_id = ?", id);
+
+            // 2. Inventory (Waste Entries, Stock Batches, Purchase Orders, Vendors, Recipe Items, Ingredients)
+            jdbcTemplate.update("DELETE FROM waste_entries WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM stock_batches WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM purchase_orders WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM vendors WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM recipe_items WHERE dish_id IN (SELECT id FROM dishes WHERE company_id = ?) OR ingredient_id IN (SELECT id FROM ingredients WHERE company_id = ?)", id, id);
+            jdbcTemplate.update("DELETE FROM ingredients WHERE company_id = ?", id);
+
+            // 3. Payments & Orders
+            jdbcTemplate.update("DELETE FROM payment_transactions WHERE order_id IN (SELECT id FROM customer_orders WHERE company_id = ?)", id);
             jdbcTemplate.update("DELETE FROM order_items WHERE order_id IN (SELECT id FROM customer_orders WHERE company_id = ?)", id);
             jdbcTemplate.update("DELETE FROM customer_orders WHERE company_id = ?", id);
+
+            // 4. Restaurant Settings (Dishes, Categories, Tables, Settings, Printers)
             jdbcTemplate.update("DELETE FROM dishes WHERE company_id = ?", id);
             jdbcTemplate.update("DELETE FROM dish_categories WHERE company_id = ?", id);
             jdbcTemplate.update("DELETE FROM restaurant_tables WHERE company_id = ?", id);
             jdbcTemplate.update("DELETE FROM restaurant_settings WHERE company_id = ?", id);
             jdbcTemplate.update("DELETE FROM restaurant_printers WHERE company_id = ?", id);
+            
+            // 5. Auth & Users (Device Sessions, Users, Role Privileges, Roles)
+            jdbcTemplate.update("DELETE FROM device_sessions WHERE email IN (SELECT email FROM users WHERE company_id = ?)", id);
+            jdbcTemplate.update("DELETE FROM users WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM role_privileges WHERE role_id IN (SELECT id FROM roles WHERE company_id = ?)", id);
+            jdbcTemplate.update("DELETE FROM roles WHERE company_id = ?", id);
+
+            // 6. Subscriptions & Branches
+            jdbcTemplate.update("DELETE FROM company_subscriptions WHERE company_id = ?", id);
+            jdbcTemplate.update("DELETE FROM branches WHERE company_id = ?", id);
             
             companyRepository.deleteById(id);
             return ResponseEntity.ok().build();
