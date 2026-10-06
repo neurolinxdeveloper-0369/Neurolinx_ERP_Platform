@@ -186,6 +186,10 @@ public class AdminController {
         company.setGstin(dto.getGstin());
         company.setPanNumber(dto.getPanNumber());
         company.setRegistrationNumber(dto.getRegistrationNumber());
+        company.setFoodLicense(dto.getFoodLicense());
+        company.setOperatingHours(dto.getOperatingHours());
+        company.setServiceModel(dto.getServiceModel());
+        company.setKitchenSetup(dto.getKitchenSetup());
         company = companyRepository.save(company);
 
         // 2. Create Default "Company Admin" Role for this client

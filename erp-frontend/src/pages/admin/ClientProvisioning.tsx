@@ -27,6 +27,10 @@ export default function ClientProvisioning() {
   const [gstin, setGstin] = useState('');
   const [panNumber, setPanNumber] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
+  const [foodLicense, setFoodLicense] = useState('');
+  const [operatingHours, setOperatingHours] = useState('');
+  const [serviceModel, setServiceModel] = useState('Quick Service (QSR)');
+  const [kitchenSetup, setKitchenSetup] = useState('KDS');
   const [branches, setBranches] = useState<{name: string, location: string}[]>([]);
   const [newBranchName, setNewBranchName] = useState('');
   const [newBranchLocation, setNewBranchLocation] = useState('');
@@ -165,6 +169,10 @@ export default function ClientProvisioning() {
     setGstin('');
     setPanNumber('');
     setRegistrationNumber('');
+    setFoodLicense('');
+    setOperatingHours('');
+    setServiceModel('Quick Service (QSR)');
+    setKitchenSetup('KDS');
     setEmail('');
     setPassword('');
     setConfirmPassword('');
@@ -194,6 +202,10 @@ export default function ClientProvisioning() {
         setGstin(fullComp.gstin || '');
         setPanNumber(fullComp.panNumber || '');
         setRegistrationNumber(fullComp.registrationNumber || '');
+        setFoodLicense(fullComp.foodLicense || '');
+        setOperatingHours(fullComp.operatingHours || '');
+        setServiceModel(fullComp.serviceModel || 'Quick Service (QSR)');
+        setKitchenSetup(fullComp.kitchenSetup || 'KDS');
         setShowModal(true);
       }
     } catch (err) {
@@ -318,8 +330,8 @@ export default function ClientProvisioning() {
       
     const method = editingId ? 'PUT' : 'POST';
     const payload = editingId 
-      ? { name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, gstin, panNumber, registrationNumber }
-      : { companyName, clientName, industryType, email, password, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, branches, gstin, panNumber, registrationNumber };
+      ? { name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup }
+      : { companyName, clientName, industryType, email, password, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, branches, gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup };
     
     try {
       const res = await apiFetch(url, {
@@ -669,6 +681,42 @@ export default function ClientProvisioning() {
                   onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
                   onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
                 />
+                
+                <input 
+                  type="text" 
+                  value={operatingHours}
+                  onChange={e => setOperatingHours(e.target.value)}
+                  placeholder="Operating Hours (e.g. 09:00 AM - 11:00 PM)"
+                  style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }}
+                  onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
+                  onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+                />
+
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <div style={{ flex: 1 }}>
+                    <select 
+                      value={serviceModel} 
+                      onChange={e => setServiceModel(e.target.value)}
+                      style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', backgroundColor: 'white', appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
+                    >
+                      <option value="Quick Service (QSR)">Quick Service (QSR)</option>
+                      <option value="Fine Dining">Fine Dining</option>
+                      <option value="Casual Dining">Casual Dining</option>
+                      <option value="Buffet">Buffet</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <select 
+                      value={kitchenSetup} 
+                      onChange={e => setKitchenSetup(e.target.value)}
+                      style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', backgroundColor: 'white', appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
+                    >
+                      <option value="KDS">Kitchen Display System (KDS)</option>
+                      <option value="Printed KOTs">Printed KOTs</option>
+                      <option value="Both">Both (KDS & KOTs)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
               )}
 
@@ -685,16 +733,22 @@ export default function ClientProvisioning() {
 
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>GSTIN</label>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>GSTIN (Optional)</label>
                   <input type="text" value={gstin} onChange={e => setGstin(e.target.value.toUpperCase())} placeholder="29XXXXX9999X1ZX" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>PAN Number</label>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>PAN (Optional)</label>
                   <input type="text" value={panNumber} onChange={e => setPanNumber(e.target.value.toUpperCase())} placeholder="ABCDE1234F" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
                 </div>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reg Number</label>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reg No (Optional)</label>
                   <input type="text" value={registrationNumber} onChange={e => setRegistrationNumber(e.target.value)} placeholder="CIN / UAN" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Food License (Optional)</label>
+                  <input type="text" value={foodLicense} onChange={e => setFoodLicense(e.target.value)} placeholder="FSSAI License" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
                 </div>
               </div>
 

@@ -19,6 +19,11 @@ public class CompanyProvisionDTO {
     private String gstin;
     private String panNumber;
     private String registrationNumber;
+    private String foodLicense;
+
+    private String operatingHours;
+    private String serviceModel;
+    private String kitchenSetup;
 
     private List<Map<String, String>> branches;
 
@@ -60,6 +65,18 @@ public class CompanyProvisionDTO {
 
     public String getRegistrationNumber() { return registrationNumber; }
     public void setRegistrationNumber(String registrationNumber) { this.registrationNumber = registrationNumber; }
+
+    public String getFoodLicense() { return foodLicense; }
+    public void setFoodLicense(String foodLicense) { this.foodLicense = foodLicense; }
+
+    public String getOperatingHours() { return operatingHours; }
+    public void setOperatingHours(String operatingHours) { this.operatingHours = operatingHours; }
+
+    public String getServiceModel() { return serviceModel; }
+    public void setServiceModel(String serviceModel) { this.serviceModel = serviceModel; }
+
+    public String getKitchenSetup() { return kitchenSetup; }
+    public void setKitchenSetup(String kitchenSetup) { this.kitchenSetup = kitchenSetup; }
 
     public List<Map<String, String>> getBranches() { return branches; }
     public void setBranches(List<Map<String, String>> branches) { this.branches = branches; }
