@@ -55,6 +55,7 @@ export default function RestaurantOrders() {
   const [isSetupModalOpen, setIsSetupModalOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
+  const [company, setCompany] = useState<any>(null);
   const [recentOrders, setRecentOrders] = useState<PlacedOrder[]>(() => {
     const cached = localStorage.getItem('pos_recent_orders');
     if (cached) {
@@ -85,7 +86,7 @@ export default function RestaurantOrders() {
             if (compRes.ok) {
               const compData = await compRes.json();
               if (compData.totalTables && compData.totalTables > 0) {
-                const autoTables = Array(compData.totalTables).fill({ capacity: 4 });
+                const autoTables = Array(compData.totalTables).fill({ capacity: 4, tableName: 'Unmapped Table' });
                 
                 // Save them via API directly so it persists
                 const confRes = await apiFetch('https://erp-api.neurolinx.in/api/pos/tables/configure', {
@@ -224,11 +225,13 @@ export default function RestaurantOrders() {
     Promise.all([
       apiFetch('https://erp-api.neurolinx.in/api/pos/categories').then(res => res.json()),
       apiFetch('https://erp-api.neurolinx.in/api/pos/dishes').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/settings').then(res => res.json())
-    ]).then(([cats, items, sets]) => {
+      apiFetch('https://erp-api.neurolinx.in/api/settings').then(res => res.json()),
+      apiFetch('https://erp-api.neurolinx.in/api/settings/my-company').then(res => res.ok ? res.json() : null)
+    ]).then(([cats, items, sets, comp]) => {
       setCategories(cats);
       setDishes(items);
       setSettings(sets);
+      if (comp) setCompany(comp);
       setIsLoading(false);
     }).catch(err => {
       console.error(err);
@@ -887,7 +890,7 @@ export default function RestaurantOrders() {
             }}>
               {/* Floor Switcher */}
               <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '0.25rem', borderRadius: '12px', gap: '0.25rem' }}>
-                {[1, 2, 3, 4, 5].map(floorNum => (
+                {Array.from({ length: company?.totalFloors || 1 }, (_, i) => i + 1).map(floorNum => (
                   <button
                     key={floorNum}
                     onClick={() => setActiveFloor(floorNum)}
