@@ -752,10 +752,14 @@ export default function ClientProvisioning() {
                   <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reg No (Optional)</label>
                   <input type="text" value={registrationNumber} onChange={e => setRegistrationNumber(e.target.value)} placeholder="CIN / UAN" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
                 </div>
+                {(industryType === 'Restaurant' || industryType === 'Hotel' || industryType === 'Hybrid (Hotel & Restaurant)') ? (
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Food License (Optional)</label>
                   <input type="text" value={foodLicense} onChange={e => setFoodLicense(e.target.value)} placeholder="FSSAI License" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
                 </div>
+                ) : (
+                <div style={{ flex: 1 }}></div>
+                )}
               </div>
 
               {!editingId && (
