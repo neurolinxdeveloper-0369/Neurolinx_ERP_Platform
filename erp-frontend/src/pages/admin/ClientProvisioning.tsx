@@ -675,15 +675,26 @@ export default function ClientProvisioning() {
                   onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
                 />
                 
-                <input 
-                  type="text" 
-                  value={operatingHours}
-                  onChange={e => setOperatingHours(e.target.value)}
-                  placeholder="Operating Hours (e.g. 09:00 AM - 11:00 PM)"
-                  style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }}
-                  onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
-                />
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Opening Time (Optional)</label>
+                    <input 
+                      type="time" 
+                      value={operatingHours.split(' - ')[0] || ''}
+                      onChange={e => setOperatingHours(`${e.target.value} - ${operatingHours.split(' - ')[1] || ''}`)}
+                      style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s', fontFamily: 'inherit' }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Closing Time (Optional)</label>
+                    <input 
+                      type="time" 
+                      value={operatingHours.split(' - ')[1] || ''}
+                      onChange={e => setOperatingHours(`${operatingHours.split(' - ')[0] || ''} - ${e.target.value}`)}
+                      style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s', fontFamily: 'inherit' }}
+                    />
+                  </div>
+                </div>
               </div>
 
               {(industryType === 'Restaurant' || industryType === 'Hotel' || industryType === 'Hybrid (Hotel & Restaurant)') && (
