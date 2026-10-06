@@ -664,7 +664,6 @@ export default function ClientProvisioning() {
                 </div>
               </div>
 
-              {(industryType === 'Restaurant' || industryType === 'Hotel') && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <input 
                   type="text" 
@@ -675,21 +674,25 @@ export default function ClientProvisioning() {
                   onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
                   onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
                 />
-                <input 
-                  type="number" 
-                  value={totalTables}
-                  onChange={e => setTotalTables(e.target.value ? parseInt(e.target.value) : '')}
-                  placeholder="Total Tables (for Restaurant/Hotel usage)"
-                  style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }}
-                  onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
-                />
                 
                 <input 
                   type="text" 
                   value={operatingHours}
                   onChange={e => setOperatingHours(e.target.value)}
                   placeholder="Operating Hours (e.g. 09:00 AM - 11:00 PM)"
+                  style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }}
+                  onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
+                  onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+                />
+              </div>
+
+              {(industryType === 'Restaurant' || industryType === 'Hotel' || industryType === 'Hybrid (Hotel & Restaurant)') && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <input 
+                  type="number" 
+                  value={totalTables}
+                  onChange={e => setTotalTables(e.target.value ? parseInt(e.target.value) : '')}
+                  placeholder="Total Tables (for Restaurant/Hotel usage)"
                   style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }}
                   onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
                   onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
