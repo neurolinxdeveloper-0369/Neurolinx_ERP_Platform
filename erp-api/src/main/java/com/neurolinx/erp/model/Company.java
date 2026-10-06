@@ -33,6 +33,10 @@ public class Company {
     
     private Integer totalTables;
 
+    private String gstin;
+    private String panNumber;
+    private String registrationNumber;
+
     @Column(columnDefinition = "boolean default false")
     private Boolean bypassDeviceLimit = false;
 
@@ -72,6 +76,15 @@ public class Company {
 
     public Integer getTotalTables() { return totalTables; }
     public void setTotalTables(Integer totalTables) { this.totalTables = totalTables; }
+
+    public String getGstin() { return gstin; }
+    public void setGstin(String gstin) { this.gstin = gstin; }
+    
+    public String getPanNumber() { return panNumber; }
+    public void setPanNumber(String panNumber) { this.panNumber = panNumber; }
+    
+    public String getRegistrationNumber() { return registrationNumber; }
+    public void setRegistrationNumber(String registrationNumber) { this.registrationNumber = registrationNumber; }
 
     public Boolean getBypassDeviceLimit() { return bypassDeviceLimit; }
     public void setBypassDeviceLimit(Boolean bypassDeviceLimit) { this.bypassDeviceLimit = bypassDeviceLimit; }

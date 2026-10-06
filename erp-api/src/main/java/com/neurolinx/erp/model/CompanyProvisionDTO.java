@@ -16,6 +16,10 @@ public class CompanyProvisionDTO {
     private String websiteUrl;
     private Integer totalTables;
 
+    private String gstin;
+    private String panNumber;
+    private String registrationNumber;
+
     private List<Map<String, String>> branches;
 
     public String getCompanyName() { return companyName; }
@@ -47,6 +51,15 @@ public class CompanyProvisionDTO {
 
     public Integer getTotalTables() { return totalTables; }
     public void setTotalTables(Integer totalTables) { this.totalTables = totalTables; }
+
+    public String getGstin() { return gstin; }
+    public void setGstin(String gstin) { this.gstin = gstin; }
+
+    public String getPanNumber() { return panNumber; }
+    public void setPanNumber(String panNumber) { this.panNumber = panNumber; }
+
+    public String getRegistrationNumber() { return registrationNumber; }
+    public void setRegistrationNumber(String registrationNumber) { this.registrationNumber = registrationNumber; }
 
     public List<Map<String, String>> getBranches() { return branches; }
     public void setBranches(List<Map<String, String>> branches) { this.branches = branches; }

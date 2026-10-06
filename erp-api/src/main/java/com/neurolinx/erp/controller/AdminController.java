@@ -183,6 +183,9 @@ public class AdminController {
         company.setClientName(dto.getClientName());
         company.setWebsiteUrl(dto.getWebsiteUrl());
         company.setTotalTables(dto.getTotalTables());
+        company.setGstin(dto.getGstin());
+        company.setPanNumber(dto.getPanNumber());
+        company.setRegistrationNumber(dto.getRegistrationNumber());
         company = companyRepository.save(company);
 
         // 2. Create Default "Company Admin" Role for this client

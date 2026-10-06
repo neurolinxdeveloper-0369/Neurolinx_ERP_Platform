@@ -24,6 +24,9 @@ export default function ClientProvisioning() {
   const [address, setAddress] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [totalTables, setTotalTables] = useState<number | ''>('');
+  const [gstin, setGstin] = useState('');
+  const [panNumber, setPanNumber] = useState('');
+  const [registrationNumber, setRegistrationNumber] = useState('');
   const [branches, setBranches] = useState<{name: string, location: string}[]>([]);
   const [newBranchName, setNewBranchName] = useState('');
   const [newBranchLocation, setNewBranchLocation] = useState('');
@@ -159,6 +162,9 @@ export default function ClientProvisioning() {
     setAddress('');
     setWebsiteUrl('');
     setTotalTables('');
+    setGstin('');
+    setPanNumber('');
+    setRegistrationNumber('');
     setEmail('');
     setPassword('');
     setConfirmPassword('');
@@ -185,6 +191,9 @@ export default function ClientProvisioning() {
         setAddress(fullComp.address || '');
         setWebsiteUrl(fullComp.websiteUrl || '');
         setTotalTables(fullComp.totalTables || '');
+        setGstin(fullComp.gstin || '');
+        setPanNumber(fullComp.panNumber || '');
+        setRegistrationNumber(fullComp.registrationNumber || '');
         setShowModal(true);
       }
     } catch (err) {
@@ -309,8 +318,8 @@ export default function ClientProvisioning() {
       
     const method = editingId ? 'PUT' : 'POST';
     const payload = editingId 
-      ? { name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables }
-      : { companyName, clientName, industryType, email, password, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables };
+      ? { name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, gstin, panNumber, registrationNumber }
+      : { companyName, clientName, industryType, email, password, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, branches, gstin, panNumber, registrationNumber };
     
     try {
       const res = await apiFetch(url, {
@@ -673,6 +682,21 @@ export default function ClientProvisioning() {
                   <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Bangalore, India" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
                   </div>
                 </div>
+
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>GSTIN</label>
+                  <input type="text" value={gstin} onChange={e => setGstin(e.target.value.toUpperCase())} placeholder="29XXXXX9999X1ZX" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>PAN Number</label>
+                  <input type="text" value={panNumber} onChange={e => setPanNumber(e.target.value.toUpperCase())} placeholder="ABCDE1234F" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '0.375rem', fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reg Number</label>
+                  <input type="text" value={registrationNumber} onChange={e => setRegistrationNumber(e.target.value)} placeholder="CIN / UAN" style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }} onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'} onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'} />
+                </div>
+              </div>
 
               {!editingId && (
                 <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '1rem' }}>
