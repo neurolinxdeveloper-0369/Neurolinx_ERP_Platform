@@ -317,9 +317,27 @@ export default function ClientProvisioning() {
 
   const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingId && password !== confirmPassword) {
-      alert("Passwords do not match!");
+
+    if (!companyName || !clientName || !industryType || !contactNumber || !address) {
+      alert("Please fill in all required fields (Company Name, Contact Person, Industry Type, Contact Number, Location).");
       return;
+    }
+
+    if (!editingId) {
+      if (!email || !password || !confirmPassword) {
+        alert("Email, Password, and Confirm Password are required for new clients.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        alert("Passwords do not match!");
+        return;
+      }
+      
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      if (!passwordRegex.test(password)) {
+        alert("Password must be at least 8 characters long, and include an uppercase letter, a lowercase letter, a number, and a special character.");
+        return;
+      }
     }
     
     setIsSubmitting(true);
