@@ -115,6 +115,13 @@ public class AdminController {
             company.setClientName(updatedCompany.getClientName());
             company.setWebsiteUrl(updatedCompany.getWebsiteUrl());
             company.setTotalTables(updatedCompany.getTotalTables());
+            company.setGstin(updatedCompany.getGstin());
+            company.setPanNumber(updatedCompany.getPanNumber());
+            company.setRegistrationNumber(updatedCompany.getRegistrationNumber());
+            company.setFoodLicense(updatedCompany.getFoodLicense());
+            company.setOperatingHours(updatedCompany.getOperatingHours());
+            company.setServiceModel(updatedCompany.getServiceModel());
+            company.setKitchenSetup(updatedCompany.getKitchenSetup());
             return ResponseEntity.ok(companyRepository.save(company));
         }).orElse(ResponseEntity.notFound().build());
     }
