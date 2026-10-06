@@ -90,6 +90,7 @@ public class AdminController {
             map.put("clientName", c.getClientName());
             map.put("websiteUrl", c.getWebsiteUrl());
             map.put("totalTables", c.getTotalTables());
+            map.put("totalFloors", c.getTotalFloors());
             map.put("bypassDeviceLimit", c.getBypassDeviceLimit());
             return map;
         }).collect(java.util.stream.Collectors.toList());
@@ -115,6 +116,7 @@ public class AdminController {
             company.setClientName(updatedCompany.getClientName());
             company.setWebsiteUrl(updatedCompany.getWebsiteUrl());
             company.setTotalTables(updatedCompany.getTotalTables());
+            company.setTotalFloors(updatedCompany.getTotalFloors());
             company.setGstin(updatedCompany.getGstin());
             company.setPanNumber(updatedCompany.getPanNumber());
             company.setRegistrationNumber(updatedCompany.getRegistrationNumber());
@@ -190,6 +192,7 @@ public class AdminController {
         company.setClientName(dto.getClientName());
         company.setWebsiteUrl(dto.getWebsiteUrl());
         company.setTotalTables(dto.getTotalTables());
+        company.setTotalFloors(dto.getTotalFloors());
         company.setGstin(dto.getGstin());
         company.setPanNumber(dto.getPanNumber());
         company.setRegistrationNumber(dto.getRegistrationNumber());

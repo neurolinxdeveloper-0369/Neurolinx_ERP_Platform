@@ -41,6 +41,8 @@ public class SettingsController {
         c.setPanNumber(updatedCompany.getPanNumber());
         c.setRegistrationNumber(updatedCompany.getRegistrationNumber());
         c.setFoodLicense(updatedCompany.getFoodLicense());
+        c.setTotalTables(updatedCompany.getTotalTables());
+        c.setTotalFloors(updatedCompany.getTotalFloors());
         c.setOperatingHours(updatedCompany.getOperatingHours());
         c.setServiceModel(updatedCompany.getServiceModel());
         c.setKitchenSetup(updatedCompany.getKitchenSetup());

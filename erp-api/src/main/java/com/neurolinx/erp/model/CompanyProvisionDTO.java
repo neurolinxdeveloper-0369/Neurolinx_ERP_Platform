@@ -15,6 +15,7 @@ public class CompanyProvisionDTO {
     private String clientName;
     private String websiteUrl;
     private Integer totalTables;
+    private Integer totalFloors;
 
     private String gstin;
     private String panNumber;
@@ -56,6 +57,9 @@ public class CompanyProvisionDTO {
 
     public Integer getTotalTables() { return totalTables; }
     public void setTotalTables(Integer totalTables) { this.totalTables = totalTables; }
+
+    public Integer getTotalFloors() { return totalFloors; }
+    public void setTotalFloors(Integer totalFloors) { this.totalFloors = totalFloors; }
 
     public String getGstin() { return gstin; }
     public void setGstin(String gstin) { this.gstin = gstin; }

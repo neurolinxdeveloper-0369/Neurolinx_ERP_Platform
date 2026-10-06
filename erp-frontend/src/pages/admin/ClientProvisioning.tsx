@@ -24,6 +24,7 @@ export default function ClientProvisioning() {
   const [address, setAddress] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [totalTables, setTotalTables] = useState<number | ''>('');
+  const [totalFloors, setTotalFloors] = useState<number | ''>('');
   const [gstin, setGstin] = useState('');
   const [panNumber, setPanNumber] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
@@ -166,6 +167,7 @@ export default function ClientProvisioning() {
     setAddress('');
     setWebsiteUrl('');
     setTotalTables('');
+    setTotalFloors('');
     setGstin('');
     setPanNumber('');
     setRegistrationNumber('');
@@ -199,6 +201,7 @@ export default function ClientProvisioning() {
         setAddress(fullComp.address || '');
         setWebsiteUrl(fullComp.websiteUrl || '');
         setTotalTables(fullComp.totalTables || '');
+        setTotalFloors(fullComp.totalFloors || '');
         setGstin(fullComp.gstin || '');
         setPanNumber(fullComp.panNumber || '');
         setRegistrationNumber(fullComp.registrationNumber || '');
@@ -348,8 +351,8 @@ export default function ClientProvisioning() {
       
     const method = editingId ? 'PUT' : 'POST';
     const payload = editingId 
-      ? { name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup }
-      : { companyName, clientName, industryType, email, password, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, branches, gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup };
+      ? { name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, totalFloors: totalFloors === '' ? null : totalFloors, gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup }
+      : { companyName, clientName, industryType, email, password, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, totalFloors: totalFloors === '' ? null : totalFloors, branches, gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup };
     
     try {
       const res = await apiFetch(url, {
@@ -717,15 +720,26 @@ export default function ClientProvisioning() {
 
               {(industryType === 'Restaurant' || industryType === 'Hotel' || industryType === 'Hybrid (Hotel & Restaurant)') && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: '1rem' }}>
                 <input 
                   type="number" 
                   value={totalTables}
                   onChange={e => setTotalTables(e.target.value ? parseInt(e.target.value) : '')}
-                  placeholder="Total Tables (for Restaurant/Hotel usage)"
-                  style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }}
+                  placeholder="Total Tables"
+                  style={{ flex: 1, padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }}
                   onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
                   onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
                 />
+                <input 
+                  type="number" 
+                  value={totalFloors}
+                  onChange={e => setTotalFloors(e.target.value ? parseInt(e.target.value) : '')}
+                  placeholder="Total Floors"
+                  style={{ flex: 1, padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }}
+                  onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
+                  onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+                />
+              </div>
 
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <div style={{ flex: 1 }}>
