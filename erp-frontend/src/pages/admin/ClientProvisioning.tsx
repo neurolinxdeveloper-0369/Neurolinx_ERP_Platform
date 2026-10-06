@@ -657,6 +657,8 @@ export default function ClientProvisioning() {
                     <option value="Hybrid (Software & Hardware)">Hybrid (Software & Hardware)</option>
                     <option value="Electronics (Manufacturing & Assembly)">Electronics (Manufacturing & Assembly)</option>
                     <option value="Ecommerce">Ecommerce</option>
+                    <option value="Healthcare">Healthcare</option>
+                    <option value="Logistics / Transport">Logistics / Transport</option>
                   </select>
                 </div>
               </div>

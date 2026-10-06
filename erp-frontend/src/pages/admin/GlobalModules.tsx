@@ -198,7 +198,7 @@ export default function GlobalModules() {
       </div>
 
       <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-        {['All', 'Restaurant', 'Hotel', 'Hybrid (Hotel & Restaurant)', 'Software', 'Hybrid (Software & Hardware)', 'Electronics (Manufacturing & Assembly)', 'Ecommerce'].map(industry => (
+        {['All', 'Restaurant', 'Hotel', 'Hybrid (Hotel & Restaurant)', 'Software', 'Hybrid (Software & Hardware)', 'Electronics (Manufacturing & Assembly)', 'Ecommerce', 'Healthcare', 'Logistics / Transport'].map(industry => (
           <button
             key={industry}
             onClick={() => setSelectedIndustry(industry)}
@@ -397,6 +397,8 @@ export default function GlobalModules() {
                   <option value="Hybrid (Software & Hardware)">Hybrid (Software & Hardware)</option>
                   <option value="Electronics (Manufacturing & Assembly)">Electronics (Manufacturing & Assembly)</option>
                   <option value="Ecommerce">Ecommerce</option>
+                  <option value="Healthcare">Healthcare</option>
+                  <option value="Logistics / Transport">Logistics / Transport</option>
                 </select>
               </div>
 
