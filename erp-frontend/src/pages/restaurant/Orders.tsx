@@ -76,7 +76,33 @@ export default function RestaurantOrders() {
     try {
       const res = await apiFetch(`https://erp-api.neurolinx.in/api/pos/tables?floor=${floorNum}`);
       if (res.ok) {
-        const data: RestaurantTableData[] = await res.json();
+        let data: RestaurantTableData[] = await res.json();
+        
+        // Auto-configure from Company provisioning if empty on Floor 1
+        if (data.length === 0 && floorNum === 1) {
+          try {
+            const compRes = await apiFetch('https://erp-api.neurolinx.in/api/settings/my-company');
+            if (compRes.ok) {
+              const compData = await compRes.json();
+              if (compData.totalTables && compData.totalTables > 0) {
+                const autoTables = Array(compData.totalTables).fill({ capacity: 4 });
+                
+                // Save them via API directly so it persists
+                const confRes = await apiFetch('https://erp-api.neurolinx.in/api/pos/tables/configure', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ floor: 1, tables: autoTables })
+                });
+                if (confRes.ok) {
+                  data = await confRes.json();
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Failed to auto-configure tables', e);
+          }
+        }
+        
         setTables(data);
         localStorage.setItem(`floor_tables_${floorNum}`, JSON.stringify(data));
       } else {
