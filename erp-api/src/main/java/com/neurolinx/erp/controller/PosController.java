@@ -106,7 +106,7 @@ public class PosController {
                 table.setFloor(floor);
                 table.setStatus("Free");
             }
-            table.setTableName("Table " + (i + 1));
+            table.setTableName(tData.containsKey("tableName") ? tData.get("tableName").toString() : "Table " + (i + 1));
             table.setCapacity(capacity);
             table.setPosition(i + 1);
             if (table.getStatus() == null) {
@@ -148,6 +148,25 @@ public class PosController {
                 return ResponseEntity.ok(tableRepo.save(table));
             }
             return ResponseEntity.badRequest().body(java.util.Map.of("message", "status is required"));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/tables/{id}")
+    public ResponseEntity<?> updateTable(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user: " + SecurityContextHolder.getContext().getAuthentication().getName()));
+        
+        return tableRepo.findById(id).map(table -> {
+            if (!table.getCompany().getId().equals(company.getId())) {
+                return ResponseEntity.status(403).body(java.util.Map.of("message", "Unauthorized"));
+            }
+            if (payload.containsKey("capacity") && payload.get("capacity") != null) {
+                table.setCapacity(Integer.parseInt(payload.get("capacity").toString()));
+            }
+            if (payload.containsKey("tableName") && payload.get("tableName") != null) {
+                table.setTableName(payload.get("tableName").toString());
+            }
+            return ResponseEntity.ok(tableRepo.save(table));
         }).orElse(ResponseEntity.notFound().build());
     }
     

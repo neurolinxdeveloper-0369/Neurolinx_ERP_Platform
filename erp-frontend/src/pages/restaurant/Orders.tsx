@@ -194,6 +194,26 @@ export default function RestaurantOrders() {
     }
   };
 
+  const handleUpdateTableCapacity = async (tableId: number, capacity: number, tableName?: string) => {
+    try {
+      const payload: any = { capacity };
+      if (tableName) payload.tableName = tableName;
+      await apiFetch(`https://erp-api.neurolinx.in/api/pos/tables/${tableId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.warn('Could not update table to API', e);
+    }
+    setTables(prev => {
+      const updated = prev.map(t => t.id === tableId ? { ...t, capacity, ...(tableName ? { tableName } : {}) } : t);
+      localStorage.setItem(`floor_tables_${activeFloor}`, JSON.stringify(updated));
+      return updated;
+    });
+    if (tableName) setSelectedTableName(tableName);
+  };
+
   const handleSelectTable = (table: RestaurantTableData) => {
     setSelectedTableId(table.id);
     setSelectedTableName(table.tableName);
@@ -1024,7 +1044,22 @@ export default function RestaurantOrders() {
                   fontSize: '0.875rem',
                   color: '#0f172a'
                 }}>
-                  {selectedTableName}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    value={selectedTableName}
+                    onChange={(e) => handleUpdateTableCapacity(selectedTableId, tables.find(t => t.id === selectedTableId)?.capacity || 4, e.target.value)}
+                    style={{ border: 'none', backgroundColor: 'transparent', outline: 'none', fontWeight: 700, fontSize: '0.875rem', color: '#0f172a', width: '90px' }}
+                  />
+                  <select
+                    value={tables.find(t => t.id === selectedTableId)?.capacity || 4}
+                    onChange={(e) => handleUpdateTableCapacity(selectedTableId, parseInt(e.target.value), selectedTableName)}
+                    style={{ border: 'none', backgroundColor: '#f1f5f9', borderRadius: '4px', padding: '0.1rem 0.2rem', outline: 'none', fontWeight: 600, fontSize: '0.75rem', color: '#334155' }}
+                  >
+                    {[2, 4, 6, 8, 10, 12].map(cap => (
+                      <option key={cap} value={cap}>{cap} Seats</option>
+                    ))}
+                  </select>
+                </div>
                   <Icons.X
                     size={16}
                     style={{ cursor: 'pointer', color: '#64748b' }}
