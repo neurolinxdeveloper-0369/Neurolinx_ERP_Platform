@@ -14,10 +14,40 @@ public class SettingsController {
     @Autowired private RestaurantSettingsRepository settingsRepo;
     @Autowired private RestaurantPrinterRepository printerRepo;
     @Autowired private UserRepository userRepo;
+    @Autowired private CompanyRepository companyRepo;
     
     private Company getUserCompany() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepo.findByEmail(email).map(u -> u.getRole().getCompany()).orElse(null);
+    }
+
+    @GetMapping("/my-company")
+    public ResponseEntity<?> getMyCompany() {
+        Company c = getUserCompany();
+        if (c == null) return ResponseEntity.status(403).build();
+        return ResponseEntity.ok(c);
+    }
+
+    @PutMapping("/my-company")
+    public ResponseEntity<?> updateMyCompany(@RequestBody Company updatedCompany) {
+        Company c = getUserCompany();
+        if (c == null) return ResponseEntity.status(403).build();
+        
+        c.setName(updatedCompany.getName());
+        c.setContactNumber(updatedCompany.getContactNumber());
+        c.setAddress(updatedCompany.getAddress());
+        c.setWebsiteUrl(updatedCompany.getWebsiteUrl());
+        c.setGstin(updatedCompany.getGstin());
+        c.setPanNumber(updatedCompany.getPanNumber());
+        c.setRegistrationNumber(updatedCompany.getRegistrationNumber());
+        c.setFoodLicense(updatedCompany.getFoodLicense());
+        c.setOperatingHours(updatedCompany.getOperatingHours());
+        c.setServiceModel(updatedCompany.getServiceModel());
+        c.setKitchenSetup(updatedCompany.getKitchenSetup());
+        
+        // Save using userRepo's implicitly available company logic, or we can use an injected CompanyRepository
+        // Let's just assume we can autowire CompanyRepository
+        return ResponseEntity.ok(companyRepo.save(c));
     }
 
     @GetMapping
