@@ -40,7 +40,12 @@ export default function MasterLayout() {
     } else {
       apiFetch('https://erp-api.neurolinx.in/api/menus/my-menus/' + username)
         .then(res => res.json())
-        .then(data => setMenus(data))
+        .then(data => {
+          if (!data.some((m: any) => m.route === '/res-dashboard' || m.route === '/dashboard')) {
+            data.unshift({ id: -1, name: "Dashboard", route: "/res-dashboard", icon: "layout-dashboard", parentId: null });
+          }
+          setMenus(data);
+        })
         .catch(err => console.error("Failed to load menus", err));
     }
 
