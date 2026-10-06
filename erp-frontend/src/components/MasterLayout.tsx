@@ -20,7 +20,8 @@ export default function MasterLayout() {
   const location = useLocation();
   const username = localStorage.getItem('username');
   const todayDateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const companyName = localStorage.getItem('companyName') || (localStorage.getItem('industryType') === 'Restaurant' ? 'Restaurant POS' : 'Admin Portal');
+  const isMasterAdmin = username === 'admin' || username === 'neurolinxdeveloper@gmail.com' || localStorage.getItem('role') === 'Master Admin';
+  const companyName = isMasterAdmin ? 'NGPL' : (localStorage.getItem('companyName') || (localStorage.getItem('industryType') === 'Restaurant' ? 'Restaurant POS' : 'Admin Portal'));
   const companyLogo = localStorage.getItem('companyLogo');
 
   useEffect(() => {
