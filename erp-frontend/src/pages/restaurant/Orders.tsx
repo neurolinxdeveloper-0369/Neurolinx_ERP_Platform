@@ -886,64 +886,70 @@ export default function RestaurantOrders() {
               backgroundColor: 'white',
               borderBottom: '1px solid #e2e8f0',
               flexWrap: 'wrap',
-              gap: '1rem'
+              gap: '1rem',
+              position: 'relative'
             }}>
-              {/* Floor Switcher */}
-              <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '0.25rem', borderRadius: '12px', gap: '0.25rem' }}>
-                {Array.from({ length: company?.totalFloors || 1 }, (_, i) => i + 1).map(floorNum => (
-                  <button
-                    key={floorNum}
-                    onClick={() => setActiveFloor(floorNum)}
-                    style={{
-                      padding: '0.5rem 1.25rem',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontWeight: 700,
-                      fontSize: '0.875rem',
-                      cursor: 'pointer',
-                      backgroundColor: activeFloor === floorNum ? '#0ea5e9' : 'transparent',
-                      color: activeFloor === floorNum ? 'white' : '#64748b',
-                      boxShadow: activeFloor === floorNum ? '0 2px 4px rgba(14, 165, 233, 0.25)' : 'none',
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    Floor {floorNum}
-                  </button>
-                ))}
+              
+              {/* Center Status Legend */}
+              <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '0.4rem 1.2rem', borderRadius: '32px', gap: '1.25rem', fontSize: '0.75rem', fontWeight: 700, color: '#475569', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', margin: '0 auto' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', border: '2px solid #cbd5e1' }} /> Available
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b' }} /> Not Available
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#1e293b' }} /> Reserved
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} /> Can't Select
+                </div>
               </div>
 
-              {/* Status Legend & Action */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }} /> Free
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b' }} /> Occupied
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0f172a' }} /> Reserved
-                  </div>
+              {/* Right Side Actions */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'absolute', right: '1.5rem' }}>
+                {/* Floor Switcher */}
+                <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '0.2rem', borderRadius: '24px', gap: '0.2rem' }}>
+                  {Array.from({ length: company?.totalFloors || 1 }, (_, i) => i + 1).map(floorNum => (
+                    <button
+                      key={floorNum}
+                      onClick={() => setActiveFloor(floorNum)}
+                      style={{
+                        padding: '0.4rem 1.25rem',
+                        border: 'none',
+                        borderRadius: '20px',
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        backgroundColor: activeFloor === floorNum ? '#e2e8f0' : 'transparent',
+                        color: activeFloor === floorNum ? '#334155' : '#94a3b8',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {floorNum}{floorNum === 1 ? 'st' : floorNum === 2 ? 'nd' : floorNum === 3 ? 'rd' : 'th'} Floor
+                    </button>
+                  ))}
                 </div>
 
+                {/* Configure Button */}
                 <button
                   onClick={() => setIsSetupModalOpen(true)}
+                  title="Configure Tables"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.55rem 1.2rem',
+                    justifyContent: 'center',
+                    width: '36px',
+                    height: '36px',
                     backgroundColor: '#0f172a',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '10px',
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
+                    borderRadius: '50%',
                     cursor: 'pointer',
                     boxShadow: '0 2px 6px rgba(15, 23, 42, 0.2)'
                   }}
                 >
-                  <Icons.SlidersHorizontal size={16} /> Configure Tables
+                  <Icons.SlidersHorizontal size={16} />
                 </button>
               </div>
             </div>
