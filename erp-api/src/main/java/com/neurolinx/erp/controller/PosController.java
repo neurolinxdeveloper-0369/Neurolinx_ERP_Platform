@@ -202,6 +202,22 @@ public class PosController {
         if (payload.containsKey("status")) {
             order.setStatus((String) payload.get("status"));
         }
+        if (payload.containsKey("kitchenStatus") && payload.get("kitchenStatus") != null) {
+            order.setKitchenStatus(payload.get("kitchenStatus").toString());
+        } else {
+            order.setKitchenStatus("Pending");
+        }
+        if (payload.containsKey("notes") && payload.get("notes") != null) {
+            order.setNotes(payload.get("notes").toString());
+        }
+
+        Long branchId = getBranchId();
+        if (branchId == null && payload.get("branchId") != null) {
+            try { branchId = Long.parseLong(payload.get("branchId").toString()); } catch (Exception e) {}
+        }
+        if (branchId != null) {
+            branchRepo.findById(branchId).ifPresent(order::setBranch);
+        }
 
         if ("Dine-In".equalsIgnoreCase(orderType) && payload.get("tableId") != null && !payload.get("tableId").toString().isEmpty()) {
             try {
@@ -229,9 +245,13 @@ public class PosController {
                             OrderItem item = new OrderItem();
                             item.setOrder(order);
                             item.setDish(dish);
+                            item.setDishName(dish.getName());
                             int qty = itemData.containsKey("quantity") ? Integer.parseInt(itemData.get("quantity").toString()) : 1;
                             item.setQuantity(qty);
                             item.setPrice(dish.getPrice() != null ? dish.getPrice() : BigDecimal.ZERO);
+                            if (itemData.containsKey("notes") && itemData.get("notes") != null) {
+                                item.setNotes(itemData.get("notes").toString());
+                            }
                             orderItems.add(item);
                         }
                     } catch (Exception e) {
@@ -288,10 +308,21 @@ public class PosController {
         if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
         return orderRepo.findById(id).map(order -> {
             if (!order.getCompany().getId().equals(company.getId())) return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
-            if (payload.containsKey("kitchenStatus")) {
-                order.setKitchenStatus(payload.get("kitchenStatus").toString());
+            if (payload.containsKey("kitchenStatus") && payload.get("kitchenStatus") != null) {
+                String kStatus = payload.get("kitchenStatus").toString();
+                order.setKitchenStatus(kStatus);
+                if ("Completed".equalsIgnoreCase(kStatus) && "Pending".equalsIgnoreCase(order.getStatus())) {
+                    order.setStatus("Completed");
+                }
             }
-            return ResponseEntity.ok(orderRepo.save(order));
+            if (payload.containsKey("status") && payload.get("status") != null) {
+                order.setStatus(payload.get("status").toString());
+            }
+            if (payload.containsKey("notes") && payload.get("notes") != null) {
+                order.setNotes(payload.get("notes").toString());
+            }
+            CustomerOrder saved = orderRepo.save(order);
+            return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
 

@@ -23,7 +23,9 @@ public class CustomerOrder {
     private String paymentMethod;
 
     @Column(length = 50)
-    private String kitchenStatus = "Pending"; // Pending, Preparing, Ready, Delivered
+    private String kitchenStatus = "Pending"; // Pending, Preparing, Ready, Completed
+    @Column(length = 500)
+    private String notes;
     private BigDecimal discountApplied = BigDecimal.ZERO;
     private BigDecimal taxApplied = BigDecimal.ZERO;
 
@@ -69,6 +71,9 @@ public class CustomerOrder {
     
     public String getKitchenStatus() { return kitchenStatus; }
     public void setKitchenStatus(String kitchenStatus) { this.kitchenStatus = kitchenStatus; }
+
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
 
     public String getPaymentMethod() { return paymentMethod; }
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }

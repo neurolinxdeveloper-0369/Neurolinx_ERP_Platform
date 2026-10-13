@@ -524,14 +524,20 @@ export default function RestaurantOrders() {
         taxApplied: tax,
         paymentMethod: status === 'Parked' ? null : paymentMethod,
         status: status,
+        kitchenStatus: 'Pending',
         items: cart.map(c => ({ dishId: c.dish.id, quantity: c.quantity })) 
       })
     })
     .then(async res => {
-      if (res.ok) {
-        return res.json().catch(() => null);
+      if (!res.ok) {
+        let errMessage = `Server error (${res.status})`;
+        try {
+          const errData = await res.json();
+          if (errData.message) errMessage = errData.message;
+        } catch (e) {}
+        throw new Error(errMessage);
       }
-      return null;
+      return res.json();
     })
     .then(order => {
       if (status === 'Completed') {
@@ -563,23 +569,8 @@ export default function RestaurantOrders() {
       setShowCheckout(false);
     })
     .catch(err => {
-      console.warn("API order placement fallback to local", err);
-      if (status === 'Completed') {
-        alert("Order placed successfully!");
-      } else {
-        alert("Order Parked successfully!");
-      }
-
-      if (orderType === 'Dine-In' && currentTableId) {
-        handleTableStatusChange(currentTableId, status === 'Parked' ? 'Occupied' : 'Free');
-      }
-
-      saveOrderLocally();
-
-      setSelectedTableId(null);
-      setSelectedTableName('');
-      setCart([]);
-      setShowCheckout(false);
+      console.error("Order placement failed on server:", err);
+      alert(`Failed to place order: ${err.message || 'Server error'}. The order was NOT saved.`);
     });
   };
 

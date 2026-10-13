@@ -452,6 +452,7 @@ export default function Dashboard() {
         discountApplied: 0,
         paymentMethod: status === 'Parked' ? null : paymentMethod,
         status: status,
+        kitchenStatus: 'Pending',
         items: cart.map(item => ({
           dishId: item.dish.id,
           quantity: item.quantity
@@ -467,9 +468,26 @@ export default function Dashboard() {
         });
         if (res.ok) {
           createdOrder = await res.json().catch(() => null);
+        } else {
+          let errText = `Server returned status ${res.status}`;
+          try {
+            const errData = await res.json();
+            if (errData.message) errText = errData.message;
+          } catch (e) {}
+          setOrderToast({
+            message: `Failed to place order: ${errText}`,
+            type: 'error'
+          });
+          setTimeout(() => setOrderToast(null), 4000);
+          return;
         }
-      } catch (e) {
-        console.warn('API error, saving locally', e);
+      } catch (e: any) {
+        setOrderToast({
+          message: `Network error placing order: ${e.message || 'Server unreachable'}`,
+          type: 'error'
+        });
+        setTimeout(() => setOrderToast(null), 4000);
+        return;
       }
 
       const orderNumber = createdOrder?.orderNumber || `ORD-${Date.now().toString().slice(-4)}`;
