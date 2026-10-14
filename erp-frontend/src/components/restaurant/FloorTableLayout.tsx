@@ -47,7 +47,7 @@ export default function FloorTableLayout({ tables, selectedTableId, onSelectTabl
           border: 'none',
           badgeBg: 'rgba(255,255,255,0.2)',
           badgeText: '#ffffff',
-          label: '17:00 PM' // Mock time for now as per screenshot
+          label: 'Reserved'
         };
       case 'Free':
       default:
@@ -163,11 +163,7 @@ export default function FloorTableLayout({ tables, selectedTableId, onSelectTabl
           >
             {/* Table Surface */}
             <div
-              onClick={() => {
-                if (isFree) {
-                  onSelectTable(table);
-                }
-              }}
+              onClick={() => onSelectTable(table)}
               style={{
                 width: dimensions.width,
                 height: dimensions.height,
@@ -179,7 +175,7 @@ export default function FloorTableLayout({ tables, selectedTableId, onSelectTabl
                 alignItems: 'center',
                 justifyContent: 'center',
                 position: 'relative',
-                cursor: isFree ? 'pointer' : 'default',
+                cursor: 'pointer',
                 boxShadow: isSelected
                   ? '0 0 0 4px rgba(59, 130, 246, 0.25), 0 8px 16px -4px rgba(59, 130, 246, 0.1)'
                   : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',

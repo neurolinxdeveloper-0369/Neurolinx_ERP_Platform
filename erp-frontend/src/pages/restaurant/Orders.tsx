@@ -37,6 +37,20 @@ export interface PlacedOrder {
   createdAt: string;
 }
 
+export interface ReservationData {
+  id: string;
+  customerName: string;
+  phone: string;
+  tableId: number;
+  tableName: string;
+  guests: number;
+  date: string;
+  time: string;
+  status: 'Reserved' | 'Seated' | 'Cancelled';
+  notes?: string;
+  createdAt: string;
+}
+
 export default function RestaurantOrders() {
   const { sendEscPos, connectedDevice } = usePrinter();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -71,6 +85,127 @@ export default function RestaurantOrders() {
   // Modals
   const [showCheckout, setShowCheckout] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Card'>('UPI');
+
+  // Reservations State
+  const [reservations, setReservations] = useState<ReservationData[]>(() => {
+    const cached = localStorage.getItem('restaurant_reservations');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
+  const [reservationFilter, setReservationFilter] = useState<'Today' | 'Upcoming' | 'All'>('Today');
+
+  // Reservation Form State
+  const [resCustomerName, setResCustomerName] = useState('');
+  const [resPhone, setResPhone] = useState('');
+  const [resTableId, setResTableId] = useState<number | null>(null);
+  const [resGuests, setResGuests] = useState<number>(2);
+  const [resDate, setResDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [resTime, setResTime] = useState<string>(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + 30);
+    return d.toTimeString().substring(0, 5);
+  });
+  const [resNotes, setResNotes] = useState('');
+  const [resError, setResError] = useState('');
+
+  const openNewReservationModal = (preselectedTableId?: number) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    setResCustomerName('');
+    setResPhone('');
+    setResGuests(2);
+    setResDate(todayStr);
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + 30);
+    setResTime(d.toTimeString().substring(0, 5));
+    setResNotes('');
+    setResError('');
+
+    if (preselectedTableId) {
+      setResTableId(preselectedTableId);
+    } else if (tables.length > 0) {
+      const freeTable = tables.find(t => t.status === 'Free') || tables[0];
+      setResTableId(freeTable.id);
+    } else {
+      setResTableId(null);
+    }
+    setIsReservationModalOpen(true);
+  };
+
+  const handleCreateReservation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resCustomerName.trim()) {
+      setResError('Please enter customer name.');
+      return;
+    }
+    if (!resPhone.trim()) {
+      setResError('Please enter phone number.');
+      return;
+    }
+    if (!resTableId) {
+      setResError('Please select a table.');
+      return;
+    }
+
+    const selectedTable = tables.find(t => t.id === resTableId);
+    const tableName = selectedTable ? selectedTable.tableName : `Table ${resTableId}`;
+
+    const newRes: ReservationData = {
+      id: `res_${Date.now()}`,
+      customerName: resCustomerName.trim(),
+      phone: resPhone.trim(),
+      tableId: resTableId,
+      tableName,
+      guests: Number(resGuests) || 2,
+      date: resDate,
+      time: resTime,
+      status: 'Reserved',
+      notes: resNotes.trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    const updated = [newRes, ...reservations];
+    setReservations(updated);
+    localStorage.setItem('restaurant_reservations', JSON.stringify(updated));
+
+    // If reservation is for TODAY, immediately update the table status to 'Reserved'
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (resDate === todayStr) {
+      await handleTableStatusChange(resTableId, 'Reserved');
+    }
+
+    setIsReservationModalOpen(false);
+  };
+
+  const handleSeatReservation = async (res: ReservationData) => {
+    await handleTableStatusChange(res.tableId, 'Occupied');
+    const updated = reservations.map(r => r.id === res.id ? { ...r, status: 'Seated' as const } : r);
+    setReservations(updated);
+    localStorage.setItem('restaurant_reservations', JSON.stringify(updated));
+
+    setSelectedTableId(res.tableId);
+    setSelectedTableName(res.tableName);
+    setOrderType('Dine-In');
+    setViewMode('POS');
+  };
+
+  const handleCancelReservation = async (res: ReservationData) => {
+    const updated = reservations.map(r => r.id === res.id ? { ...r, status: 'Cancelled' as const } : r);
+    setReservations(updated);
+    localStorage.setItem('restaurant_reservations', JSON.stringify(updated));
+
+    const table = tables.find(t => t.id === res.tableId);
+    if (table && table.status === 'Reserved') {
+      await handleTableStatusChange(res.tableId, 'Free');
+    }
+  };
 
   const loadFloorTables = async (floorNum: number) => {
     setLoadingTables(true);
@@ -128,9 +263,7 @@ export default function RestaurantOrders() {
   };
 
   useEffect(() => {
-    if (viewMode === 'Tables') {
-      loadFloorTables(activeFloor);
-    }
+    loadFloorTables(activeFloor);
   }, [viewMode, activeFloor]);
 
   const handleSaveTableConfig = async (floor: number, newTables: { capacity: number }[]) => {
@@ -1017,92 +1150,524 @@ export default function RestaurantOrders() {
             </div>
 
             {/* Floating Action Bar when a table is selected */}
-            {selectedTableId && (
-              <div style={{
-                position: 'absolute',
-                bottom: '1.5rem',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                backgroundColor: '#0f172a',
-                borderRadius: '32px',
-                padding: '0.5rem 0.75rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
-                zIndex: 50
-              }}>
-                <span style={{ color: 'white', fontSize: '0.875rem', paddingLeft: '0.75rem' }}>Selected:</span>
+            {selectedTableId && (() => {
+              const currentTable = tables.find(t => t.id === selectedTableId);
+              const isReserved = currentTable?.status === 'Reserved';
+              const isOccupied = currentTable?.status === 'Occupied';
+              const todayStr = new Date().toISOString().split('T')[0];
+              const tableReservation = reservations.find(r => r.tableId === selectedTableId && r.date === todayStr && r.status === 'Reserved');
+
+              return (
                 <div style={{
-                  backgroundColor: 'white',
-                  padding: '0.4rem 0.9rem',
-                  borderRadius: '24px',
+                  position: 'absolute',
+                  bottom: '1.5rem',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  backgroundColor: '#0f172a',
+                  borderRadius: '32px',
+                  padding: '0.5rem 0.75rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.5rem',
-                  fontWeight: 700,
-                  fontSize: '0.875rem',
-                  color: '#0f172a'
+                  gap: '0.75rem',
+                  boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)',
+                  zIndex: 50,
+                  maxWidth: '92%',
+                  flexWrap: 'wrap'
                 }}>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input
-                    value={selectedTableName}
-                    onChange={(e) => handleUpdateTableCapacity(selectedTableId, tables.find(t => t.id === selectedTableId)?.capacity || 4, e.target.value)}
-                    style={{ border: 'none', backgroundColor: 'transparent', outline: 'none', fontWeight: 700, fontSize: '0.875rem', color: '#0f172a', width: '90px' }}
-                  />
-                  <select
-                    value={tables.find(t => t.id === selectedTableId)?.capacity || 4}
-                    onChange={(e) => handleUpdateTableCapacity(selectedTableId, parseInt(e.target.value), selectedTableName)}
-                    style={{ border: 'none', backgroundColor: '#f1f5f9', borderRadius: '4px', padding: '0.1rem 0.2rem', outline: 'none', fontWeight: 600, fontSize: '0.75rem', color: '#334155' }}
-                  >
-                    {[2, 4, 6, 8, 10, 12].map(cap => (
-                      <option key={cap} value={cap}>{cap} Seats</option>
-                    ))}
-                  </select>
-                </div>
-                  <Icons.X
-                    size={16}
-                    style={{ cursor: 'pointer', color: '#64748b' }}
-                    onClick={() => {
-                      setSelectedTableId(null);
-                      setSelectedTableName('');
-                    }}
-                  />
-                </div>
-                <button
-                  onClick={() => {
-                    setOrderType('Dine-In');
-                    setViewMode('POS');
-                  }}
-                  style={{
-                    backgroundColor: '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    padding: '0.5rem 1.25rem',
+                  <span style={{ color: 'white', fontSize: '0.875rem', paddingLeft: '0.75rem' }}>Selected:</span>
+                  <div style={{
+                    backgroundColor: 'white',
+                    padding: '0.4rem 0.9rem',
                     borderRadius: '24px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.5rem',
-                    fontWeight: 600,
+                    fontWeight: 700,
                     fontSize: '0.875rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Continue to POS <Icons.ArrowRight size={16} />
-                </button>
-              </div>
-            )}
+                    color: '#0f172a'
+                  }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        value={selectedTableName}
+                        onChange={(e) => handleUpdateTableCapacity(selectedTableId, currentTable?.capacity || 4, e.target.value)}
+                        style={{ border: 'none', backgroundColor: 'transparent', outline: 'none', fontWeight: 700, fontSize: '0.875rem', color: '#0f172a', width: '90px' }}
+                      />
+                      <select
+                        value={currentTable?.capacity || 4}
+                        onChange={(e) => handleUpdateTableCapacity(selectedTableId, parseInt(e.target.value), selectedTableName)}
+                        style={{ border: 'none', backgroundColor: '#f1f5f9', borderRadius: '4px', padding: '0.1rem 0.2rem', outline: 'none', fontWeight: 600, fontSize: '0.75rem', color: '#334155' }}
+                      >
+                        {[2, 4, 6, 8, 10, 12].map(cap => (
+                          <option key={cap} value={cap}>{cap} Seats</option>
+                        ))}
+                      </select>
+                    </div>
+                    {isReserved && (
+                      <span style={{ backgroundColor: '#1e293b', color: '#f8fafc', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 700 }}>
+                        Reserved {tableReservation ? `(${tableReservation.customerName})` : ''}
+                      </span>
+                    )}
+                    {isOccupied && (
+                      <span style={{ backgroundColor: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 700 }}>
+                        Occupied
+                      </span>
+                    )}
+                    <Icons.X
+                      size={16}
+                      style={{ cursor: 'pointer', color: '#64748b' }}
+                      onClick={() => {
+                        setSelectedTableId(null);
+                        setSelectedTableName('');
+                      }}
+                    />
+                  </div>
+
+                  {/* Actions depending on table status */}
+                  {!isReserved && !isOccupied && (
+                    <button
+                      onClick={() => openNewReservationModal(selectedTableId)}
+                      style={{
+                        backgroundColor: '#6366f1',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        fontWeight: 600,
+                        fontSize: '0.875rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Icons.CalendarPlus size={16} /> Reserve
+                    </button>
+                  )}
+
+                  {isReserved && (
+                    <>
+                      <button
+                        onClick={async () => {
+                          if (tableReservation) {
+                            await handleSeatReservation(tableReservation);
+                          } else {
+                            await handleTableStatusChange(selectedTableId, 'Occupied');
+                            setOrderType('Dine-In');
+                            setViewMode('POS');
+                          }
+                        }}
+                        style={{
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          padding: '0.5rem 1rem',
+                          borderRadius: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          fontWeight: 600,
+                          fontSize: '0.875rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Icons.UserCheck size={16} /> Seat Guest
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (tableReservation) {
+                            await handleCancelReservation(tableReservation);
+                          } else {
+                            await handleTableStatusChange(selectedTableId, 'Free');
+                          }
+                        }}
+                        style={{
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          padding: '0.5rem 0.9rem',
+                          borderRadius: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          fontWeight: 600,
+                          fontSize: '0.875rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Icons.XCircle size={16} /> Release Table
+                      </button>
+                    </>
+                  )}
+
+                  {isOccupied && (
+                    <button
+                      onClick={() => handleTableStatusChange(selectedTableId, 'Free')}
+                      style={{
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        fontWeight: 600,
+                        fontSize: '0.875rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Icons.CheckCircle2 size={16} /> Mark Free
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setOrderType('Dine-In');
+                      setViewMode('POS');
+                    }}
+                    style={{
+                      backgroundColor: '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.5rem 1.25rem',
+                      borderRadius: '24px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      fontWeight: 600,
+                      fontSize: '0.875rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Continue to POS <Icons.ArrowRight size={16} />
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         )}
 
         {viewMode === 'Reservations' && (
-          <div style={{ flex: 1, backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <Icons.CalendarDays size={48} color="#cbd5e1" style={{ marginBottom: '1rem' }} />
-            <h2 style={{ margin: '0 0 0.5rem 0', color: '#1e293b' }}>No Reservations Today</h2>
-            <p style={{ color: '#64748b', margin: 0 }}>Upcoming reservations will appear here.</p>
-            <button style={{ marginTop: '1.5rem', padding: '0.75rem 1.5rem', backgroundColor: '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
-              + New Reservation
-            </button>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '1.5rem', overflow: 'hidden' }}>
+            {/* Header & Controls */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>Table Reservations</h2>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                  Manage guest bookings. Today's bookings automatically reserve tables on the floor plan.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                {/* Filter Tabs */}
+                <div style={{ display: 'flex', backgroundColor: '#e2e8f0', borderRadius: '24px', padding: '0.2rem', gap: '0.2rem' }}>
+                  {(['Today', 'Upcoming', 'All'] as const).map(tab => {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    let count = 0;
+                    if (tab === 'Today') count = reservations.filter(r => r.date === todayStr).length;
+                    else if (tab === 'Upcoming') count = reservations.filter(r => r.date > todayStr).length;
+                    else count = reservations.length;
+
+                    const isActive = reservationFilter === tab;
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => setReservationFilter(tab)}
+                        style={{
+                          padding: '0.4rem 0.9rem',
+                          borderRadius: '20px',
+                          border: 'none',
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          backgroundColor: isActive ? 'white' : 'transparent',
+                          color: isActive ? '#0f172a' : '#64748b',
+                          boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem'
+                        }}
+                      >
+                        {tab}
+                        <span style={{
+                          backgroundColor: isActive ? '#0284c7' : '#cbd5e1',
+                          color: isActive ? 'white' : '#475569',
+                          borderRadius: '10px',
+                          padding: '1px 6px',
+                          fontSize: '0.65rem',
+                          fontWeight: 700
+                        }}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* New Reservation Button */}
+                <button
+                  onClick={() => openNewReservationModal()}
+                  style={{
+                    backgroundColor: '#0284c7',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '24px',
+                    padding: '0.55rem 1.25rem',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)'
+                  }}
+                >
+                  <Icons.Plus size={16} /> New Reservation
+                </button>
+              </div>
+            </div>
+
+            {/* List / Grid of Reservations */}
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.25rem' }}>
+              {(() => {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const filtered = reservations.filter(r => {
+                  if (reservationFilter === 'Today') return r.date === todayStr;
+                  if (reservationFilter === 'Upcoming') return r.date > todayStr;
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div style={{
+                      height: '100%',
+                      minHeight: '320px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'white',
+                      borderRadius: '16px',
+                      border: '2px dashed #cbd5e1',
+                      padding: '2rem',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                        <Icons.CalendarDays size={28} color="#0284c7" />
+                      </div>
+                      <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b', fontSize: '1.1rem', fontWeight: 700 }}>
+                        {reservationFilter === 'Today' ? 'No Reservations For Today' : reservationFilter === 'Upcoming' ? 'No Upcoming Reservations' : 'No Reservations Yet'}
+                      </h3>
+                      <p style={{ margin: '0 0 1.5rem 0', color: '#64748b', fontSize: '0.875rem', maxWidth: '360px' }}>
+                        Add a new reservation to book a table for guests and keep your dining room organized.
+                      </p>
+                      <button
+                        onClick={() => openNewReservationModal()}
+                        style={{
+                          padding: '0.65rem 1.4rem',
+                          backgroundColor: '#0284c7',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '24px',
+                          fontWeight: 700,
+                          fontSize: '0.875rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)'
+                        }}
+                      >
+                        <Icons.Plus size={16} /> + New Reservation
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '1rem'
+                  }}>
+                    {filtered.map(res => {
+                      const isToday = res.date === todayStr;
+                      return (
+                        <div
+                          key={res.id}
+                          style={{
+                            backgroundColor: 'white',
+                            borderRadius: '12px',
+                            border: res.status === 'Reserved' ? '1px solid #93c5fd' : '1px solid #e2e8f0',
+                            padding: '1.25rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.75rem',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
+                            position: 'relative'
+                          }}
+                        >
+                          {/* Card Header: Table & Status */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{
+                                backgroundColor: '#0f172a',
+                                color: 'white',
+                                padding: '4px 10px',
+                                borderRadius: '8px',
+                                fontSize: '0.8rem',
+                                fontWeight: 800,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem'
+                              }}>
+                                <Icons.UtensilsCrossed size={12} />
+                                {res.tableName}
+                              </span>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>
+                                {res.guests} {res.guests === 1 ? 'Guest' : 'Guests'}
+                              </span>
+                            </div>
+
+                            {/* Status Badge */}
+                            <span style={{
+                              padding: '3px 10px',
+                              borderRadius: '12px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              backgroundColor: res.status === 'Reserved' ? '#1e293b' : res.status === 'Seated' ? '#ecfdf5' : '#f1f5f9',
+                              color: res.status === 'Reserved' ? '#ffffff' : res.status === 'Seated' ? '#059669' : '#64748b',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.3rem'
+                            }}>
+                              {res.status === 'Reserved' && <Icons.Clock size={10} />}
+                              {res.status === 'Seated' && <Icons.Check size={10} />}
+                              {res.status}
+                            </span>
+                          </div>
+
+                          {/* Customer Details */}
+                          <div>
+                            <div style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b' }}>
+                              {res.customerName}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64748b', fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                              <Icons.Phone size={12} />
+                              {res.phone}
+                            </div>
+                          </div>
+
+                          {/* Date & Time pill */}
+                          <div style={{
+                            backgroundColor: '#f8fafc',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            fontSize: '0.75rem',
+                            color: '#334155',
+                            border: '1px solid #f1f5f9'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Icons.Calendar size={13} color="#0284c7" />
+                              <span style={{ fontWeight: 700 }}>
+                                {isToday ? 'Today' : res.date}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <Icons.Clock size={13} color="#0284c7" />
+                              <span style={{ fontWeight: 700 }}>{res.time}</span>
+                            </div>
+                          </div>
+
+                          {/* Optional Notes */}
+                          {res.notes && (
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic', backgroundColor: '#fffbeb', padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid #fef3c7' }}>
+                              "{res.notes}"
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid #f1f5f9' }}>
+                            {res.status === 'Reserved' ? (
+                              <>
+                                <button
+                                  onClick={() => handleSeatReservation(res)}
+                                  style={{
+                                    flex: 1,
+                                    padding: '0.5rem',
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontWeight: 700,
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.4rem'
+                                  }}
+                                >
+                                  <Icons.UserCheck size={13} /> Seat Guest
+                                </button>
+                                <button
+                                  onClick={() => handleCancelReservation(res)}
+                                  style={{
+                                    padding: '0.5rem 0.75rem',
+                                    backgroundColor: '#fee2e2',
+                                    color: '#b91c1c',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontWeight: 700,
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : res.status === 'Seated' ? (
+                              <button
+                                onClick={() => {
+                                  setSelectedTableId(res.tableId);
+                                  setSelectedTableName(res.tableName);
+                                  setOrderType('Dine-In');
+                                  setViewMode('POS');
+                                }}
+                                style={{
+                                  flex: 1,
+                                  padding: '0.5rem',
+                                  backgroundColor: '#0284c7',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontWeight: 700,
+                                  fontSize: '0.75rem',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '0.4rem'
+                                }}
+                              >
+                                View Table in POS <Icons.ArrowRight size={13} />
+                              </button>
+                            ) : (
+                              <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic', padding: '0.25rem 0' }}>
+                                Reservation Cancelled
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         )}
       </div>
@@ -1221,6 +1786,310 @@ export default function RestaurantOrders() {
         currentFloor={activeFloor}
         existingTables={tables.map(t => ({ capacity: t.capacity }))}
       />
+
+      {/* Reservation Modal */}
+      {isReservationModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(2px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '16px',
+            width: '460px',
+            maxWidth: '100%',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            border: '1px solid #e2e8f0'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid #f1f5f9',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#f8fafc'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div style={{ backgroundColor: '#0284c7', color: 'white', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                  <Icons.CalendarPlus size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>New Table Reservation</h3>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>Reserve a table for guest dining</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReservationModalOpen(false)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}
+              >
+                <Icons.X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleCreateReservation} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {resError && (
+                <div style={{
+                  backgroundColor: '#fee2e2',
+                  color: '#991b1b',
+                  padding: '0.6rem 0.9rem',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <Icons.AlertCircle size={16} />
+                  {resError}
+                </div>
+              )}
+
+              {/* Customer Name */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  Customer Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Rahul Sharma"
+                  value={resCustomerName}
+                  onChange={e => setResCustomerName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="e.g. +91 98765 43210"
+                  value={resPhone}
+                  onChange={e => setResPhone(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Select Table & Guest count */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    Select Table *
+                  </label>
+                  <select
+                    value={resTableId || ''}
+                    onChange={e => setResTableId(Number(e.target.value))}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.85rem',
+                      outline: 'none',
+                      backgroundColor: 'white',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    {tables.length === 0 ? (
+                      <option value="">No tables configured</option>
+                    ) : (
+                      tables.map(tbl => (
+                        <option key={tbl.id} value={tbl.id}>
+                          {tbl.tableName} ({tbl.capacity} Seats) - {tbl.status || 'Free'}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    Guests
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={resGuests}
+                    onChange={e => setResGuests(parseInt(e.target.value) || 1)}
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.875rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Date & Time */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    Reservation Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={resDate}
+                    onChange={e => setResDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.85rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    Time *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={resTime}
+                    onChange={e => setResTime(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.85rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Special Requests */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  Special Requests / Notes
+                </label>
+                <input
+                  type="text"
+                  placeholder="Optional (e.g. Window seat, Birthday celebration)"
+                  value={resNotes}
+                  onChange={e => setResNotes(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.6rem 0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Notice Banner about today's sync */}
+              <div style={{
+                backgroundColor: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                borderRadius: '8px',
+                padding: '0.6rem 0.85rem',
+                fontSize: '0.75rem',
+                color: '#1e40af',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}>
+                <Icons.Info size={16} color="#2563eb" />
+                <span>
+                  {resDate === new Date().toISOString().split('T')[0]
+                    ? "Reserving for today will automatically set the selected table to 'Reserved' in the Tables option."
+                    : "Reservation will be booked for " + resDate + "."}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsReservationModalOpen(false)}
+                  style={{
+                    flex: 1,
+                    padding: '0.65rem',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: 'white',
+                    color: '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1,
+                    padding: '0.65rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#0284c7',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)'
+                  }}
+                >
+                  Confirm Reservation
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
