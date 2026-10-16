@@ -16,6 +16,9 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     List<CustomerOrder> findTop10ByCompanyOrderByIdDesc(Company company);
     boolean existsByRestaurantTable(RestaurantTable restaurantTable);
     List<CustomerOrder> findByCompanyAndCreatedAtBetween(Company company, LocalDateTime start, LocalDateTime end);
+    List<CustomerOrder> findByCompanyAndOrderTypeOrderByIdDesc(Company company, String orderType);
+    List<CustomerOrder> findByCompanyAndBranchIdAndOrderTypeOrderByIdDesc(Company company, Long branchId, String orderType);
+    List<CustomerOrder> findByCompanyAndDeliveryStatusIn(Company company, List<String> deliveryStatuses);
     long countByCompanyAndStatus(Company company, String status);
     long countByCompanyAndStatusIn(Company company, List<String> statuses);
 }

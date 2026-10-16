@@ -4,6 +4,7 @@ import { apiFetch } from '../../api';
 import { usePrinter } from '../../context/PrinterContext';
 import TableSetupModal from '../../components/restaurant/TableSetupModal';
 import FloorTableLayout, { type RestaurantTableData } from '../../components/restaurant/FloorTableLayout';
+import DeliveryManagement from './DeliveryManagement';
 
 interface Dish {
   id: number;
@@ -34,6 +35,18 @@ export interface PlacedOrder {
   totalAmount: number;
   paymentMethod?: string;
   status: string;
+  notes?: string;
+  orderSource?: string;
+  customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  deliveryArea?: string;
+  deliveryCity?: string;
+  deliveryPostalCode?: string;
+  deliveryInstructions?: string;
+  deliveryStaffName?: string;
+  deliveryStatus?: string;
+  expectedDeliveryTime?: string;
   createdAt: string;
 }
 
@@ -60,7 +73,7 @@ export default function RestaurantOrders() {
   
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [orderType, setOrderType] = useState<'Dine-In' | 'Takeaway' | 'Delivery'>('Dine-In');
-  const [viewMode, setViewMode] = useState<'POS' | 'Tables' | 'Reservations'>('POS');
+  const [viewMode, setViewMode] = useState<'POS' | 'Tables' | 'Reservations' | 'Deliveries'>('POS');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string>('');
   const [activeFloor, setActiveFloor] = useState<number>(1);
@@ -81,6 +94,22 @@ export default function RestaurantOrders() {
     }
     return [];
   });
+
+  // Delivery Form State
+  const [deliveryCustomerName, setDeliveryCustomerName] = useState('');
+  const [deliveryCustomerPhone, setDeliveryCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryArea, setDeliveryArea] = useState('');
+  const [deliveryCity, setDeliveryCity] = useState('');
+  const [deliveryPostalCode, setDeliveryPostalCode] = useState('');
+  const [deliveryInstructions, setDeliveryInstructions] = useState('');
+  const [deliveryStaffId, setDeliveryStaffId] = useState<string>('');
+  const [deliveryPrepMinutes, setDeliveryPrepMinutes] = useState<number>(20);
+  const [deliveryDurationMinutes, setDeliveryDurationMinutes] = useState<number>(30);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const [deliveryError, setDeliveryError] = useState('');
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [activeDeliveryCount, setActiveDeliveryCount] = useState<number>(0);
 
   // Modals
   const [showCheckout, setShowCheckout] = useState(false);
@@ -359,42 +388,73 @@ export default function RestaurantOrders() {
       apiFetch('https://erp-api.neurolinx.in/api/pos/categories').then(res => res.json()),
       apiFetch('https://erp-api.neurolinx.in/api/pos/dishes').then(res => res.json()),
       apiFetch('https://erp-api.neurolinx.in/api/settings').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/settings/my-company').then(res => res.ok ? res.json() : null)
-    ]).then(([cats, items, sets, comp]) => {
+      apiFetch('https://erp-api.neurolinx.in/api/settings/my-company').then(res => res.ok ? res.json() : null),
+      apiFetch('https://erp-api.neurolinx.in/api/staff/employees').then(res => res.ok ? res.json() : []).catch(() => [])
+    ]).then(([cats, items, sets, comp, staff]) => {
       setCategories(cats);
       setDishes(items);
       setSettings(sets);
       if (comp) setCompany(comp);
+      if (Array.isArray(staff)) setStaffList(staff.filter((s: any) => s.isActive !== false));
       setIsLoading(false);
     }).catch(err => {
       console.error(err);
       setIsLoading(false);
     });
 
-    apiFetch('https://erp-api.neurolinx.in/api/pos/orders/recent')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped: PlacedOrder[] = data.map((o: any) => ({
-            id: o.id,
-            orderNumber: o.orderNumber,
-            orderType: (o.orderType as any) || 'Dine-In',
-            tableName: o.restaurantTable?.tableName,
-            items: o.items ? o.items.map((it: any) => ({
-              name: it.dish?.name || 'Dish Item',
-              quantity: it.quantity || 1,
-              price: it.price || 0
-            })) : [],
-            totalAmount: o.totalAmount || 0,
-            paymentMethod: o.paymentMethod || 'UPI',
-            status: o.status || 'Completed',
-            createdAt: o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
-          }));
-          setRecentOrders(mapped.slice(0, 10));
-          localStorage.setItem('pos_recent_orders', JSON.stringify(mapped.slice(0, 10)));
-        }
-      })
-      .catch(() => {});
+    const fetchRecentOrders = () => {
+      apiFetch('https://erp-api.neurolinx.in/api/pos/orders/recent')
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            const mapped: PlacedOrder[] = data.map((o: any) => ({
+              id: o.id,
+              orderNumber: o.orderNumber,
+              orderType: (o.orderType as any) || 'Dine-In',
+              tableName: o.restaurantTable?.tableName,
+              items: o.items ? o.items.map((it: any) => ({
+                name: it.dish?.name || it.dishName || 'Dish Item',
+                quantity: it.quantity || 1,
+                price: it.price || 0
+              })) : [],
+              totalAmount: o.totalAmount || 0,
+              paymentMethod: o.paymentMethod || 'UPI',
+              status: o.status || 'Completed',
+              notes: o.notes,
+              orderSource: o.orderSource,
+              customerName: o.customerName,
+              customerPhone: o.customerPhone,
+              deliveryAddress: o.deliveryAddress,
+              deliveryArea: o.deliveryArea,
+              deliveryCity: o.deliveryCity,
+              deliveryPostalCode: o.deliveryPostalCode,
+              deliveryInstructions: o.deliveryInstructions,
+              deliveryStaffName: o.deliveryStaffName,
+              deliveryStatus: o.deliveryStatus,
+              expectedDeliveryTime: o.expectedDeliveryTime,
+              createdAt: o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+            }));
+            setRecentOrders(mapped.slice(0, 10));
+            localStorage.setItem('pos_recent_orders', JSON.stringify(mapped.slice(0, 10)));
+          }
+        })
+        .catch(() => {});
+
+      // Sync active delivery count
+      apiFetch('https://erp-api.neurolinx.in/api/pos/orders/deliveries')
+        .then(res => res.ok ? res.json() : [])
+        .then(delivs => {
+          if (Array.isArray(delivs)) {
+            const active = delivs.filter(d => d.deliveryStatus !== 'Delivered' && d.deliveryStatus !== 'Cancelled').length;
+            setActiveDeliveryCount(active);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchRecentOrders();
+    const interval = setInterval(fetchRecentOrders, 8000);
+    return () => clearInterval(interval);
   }, []);
 
   const addToCart = (dish: Dish) => {
@@ -537,6 +597,25 @@ export default function RestaurantOrders() {
 
   const placeOrder = (status: 'Completed' | 'Parked') => {
     if (cart.length === 0) return;
+
+    if (orderType === 'Delivery') {
+      if (!deliveryCustomerName.trim()) {
+        setDeliveryError('Customer name is required for delivery.');
+        setIsDeliveryModalOpen(true);
+        return;
+      }
+      if (!deliveryCustomerPhone.trim()) {
+        setDeliveryError('Customer contact phone is required for delivery.');
+        setIsDeliveryModalOpen(true);
+        return;
+      }
+      if (!deliveryAddress.trim()) {
+        setDeliveryError('Delivery address is required.');
+        setIsDeliveryModalOpen(true);
+        return;
+      }
+    }
+
     const total = cart.reduce((sum, item) => sum + (item.dish.price * item.quantity), 0);
     const discountRate = settings?.defaultDiscount || 0.0;
     const discountAmount = total * (discountRate / 100);
@@ -546,7 +625,6 @@ export default function RestaurantOrders() {
     const finalTotal = subtotalAfterDiscount + tax;
     const currentTableId = selectedTableId;
     const currentTableName = selectedTableName || (currentTableId ? ('Table ' + currentTableId) : '');
-
 
     const handlePrint = (order: any) => {
       const printWindow = window.open('', '_blank', 'width=400,height=600');
@@ -587,6 +665,7 @@ export default function RestaurantOrders() {
             <p>Order #${order.orderNumber}</p>
             <p>${order.createdAt}</p>
             <p>${order.orderType}${order.tableName ? ' - ' + order.tableName : ''}</p>
+            ${order.orderType === 'Delivery' ? `<p style="font-size:12px;margin:2px 0;"><strong>Customer:</strong> ${order.customerName || ''} (${order.customerPhone || ''})<br/><strong>Address:</strong> ${order.deliveryAddress || ''}</p>` : ''}
           </div>
           
           <table>
@@ -616,7 +695,6 @@ export default function RestaurantOrders() {
     };
 
     const saveOrderLocally = (serverOrder?: any) => {
-
       const orderNum = serverOrder?.orderNumber || `ORD-${Date.now().toString().slice(-4)}`;
       const newOrderRecord: PlacedOrder = {
         id: serverOrder?.id || Date.now(),
@@ -627,6 +705,15 @@ export default function RestaurantOrders() {
         totalAmount: finalTotal,
         paymentMethod: status === 'Parked' ? 'Unpaid' : paymentMethod,
         status: status,
+        customerName: orderType === 'Delivery' ? deliveryCustomerName.trim() : undefined,
+        customerPhone: orderType === 'Delivery' ? deliveryCustomerPhone.trim() : undefined,
+        deliveryAddress: orderType === 'Delivery' ? deliveryAddress.trim() : undefined,
+        deliveryArea: orderType === 'Delivery' ? deliveryArea.trim() : undefined,
+        deliveryCity: orderType === 'Delivery' ? deliveryCity.trim() : undefined,
+        deliveryPostalCode: orderType === 'Delivery' ? deliveryPostalCode.trim() : undefined,
+        deliveryInstructions: orderType === 'Delivery' ? deliveryInstructions.trim() : undefined,
+        deliveryStaffName: orderType === 'Delivery' && deliveryStaffId ? staffList.find(s => String(s.id) === deliveryStaffId)?.name : undefined,
+        deliveryStatus: orderType === 'Delivery' ? 'Order Placed' : undefined,
         createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -647,19 +734,35 @@ export default function RestaurantOrders() {
       return newOrderRecord;
     };
     
+    const orderPayload: any = { 
+      orderType, 
+      tableId: orderType === 'Dine-In' ? currentTableId : null,
+      totalAmount: finalTotal, 
+      taxApplied: tax,
+      paymentMethod: status === 'Parked' ? null : paymentMethod,
+      status: status,
+      kitchenStatus: 'Pending',
+      items: cart.map(c => ({ dishId: c.dish.id, quantity: c.quantity })) 
+    };
+
+    if (orderType === 'Delivery') {
+      orderPayload.customerName = deliveryCustomerName.trim();
+      orderPayload.customerPhone = deliveryCustomerPhone.trim();
+      orderPayload.deliveryAddress = deliveryAddress.trim();
+      if (deliveryArea.trim()) orderPayload.deliveryArea = deliveryArea.trim();
+      if (deliveryCity.trim()) orderPayload.deliveryCity = deliveryCity.trim();
+      if (deliveryPostalCode.trim()) orderPayload.deliveryPostalCode = deliveryPostalCode.trim();
+      if (deliveryInstructions.trim()) orderPayload.deliveryInstructions = deliveryInstructions.trim();
+      if (deliveryStaffId) orderPayload.deliveryStaffId = deliveryStaffId;
+      orderPayload.estimatedPrepMinutes = deliveryPrepMinutes;
+      orderPayload.estimatedDeliveryMinutes = deliveryDurationMinutes;
+      orderPayload.deliveryStatus = 'Order Placed';
+    }
+
     apiFetch('https://erp-api.neurolinx.in/api/pos/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        orderType, 
-        tableId: orderType === 'Dine-In' ? currentTableId : null,
-        totalAmount: finalTotal, 
-        taxApplied: tax,
-        paymentMethod: status === 'Parked' ? null : paymentMethod,
-        status: status,
-        kitchenStatus: 'Pending',
-        items: cart.map(c => ({ dishId: c.dish.id, quantity: c.quantity })) 
-      })
+      body: JSON.stringify(orderPayload)
     })
     .then(async res => {
       if (!res.ok) {
@@ -674,7 +777,7 @@ export default function RestaurantOrders() {
     })
     .then(order => {
       if (status === 'Completed') {
-        alert("Order placed successfully!");
+        alert(orderType === 'Delivery' ? "Delivery order placed successfully!" : "Order placed successfully!");
         
         if (connectedDevice && order?.orderNumber) {
           // Print KOT
@@ -687,11 +790,25 @@ export default function RestaurantOrders() {
           });
         }
       } else {
-        alert("Order Parked successfully!");
+        alert(orderType === 'Delivery' ? "Delivery order Parked successfully!" : "Order Parked successfully!");
       }
 
       if (orderType === 'Dine-In' && currentTableId) {
         handleTableStatusChange(currentTableId, status === 'Parked' ? 'Occupied' : 'Free');
+      }
+
+      if (orderType === 'Delivery') {
+        setActiveDeliveryCount(prev => prev + 1);
+        setDeliveryCustomerName('');
+        setDeliveryCustomerPhone('');
+        setDeliveryAddress('');
+        setDeliveryArea('');
+        setDeliveryCity('');
+        setDeliveryPostalCode('');
+        setDeliveryInstructions('');
+        setDeliveryStaffId('');
+        setDeliveryError('');
+        setIsDeliveryModalOpen(false);
       }
 
       saveOrderLocally(order);
@@ -729,6 +846,21 @@ export default function RestaurantOrders() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '2rem', width: '400px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
             <h2 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem' }}>Checkout - Rs. {total.toFixed(2)}</h2>
+            
+            {orderType === 'Delivery' && (
+              <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.825rem' }}>
+                <div style={{ fontWeight: 700, color: '#166534', marginBottom: '2px' }}>
+                  Delivery to: {deliveryCustomerName || 'Customer'} ({deliveryCustomerPhone || 'No Phone'})
+                </div>
+                <div style={{ color: '#334155', fontSize: '0.78rem' }}>
+                  {deliveryAddress || 'No Address'}{deliveryArea ? `, ${deliveryArea}` : ''}{deliveryCity ? `, ${deliveryCity}` : ''}
+                </div>
+                <div style={{ color: '#64748b', fontSize: '0.72rem', marginTop: '4px' }}>
+                  Ready in: {deliveryPrepMinutes}m | Transit: {deliveryDurationMinutes}m | Driver: {deliveryStaffId ? (staffList.find(s => String(s.id) === deliveryStaffId)?.name || 'Assigned') : 'Unassigned (dispatch later)'}
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
               {['UPI', 'Cash', 'Card'].map(m => (
                 <button key={m} onClick={() => setPaymentMethod(m as any)} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: paymentMethod === m ? '2px solid #0ea5e9' : '1px solid #cbd5e1', backgroundColor: paymentMethod === m ? '#f0f9ff' : 'white', fontWeight: 600, cursor: 'pointer' }}>
@@ -757,6 +889,14 @@ export default function RestaurantOrders() {
                 </button>
                 <button onClick={() => setViewMode('Reservations')} style={{ padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: viewMode === 'Reservations' ? 'white' : 'transparent', color: viewMode === 'Reservations' ? '#0f172a' : '#64748b', boxShadow: viewMode === 'Reservations' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <Icons.Calendar size={16} /> Reservations
+                </button>
+                <button onClick={() => setViewMode('Deliveries')} style={{ padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: viewMode === 'Deliveries' ? 'white' : 'transparent', color: viewMode === 'Deliveries' ? '#0f172a' : '#64748b', boxShadow: viewMode === 'Deliveries' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Icons.Truck size={16} /> Deliveries
+                  {activeDeliveryCount > 0 && (
+                    <span style={{ backgroundColor: '#0284c7', color: 'white', fontSize: '0.7rem', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>
+                      {activeDeliveryCount}
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
@@ -1670,6 +1810,12 @@ export default function RestaurantOrders() {
             </div>
           </div>
         )}
+
+        {viewMode === 'Deliveries' && (
+          <div style={{ flex: 1, backgroundColor: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflowY: 'auto', padding: '1.25rem' }}>
+            <DeliveryManagement />
+          </div>
+        )}
       </div>
 
       {/* Right Order Sidebar */}
@@ -1684,7 +1830,7 @@ export default function RestaurantOrders() {
             Dine-In
           </button>
           <button onClick={() => { setOrderType('Takeaway'); setSelectedTableId(null); setSelectedTableName(''); }} style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Takeaway' ? 'white' : 'transparent', color: orderType === 'Takeaway' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Takeaway' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>Takeaway</button>
-            <button onClick={() => { setOrderType('Delivery'); setSelectedTableId(null); setSelectedTableName(''); }} style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Delivery' ? 'white' : 'transparent', color: orderType === 'Delivery' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Delivery' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>Delivery</button>
+          <button onClick={() => { setOrderType('Delivery'); setSelectedTableId(null); setSelectedTableName(''); if (!deliveryCustomerName) setIsDeliveryModalOpen(true); }} style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Delivery' ? 'white' : 'transparent', color: orderType === 'Delivery' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Delivery' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>Delivery</button>
         </div>
         
         {orderType === 'Dine-In' && (
@@ -1721,6 +1867,48 @@ export default function RestaurantOrders() {
                 </button>
               )}
             </div>
+          </div>
+        )}
+
+        {orderType === 'Delivery' && (
+          <div style={{ marginBottom: '1.25rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: deliveryCustomerName ? '0.4rem' : '0' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <Icons.Truck size={14} /> Delivery Details
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsDeliveryModalOpen(true)}
+                style={{
+                  border: 'none',
+                  backgroundColor: '#dcfce7',
+                  color: '#15803d',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                {deliveryCustomerName ? 'Edit' : '+ Add Details *'}
+              </button>
+            </div>
+            {deliveryCustomerName ? (
+              <div style={{ fontSize: '0.78rem', color: '#1e293b', lineHeight: 1.35 }}>
+                <div style={{ fontWeight: 700 }}>{deliveryCustomerName} ({deliveryCustomerPhone})</div>
+                <div style={{ color: '#475569', fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {deliveryAddress}{deliveryArea ? `, ${deliveryArea}` : ''}
+                </div>
+                <div style={{ color: '#15803d', fontSize: '0.7rem', marginTop: '2px', fontWeight: 600 }}>
+                  Ready ~{deliveryPrepMinutes}m | Transit ~{deliveryDurationMinutes}m
+                  {deliveryStaffId && ` | Driver: ${staffList.find(s => String(s.id) === deliveryStaffId)?.name || 'Assigned'}`}
+                </div>
+              </div>
+            ) : (
+              <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.72rem', color: '#e11d48', fontWeight: 600 }}>
+                * Address & contact required before placing order
+              </p>
+            )}
           </div>
         )}
 
@@ -2084,6 +2272,321 @@ export default function RestaurantOrders() {
                   }}
                 >
                   Confirm Reservation
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delivery Details Modal */}
+      {isDeliveryModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '16px',
+            width: '520px',
+            maxWidth: '100%',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            border: '1px solid #e2e8f0',
+            maxHeight: '90vh'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid #f1f5f9',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#f8fafc'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div style={{ backgroundColor: '#0284c7', color: 'white', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                  <Icons.Truck size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>
+                    Delivery Order Details
+                  </h3>
+                  <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.78rem', color: '#64748b' }}>
+                    Customer address, phone, assigned driver, and estimated times
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeliveryModalOpen(false)}
+                style={{ border: 'none', backgroundColor: 'transparent', cursor: 'pointer', color: '#64748b', display: 'flex' }}
+              >
+                <Icons.X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                if (!deliveryCustomerName.trim()) {
+                  setDeliveryError('Please enter the customer name.');
+                  return;
+                }
+                if (!deliveryCustomerPhone.trim()) {
+                  setDeliveryError('Please enter the customer contact phone.');
+                  return;
+                }
+                if (!deliveryAddress.trim()) {
+                  setDeliveryError('Please enter the delivery address.');
+                  return;
+                }
+                setDeliveryError('');
+                setIsDeliveryModalOpen(false);
+              }}
+              style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}
+            >
+              {deliveryError && (
+                <div style={{
+                  backgroundColor: '#fee2e2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '8px',
+                  padding: '0.6rem 0.85rem',
+                  color: '#b91c1c',
+                  fontSize: '0.825rem',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <Icons.AlertCircle size={16} />
+                  <span>{deliveryError}</span>
+                </div>
+              )}
+
+              {/* Customer Name & Phone */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    Customer Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. John Doe"
+                    value={deliveryCustomerName}
+                    onChange={e => setDeliveryCustomerName(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    Contact Phone *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="e.g. 9876543210"
+                    value={deliveryCustomerPhone}
+                    onChange={e => setDeliveryCustomerPhone(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              {/* Delivery Address */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  Delivery Address (Building / Flat / Street) *
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  placeholder="e.g. Flat 402, Sunshine Towers, MG Road"
+                  value={deliveryAddress}
+                  onChange={e => setDeliveryAddress(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Area, City, Pin */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    Area / Locality
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sector 15"
+                    value={deliveryArea}
+                    onChange={e => setDeliveryArea(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Bengaluru"
+                    value={deliveryCity}
+                    onChange={e => setDeliveryCity(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 560001"
+                    value={deliveryPostalCode}
+                    onChange={e => setDeliveryPostalCode(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              {/* Optional Delivery Instructions */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  Special Delivery Instructions / Landmarks (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Near HDFC Bank ATM, please call on arrival"
+                  value={deliveryInstructions}
+                  onChange={e => setDeliveryInstructions(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              {/* Assign Driver (Optional at placement) */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+                  Assign Delivery Person (Optional - can assign upon dispatch)
+                </label>
+                <select
+                  value={deliveryStaffId}
+                  onChange={e => setDeliveryStaffId(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', backgroundColor: 'white' }}
+                >
+                  <option value="">-- Assign Driver Later / Auto --</option>
+                  {staffList.map(st => (
+                    <option key={st.id} value={st.id}>
+                      {st.name} {st.jobRole ? `(${st.jobRole})` : ''} {st.phone ? `- ${st.phone}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Estimates */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '8px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '0.25rem' }}>
+                    Est. Kitchen Prep:
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    {[15, 20, 30].map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setDeliveryPrepMinutes(m)}
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid #cbd5e1',
+                          backgroundColor: deliveryPrepMinutes === m ? '#0284c7' : 'white',
+                          color: deliveryPrepMinutes === m ? 'white' : '#475569',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {m}m
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '0.25rem' }}>
+                    Est. Transit Duration:
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    {[20, 30, 45].map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setDeliveryDurationMinutes(m)}
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid #cbd5e1',
+                          backgroundColor: deliveryDurationMinutes === m ? '#0284c7' : 'white',
+                          color: deliveryDurationMinutes === m ? 'white' : '#475569',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {m}m
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsDeliveryModalOpen(false)}
+                  style={{
+                    flex: 1,
+                    padding: '0.65rem',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: 'white',
+                    color: '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1,
+                    padding: '0.65rem',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#0284c7',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)'
+                  }}
+                >
+                  Save Delivery Details
                 </button>
               </div>
             </form>

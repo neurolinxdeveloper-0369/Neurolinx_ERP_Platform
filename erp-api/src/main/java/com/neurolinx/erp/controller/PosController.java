@@ -23,6 +23,7 @@ public class PosController {
     @Autowired private CompanyRepository companyRepo;
     @Autowired private RecipeItemRepository recipeItemRepo;
     @Autowired private IngredientRepository ingredientRepo;
+    @Autowired private EmployeeRepository employeeRepo;
     
 
     @Autowired private BranchRepository branchRepo;
@@ -231,6 +232,70 @@ public class PosController {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        } else if ("Delivery".equalsIgnoreCase(orderType)) {
+            String custName = payload.get("customerName") != null ? payload.get("customerName").toString().trim() : "";
+            if (custName.isEmpty()) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("message", "Customer name is required for delivery orders."));
+            }
+            order.setCustomerName(custName);
+
+            String custPhone = payload.get("customerPhone") != null ? payload.get("customerPhone").toString().trim() : "";
+            if (custPhone.isEmpty()) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("message", "Customer contact number is required for delivery orders."));
+            }
+            order.setCustomerPhone(custPhone);
+
+            String delivAddr = payload.get("deliveryAddress") != null ? payload.get("deliveryAddress").toString().trim() : "";
+            if (delivAddr.isEmpty()) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("message", "Delivery address is required for delivery orders."));
+            }
+            order.setDeliveryAddress(delivAddr);
+
+            if (payload.containsKey("deliveryArea") && payload.get("deliveryArea") != null) {
+                order.setDeliveryArea(payload.get("deliveryArea").toString().trim());
+            }
+            if (payload.containsKey("deliveryCity") && payload.get("deliveryCity") != null) {
+                order.setDeliveryCity(payload.get("deliveryCity").toString().trim());
+            }
+            if (payload.containsKey("deliveryPostalCode") && payload.get("deliveryPostalCode") != null) {
+                order.setDeliveryPostalCode(payload.get("deliveryPostalCode").toString().trim());
+            }
+            if (payload.containsKey("deliveryInstructions") && payload.get("deliveryInstructions") != null) {
+                order.setDeliveryInstructions(payload.get("deliveryInstructions").toString().trim());
+            }
+
+            String delivStatus = payload.getOrDefault("deliveryStatus", "Order Placed").toString().trim();
+            order.setDeliveryStatus(delivStatus);
+
+            int prepMins = 20;
+            if (payload.containsKey("estimatedPrepMinutes") && payload.get("estimatedPrepMinutes") != null) {
+                try { prepMins = Integer.parseInt(payload.get("estimatedPrepMinutes").toString()); } catch (Exception ignored) {}
+            }
+            order.setEstimatedPrepMinutes(prepMins);
+            java.time.LocalDateTime readyTime = java.time.LocalDateTime.now().plusMinutes(prepMins);
+            order.setExpectedReadyTime(readyTime);
+
+            int delivMins = 30;
+            if (payload.containsKey("estimatedDeliveryMinutes") && payload.get("estimatedDeliveryMinutes") != null) {
+                try { delivMins = Integer.parseInt(payload.get("estimatedDeliveryMinutes").toString()); } catch (Exception ignored) {}
+            }
+            order.setEstimatedDeliveryMinutes(delivMins);
+            order.setExpectedDeliveryTime(readyTime.plusMinutes(delivMins));
+
+            if (payload.containsKey("deliveryStaffId") && payload.get("deliveryStaffId") != null && !payload.get("deliveryStaffId").toString().isEmpty()) {
+                try {
+                    Long staffId = Long.parseLong(payload.get("deliveryStaffId").toString());
+                    var empOpt = employeeRepo.findByIdAndCompany(staffId, company);
+                    if (empOpt.isPresent()) {
+                        Employee emp = empOpt.get();
+                        order.setDeliveryStaffId(emp.getId());
+                        order.setDeliveryStaffName(emp.getName());
+                        order.setDeliveryStaffPhone(emp.getPhone());
+                        order.setDeliveryAssignedBy(SecurityContextHolder.getContext().getAuthentication().getName());
+                        order.setDeliveryAssignedAt(java.time.LocalDateTime.now());
+                    }
+                } catch (Exception ignored) {}
+            }
         }
 
         if (payload.containsKey("items") && payload.get("items") instanceof List) {
@@ -314,6 +379,13 @@ public class PosController {
                 if ("Completed".equalsIgnoreCase(kStatus) && "Pending".equalsIgnoreCase(order.getStatus())) {
                     order.setStatus("Completed");
                 }
+                if ("Delivery".equalsIgnoreCase(order.getOrderType())) {
+                    if ("Preparing".equalsIgnoreCase(kStatus) && ("Order Placed".equalsIgnoreCase(order.getDeliveryStatus()) || order.getDeliveryStatus() == null)) {
+                        order.setDeliveryStatus("Preparing");
+                    } else if ("Ready".equalsIgnoreCase(kStatus) && !"Out for Delivery".equalsIgnoreCase(order.getDeliveryStatus()) && !"Delivered".equalsIgnoreCase(order.getDeliveryStatus())) {
+                        order.setDeliveryStatus("Ready for Dispatch");
+                    }
+                }
             }
             if (payload.containsKey("status") && payload.get("status") != null) {
                 order.setStatus(payload.get("status").toString());
@@ -323,6 +395,182 @@ public class PosController {
             }
             CustomerOrder saved = orderRepo.save(order);
             return ResponseEntity.ok(saved);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/orders/deliveries")
+    public ResponseEntity<?> getDeliveryOrders() {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user"));
+        Long branchId = getBranchId();
+        if (branchId != null) {
+            return ResponseEntity.ok(orderRepo.findByCompanyAndBranchIdAndOrderTypeOrderByIdDesc(company, branchId, "Delivery"));
+        }
+        return ResponseEntity.ok(orderRepo.findByCompanyAndOrderTypeOrderByIdDesc(company, "Delivery"));
+    }
+
+    @PutMapping("/orders/{id}/delivery-assign")
+    public ResponseEntity<?> assignDeliveryPerson(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user"));
+
+        return orderRepo.findById(id).map(order -> {
+            if (!order.getCompany().getId().equals(company.getId())) {
+                return ResponseEntity.status(403).body(java.util.Map.of("message", "Unauthorized"));
+            }
+            if (!"Delivery".equalsIgnoreCase(order.getOrderType())) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("message", "Order is not a Delivery order"));
+            }
+            if ("Cancelled".equalsIgnoreCase(order.getDeliveryStatus()) || "Delivered".equalsIgnoreCase(order.getDeliveryStatus())) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("message", "Cannot reassign staff for " + order.getDeliveryStatus() + " orders."));
+            }
+
+            if (!payload.containsKey("staffId") || payload.get("staffId") == null || payload.get("staffId").toString().isEmpty()) {
+                order.setDeliveryStaffId(null);
+                order.setDeliveryStaffName(null);
+                order.setDeliveryStaffPhone(null);
+                order.setDeliveryAssignedBy(null);
+                order.setDeliveryAssignedAt(null);
+            } else {
+                try {
+                    Long staffId = Long.parseLong(payload.get("staffId").toString());
+                    var empOpt = employeeRepo.findByIdAndCompany(staffId, company);
+                    if (empOpt.isEmpty()) {
+                        return ResponseEntity.badRequest().body(java.util.Map.of("message", "Staff member not found or does not belong to company"));
+                    }
+                    Employee emp = empOpt.get();
+                    order.setDeliveryStaffId(emp.getId());
+                    order.setDeliveryStaffName(emp.getName());
+                    order.setDeliveryStaffPhone(emp.getPhone());
+                    order.setDeliveryAssignedBy(SecurityContextHolder.getContext().getAuthentication().getName());
+                    order.setDeliveryAssignedAt(java.time.LocalDateTime.now());
+                } catch (Exception e) {
+                    return ResponseEntity.badRequest().body(java.util.Map.of("message", "Invalid staff ID"));
+                }
+            }
+            return ResponseEntity.ok(orderRepo.save(order));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/orders/{id}/delivery-status")
+    public ResponseEntity<?> updateDeliveryStatus(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user"));
+
+        return orderRepo.findById(id).map(order -> {
+            if (!order.getCompany().getId().equals(company.getId())) {
+                return ResponseEntity.status(403).body(java.util.Map.of("message", "Unauthorized"));
+            }
+            if (!"Delivery".equalsIgnoreCase(order.getOrderType())) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("message", "Order is not a Delivery order"));
+            }
+            if (!payload.containsKey("deliveryStatus") || payload.get("deliveryStatus") == null) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("message", "deliveryStatus is required"));
+            }
+
+            String newStatus = payload.get("deliveryStatus").toString().trim();
+            String currentStatus = order.getDeliveryStatus() != null ? order.getDeliveryStatus() : "Order Placed";
+
+            if ("Delivered".equalsIgnoreCase(currentStatus) && !"Delivered".equalsIgnoreCase(newStatus)) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("message", "Cannot modify status of an already delivered order."));
+            }
+            if ("Cancelled".equalsIgnoreCase(currentStatus) && !"Cancelled".equalsIgnoreCase(newStatus)) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("message", "Cannot modify status of a cancelled order."));
+            }
+
+            switch (newStatus) {
+                case "Order Placed":
+                    order.setDeliveryStatus("Order Placed");
+                    order.setKitchenStatus("Pending");
+                    break;
+                case "Preparing":
+                    order.setDeliveryStatus("Preparing");
+                    order.setKitchenStatus("Preparing");
+                    break;
+                case "Ready for Dispatch":
+                    order.setDeliveryStatus("Ready for Dispatch");
+                    order.setKitchenStatus("Ready");
+                    break;
+                case "Out for Delivery":
+                    if (payload.containsKey("staffId") && payload.get("staffId") != null && !payload.get("staffId").toString().isEmpty()) {
+                        try {
+                            Long staffId = Long.parseLong(payload.get("staffId").toString());
+                            employeeRepo.findByIdAndCompany(staffId, company).ifPresent(emp -> {
+                                order.setDeliveryStaffId(emp.getId());
+                                order.setDeliveryStaffName(emp.getName());
+                                order.setDeliveryStaffPhone(emp.getPhone());
+                                order.setDeliveryAssignedBy(SecurityContextHolder.getContext().getAuthentication().getName());
+                                order.setDeliveryAssignedAt(java.time.LocalDateTime.now());
+                            });
+                        } catch (Exception ignored) {}
+                    }
+                    order.setDeliveryStatus("Out for Delivery");
+                    order.setKitchenStatus("Completed");
+                    if (order.getDispatchedAt() == null) {
+                        order.setDispatchedAt(java.time.LocalDateTime.now());
+                    }
+                    break;
+                case "Delivered":
+                    order.setDeliveryStatus("Delivered");
+                    order.setKitchenStatus("Completed");
+                    order.setStatus("Completed");
+                    if (order.getDeliveredAt() == null) {
+                        order.setDeliveredAt(java.time.LocalDateTime.now());
+                    }
+                    break;
+                case "Cancelled":
+                    order.setDeliveryStatus("Cancelled");
+                    order.setStatus("Cancelled");
+                    break;
+                default:
+                    return ResponseEntity.badRequest().body(java.util.Map.of("message", "Invalid delivery status: " + newStatus));
+            }
+
+            return ResponseEntity.ok(orderRepo.save(order));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/orders/{id}/delivery-estimates")
+    public ResponseEntity<?> updateDeliveryEstimates(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user"));
+
+        return orderRepo.findById(id).map(order -> {
+            if (!order.getCompany().getId().equals(company.getId())) {
+                return ResponseEntity.status(403).body(java.util.Map.of("message", "Unauthorized"));
+            }
+            if (!"Delivery".equalsIgnoreCase(order.getOrderType())) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("message", "Order is not a Delivery order"));
+            }
+
+            if (payload.containsKey("estimatedPrepMinutes") && payload.get("estimatedPrepMinutes") != null) {
+                try {
+                    int prepMins = Integer.parseInt(payload.get("estimatedPrepMinutes").toString());
+                    order.setEstimatedPrepMinutes(prepMins);
+                    java.time.LocalDateTime base = order.getCreatedAt() != null ? order.getCreatedAt() : java.time.LocalDateTime.now();
+                    order.setExpectedReadyTime(base.plusMinutes(prepMins));
+                } catch (Exception ignored) {}
+            }
+            if (payload.containsKey("estimatedDeliveryMinutes") && payload.get("estimatedDeliveryMinutes") != null) {
+                try {
+                    int delivMins = Integer.parseInt(payload.get("estimatedDeliveryMinutes").toString());
+                    order.setEstimatedDeliveryMinutes(delivMins);
+                    java.time.LocalDateTime readyBase = order.getExpectedReadyTime() != null ? order.getExpectedReadyTime() : java.time.LocalDateTime.now();
+                    order.setExpectedDeliveryTime(readyBase.plusMinutes(delivMins));
+                } catch (Exception ignored) {}
+            }
+            if (payload.containsKey("expectedReadyTime") && payload.get("expectedReadyTime") != null) {
+                try {
+                    order.setExpectedReadyTime(java.time.LocalDateTime.parse(payload.get("expectedReadyTime").toString()));
+                } catch (Exception ignored) {}
+            }
+            if (payload.containsKey("expectedDeliveryTime") && payload.get("expectedDeliveryTime") != null) {
+                try {
+                    order.setExpectedDeliveryTime(java.time.LocalDateTime.parse(payload.get("expectedDeliveryTime").toString()));
+                } catch (Exception ignored) {}
+            }
+
+            return ResponseEntity.ok(orderRepo.save(order));
         }).orElse(ResponseEntity.notFound().build());
     }
 

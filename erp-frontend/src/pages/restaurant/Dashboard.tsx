@@ -28,9 +28,11 @@ interface ResStats {
   todayRevenue: number;
   todayRevenueDineIn: number;
   todayRevenueTakeaway: number;
+  todayRevenueDelivery?: number;
   todayOrders: number;
   todayOrdersDineIn: number;
   todayOrdersTakeaway: number;
+  todayOrdersDelivery?: number;
   activeTables: number;
   totalTables?: number;
   avgOrderValue: number;
@@ -82,9 +84,11 @@ export default function Dashboard() {
     todayRevenue: 0,
     todayRevenueDineIn: 0,
     todayRevenueTakeaway: 0,
+    todayRevenueDelivery: 0,
     todayOrders: 0,
     todayOrdersDineIn: 0,
     todayOrdersTakeaway: 0,
+    todayOrdersDelivery: 0,
     activeTables: 0,
     totalTables: 0,
     avgOrderValue: 0,
@@ -170,7 +174,13 @@ export default function Dashboard() {
       const key = String(o.orderNumber || o.id);
       let tableName = o.tableName;
       if (!tableName) {
-        tableName = o.orderType === 'Takeaway' ? 'Takeaway' : 'Dine-In';
+        if (o.orderType === 'Delivery') {
+          tableName = o.customerName ? `Delivery (${o.customerName})` : 'Delivery';
+        } else if (o.orderType === 'Takeaway') {
+          tableName = 'Takeaway';
+        } else {
+          tableName = 'Dine-In';
+        }
       }
       orderMap.set(key, {
         id: o.orderNumber || o.id,
@@ -192,6 +202,8 @@ export default function Dashboard() {
           let tableName = 'Takeaway';
           if (o.orderType === 'Dine-In') {
             tableName = o.restaurantTable?.tableName || 'Dine-In';
+          } else if (o.orderType === 'Delivery') {
+            tableName = o.customerName ? `Delivery (${o.customerName})` : 'Delivery';
           }
           orderMap.set(key, {
             id: o.orderNumber || o.id,
@@ -251,8 +263,13 @@ export default function Dashboard() {
       .filter(o => o.orderType === 'Takeaway' && o.status !== 'Cancelled' && o.status !== 'Voided')
       .reduce((sum, o) => sum + Number(o.amount || 0), 0);
 
+    const computedDeliveryRev = mergedOrders
+      .filter(o => o.orderType === 'Delivery' && o.status !== 'Cancelled' && o.status !== 'Voided')
+      .reduce((sum, o) => sum + Number(o.amount || 0), 0);
+
     const computedDineInCount = mergedOrders.filter(o => o.orderType === 'Dine-In').length;
     const computedTakeawayCount = mergedOrders.filter(o => o.orderType === 'Takeaway').length;
+    const computedDeliveryCount = mergedOrders.filter(o => o.orderType === 'Delivery').length;
 
     const computedPendingKots = mergedOrders.filter(
       o => o.status === 'Pending' || o.status === 'Parked' || o.status === 'Preparing' || o.status === 'Kitchen'
@@ -262,10 +279,12 @@ export default function Dashboard() {
     const todayRevenue = Math.max(serverStats?.todayRevenue || 0, computedTotalRev);
     const todayRevenueDineIn = Math.max(serverStats?.todayRevenueDineIn || 0, computedDineInRev);
     const todayRevenueTakeaway = Math.max(serverStats?.todayRevenueTakeaway || 0, computedTakeawayRev);
+    const todayRevenueDelivery = Math.max(serverStats?.todayRevenueDelivery || 0, computedDeliveryRev);
 
     const todayOrders = Math.max(serverStats?.todayOrders || 0, mergedOrders.length);
     const todayOrdersDineIn = Math.max(serverStats?.todayOrdersDineIn || 0, computedDineInCount);
     const todayOrdersTakeaway = Math.max(serverStats?.todayOrdersTakeaway || 0, computedTakeawayCount);
+    const todayOrdersDelivery = Math.max(serverStats?.todayOrdersDelivery || 0, computedDeliveryCount);
 
     const activeTables = Math.max(serverStats?.activeTables || 0, activeTablesCount);
     const totalTables = Math.max(serverStats?.totalTables || 0, totalTablesCount, activeTables > 0 ? activeTables : 6);
@@ -296,9 +315,11 @@ export default function Dashboard() {
       todayRevenue,
       todayRevenueDineIn,
       todayRevenueTakeaway,
+      todayRevenueDelivery,
       todayOrders,
       todayOrdersDineIn,
       todayOrdersTakeaway,
+      todayOrdersDelivery,
       activeTables,
       totalTables,
       avgOrderValue,

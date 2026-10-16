@@ -38,10 +38,12 @@ export default function MasterLayout() {
       apiFetch('https://erp-api.neurolinx.in/api/menus/my-menus/' + username)
         .then(res => res.json())
         .then(data => {
-          if (!data.some((m: any) => m.route === '/res-dashboard' || m.route === '/dashboard')) {
-            data.unshift({ id: -1, name: "Dashboard", route: "/res-dashboard", icon: "layout-dashboard", parentId: null });
+          if (!Array.isArray(data)) return;
+          const filtered = data.filter((m: any) => m.route !== '/res-qr-ordering' && m.name !== 'QR Ordering');
+          if (!filtered.some((m: any) => m.route === '/res-dashboard' || m.route === '/dashboard')) {
+            filtered.unshift({ id: -1, name: "Dashboard", route: "/res-dashboard", icon: "layout-dashboard", parentId: null });
           }
-          setMenus(data);
+          setMenus(filtered);
         })
         .catch(err => console.error("Failed to load menus", err));
     }

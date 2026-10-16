@@ -26,8 +26,60 @@ public class CustomerOrder {
     private String kitchenStatus = "Pending"; // Pending, Preparing, Ready, Completed
     @Column(length = 500)
     private String notes;
+    @Column(length = 30)
+    private String orderSource = "POS"; // POS, QR
     private BigDecimal discountApplied = BigDecimal.ZERO;
     private BigDecimal taxApplied = BigDecimal.ZERO;
+
+    // Delivery Specific Fields
+    @Column(length = 100)
+    private String customerName;
+
+    @Column(length = 30)
+    private String customerPhone;
+
+    @Column(length = 255)
+    private String deliveryAddress;
+
+    @Column(length = 100)
+    private String deliveryArea;
+
+    @Column(length = 100)
+    private String deliveryCity;
+
+    @Column(length = 20)
+    private String deliveryPostalCode;
+
+    @Column(length = 500)
+    private String deliveryInstructions;
+
+    @Column(length = 50)
+    private String deliveryStatus; // Order Placed, Preparing, Ready for Dispatch, Out for Delivery, Delivered, Cancelled
+
+    private Long deliveryStaffId;
+
+    @Column(length = 100)
+    private String deliveryStaffName;
+
+    @Column(length = 30)
+    private String deliveryStaffPhone;
+
+    @Column(length = 100)
+    private String deliveryAssignedBy;
+
+    private LocalDateTime deliveryAssignedAt;
+
+    private Integer estimatedPrepMinutes;
+
+    private LocalDateTime expectedReadyTime;
+
+    private Integer estimatedDeliveryMinutes;
+
+    private LocalDateTime expectedDeliveryTime;
+
+    private LocalDateTime dispatchedAt;
+
+    private LocalDateTime deliveredAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id", nullable = true)
@@ -81,6 +133,65 @@ public class CustomerOrder {
     public void setDiscountApplied(BigDecimal discountApplied) { this.discountApplied = discountApplied; }
     public BigDecimal getTaxApplied() { return taxApplied; }
     public void setTaxApplied(BigDecimal taxApplied) { this.taxApplied = taxApplied; }
-public List<OrderItem> getItems() { return items; }
+    public String getOrderSource() { return orderSource; }
+    public void setOrderSource(String orderSource) { this.orderSource = orderSource; }
+    public List<OrderItem> getItems() { return items; }
     public void setItems(List<OrderItem> items) { this.items = items; }
+
+    public String getCustomerName() { return customerName; }
+    public void setCustomerName(String customerName) { this.customerName = customerName; }
+
+    public String getCustomerPhone() { return customerPhone; }
+    public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
+
+    public String getDeliveryAddress() { return deliveryAddress; }
+    public void setDeliveryAddress(String deliveryAddress) { this.deliveryAddress = deliveryAddress; }
+
+    public String getDeliveryArea() { return deliveryArea; }
+    public void setDeliveryArea(String deliveryArea) { this.deliveryArea = deliveryArea; }
+
+    public String getDeliveryCity() { return deliveryCity; }
+    public void setDeliveryCity(String deliveryCity) { this.deliveryCity = deliveryCity; }
+
+    public String getDeliveryPostalCode() { return deliveryPostalCode; }
+    public void setDeliveryPostalCode(String deliveryPostalCode) { this.deliveryPostalCode = deliveryPostalCode; }
+
+    public String getDeliveryInstructions() { return deliveryInstructions; }
+    public void setDeliveryInstructions(String deliveryInstructions) { this.deliveryInstructions = deliveryInstructions; }
+
+    public String getDeliveryStatus() { return deliveryStatus; }
+    public void setDeliveryStatus(String deliveryStatus) { this.deliveryStatus = deliveryStatus; }
+
+    public Long getDeliveryStaffId() { return deliveryStaffId; }
+    public void setDeliveryStaffId(Long deliveryStaffId) { this.deliveryStaffId = deliveryStaffId; }
+
+    public String getDeliveryStaffName() { return deliveryStaffName; }
+    public void setDeliveryStaffName(String deliveryStaffName) { this.deliveryStaffName = deliveryStaffName; }
+
+    public String getDeliveryStaffPhone() { return deliveryStaffPhone; }
+    public void setDeliveryStaffPhone(String deliveryStaffPhone) { this.deliveryStaffPhone = deliveryStaffPhone; }
+
+    public String getDeliveryAssignedBy() { return deliveryAssignedBy; }
+    public void setDeliveryAssignedBy(String deliveryAssignedBy) { this.deliveryAssignedBy = deliveryAssignedBy; }
+
+    public LocalDateTime getDeliveryAssignedAt() { return deliveryAssignedAt; }
+    public void setDeliveryAssignedAt(LocalDateTime deliveryAssignedAt) { this.deliveryAssignedAt = deliveryAssignedAt; }
+
+    public Integer getEstimatedPrepMinutes() { return estimatedPrepMinutes; }
+    public void setEstimatedPrepMinutes(Integer estimatedPrepMinutes) { this.estimatedPrepMinutes = estimatedPrepMinutes; }
+
+    public LocalDateTime getExpectedReadyTime() { return expectedReadyTime; }
+    public void setExpectedReadyTime(LocalDateTime expectedReadyTime) { this.expectedReadyTime = expectedReadyTime; }
+
+    public Integer getEstimatedDeliveryMinutes() { return estimatedDeliveryMinutes; }
+    public void setEstimatedDeliveryMinutes(Integer estimatedDeliveryMinutes) { this.estimatedDeliveryMinutes = estimatedDeliveryMinutes; }
+
+    public LocalDateTime getExpectedDeliveryTime() { return expectedDeliveryTime; }
+    public void setExpectedDeliveryTime(LocalDateTime expectedDeliveryTime) { this.expectedDeliveryTime = expectedDeliveryTime; }
+
+    public LocalDateTime getDispatchedAt() { return dispatchedAt; }
+    public void setDispatchedAt(LocalDateTime dispatchedAt) { this.dispatchedAt = dispatchedAt; }
+
+    public LocalDateTime getDeliveredAt() { return deliveredAt; }
+    public void setDeliveredAt(LocalDateTime deliveredAt) { this.deliveredAt = deliveredAt; }
 }

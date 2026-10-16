@@ -59,7 +59,20 @@ export default function RestaurantBilling() {
         </style>
       </head>
       <body>
-        <div class="header"><h2>RESTAURANT</h2><p>Order #${order.orderNumber}</p><p>${new Date(order.createdAt).toLocaleString()}</p><p>${order.orderType}${order.tableName ? ' - ' + order.tableName : ''}</p></div>
+        <div class="header">
+          <h2>RESTAURANT</h2>
+          <p>Order #${order.orderNumber}</p>
+          <p>${new Date(order.createdAt).toLocaleString()}</p>
+          <p>${order.orderType}${order.tableName ? ' - ' + order.tableName : ''}</p>
+          ${order.orderType === 'Delivery' ? `
+            <div style="font-size:12px; margin-top: 6px; text-align: left; background: #f8fafc; padding: 6px; border: 1px dashed #ccc;">
+              <div><strong>Customer:</strong> ${order.customerName || 'N/A'} (${order.customerPhone || 'N/A'})</div>
+              <div><strong>Address:</strong> ${order.deliveryAddress || ''}${order.deliveryArea ? ', ' + order.deliveryArea : ''}${order.deliveryCity ? ', ' + order.deliveryCity : ''}${order.deliveryPostalCode ? ' - ' + order.deliveryPostalCode : ''}</div>
+              ${order.deliveryStaffName ? `<div><strong>Driver:</strong> ${order.deliveryStaffName}</div>` : ''}
+              ${order.deliveryInstructions ? `<div><strong>Notes:</strong> ${order.deliveryInstructions}</div>` : ''}
+            </div>
+          ` : ''}
+        </div>
         <table><tbody>${itemsHtml}</tbody></table>
         <div class="totals"><div><span>Subtotal</span> <span>${(order.totalAmount - (order.taxApplied || 0)).toFixed(2)}</span></div><div><span>Tax</span> <span>${(order.taxApplied || 0).toFixed(2)}</span></div><div class="grand-total"><span>Total</span> <span>${order.totalAmount.toFixed(2)}</span></div></div>
         <div class="footer"><p>Thank you for visiting!</p><p>Powered by Neurolinx</p></div>
@@ -117,7 +130,15 @@ export default function RestaurantBilling() {
                 {orders.map(ord => (
                   <tr key={ord.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                     <td style={{ padding: '1rem', fontWeight: 600, color: '#0f172a' }}>{ord.orderNumber}</td>
-                    <td style={{ padding: '1rem' }}>{ord.orderType} {ord.tableName ? `(${ord.tableName})` : ''}</td>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ fontWeight: 500 }}>{ord.orderType} {ord.tableName ? `(${ord.tableName})` : ''}</div>
+                      {ord.orderType === 'Delivery' && ord.customerName && (
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                          {ord.customerName} {ord.customerPhone ? `• ${ord.customerPhone}` : ''}
+                          {ord.deliveryArea ? ` (${ord.deliveryArea})` : ''}
+                        </div>
+                      )}
+                    </td>
                     <td style={{ padding: '1rem', color: '#64748b' }}>{new Date(ord.createdAt).toLocaleString()}</td>
                     <td style={{ padding: '1rem', fontWeight: 600 }}>₹{ord.totalAmount?.toFixed(2)}</td>
                     <td style={{ padding: '1rem' }}>

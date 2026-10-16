@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     List<Employee> findByCompany(Company company);
+    List<Employee> findByCompanyAndIsActiveTrue(Company company);
+    java.util.Optional<Employee> findByIdAndCompany(Long id, Company company);
 }

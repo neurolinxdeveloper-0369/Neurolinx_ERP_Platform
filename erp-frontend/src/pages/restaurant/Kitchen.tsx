@@ -28,6 +28,13 @@ interface CustomerOrder {
   orderType: string;
   status: string;
   kitchenStatus?: string;
+  deliveryStatus?: string;
+  customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  deliveryArea?: string;
+  expectedReadyTime?: string;
+  estimatedPrepMinutes?: number;
   createdAt: string;
   notes?: string;
   tableName?: string;
@@ -631,6 +638,22 @@ export default function KitchenDisplay() {
                       }}>
                         {theme.title}
                       </span>
+                      {order.orderType === 'Delivery' && (
+                        <span style={{
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '999px',
+                          fontSize: '0.7rem',
+                          fontWeight: 800,
+                          backgroundColor: '#ecfeff',
+                          color: '#0e7490',
+                          border: '1px solid #a5f3fc',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '2px'
+                        }}>
+                          <Icons.Truck size={10} /> Delivery
+                        </span>
+                      )}
                     </div>
 
                     {/* Table / Order Type info */}
@@ -642,8 +665,12 @@ export default function KitchenDisplay() {
                       ) : (
                         <Icons.UtensilsCrossed size={14} style={{ color: '#ea580c' }} />
                       )}
-                      <span>{tableText}</span>
-                      {order.orderType && order.orderType !== 'Dine-In' && order.orderType !== tableText && (
+                      <span>
+                        {order.orderType === 'Delivery' && order.customerName
+                          ? `${order.customerName}${order.deliveryArea ? ' (' + order.deliveryArea + ')' : ''}`
+                          : tableText}
+                      </span>
+                      {order.orderType && order.orderType !== 'Dine-In' && order.orderType !== tableText && order.orderType !== 'Delivery' && (
                         <span style={{ color: '#94a3b8' }}>• {order.orderType}</span>
                       )}
                     </div>

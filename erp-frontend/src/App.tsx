@@ -33,7 +33,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Login />} />
-          
+
           {/* Protected Routes Wrapper (renders the Sidebar + Topnav) */}
           <Route element={<MasterLayout />}>
             {/* Master Admin Routes */}
