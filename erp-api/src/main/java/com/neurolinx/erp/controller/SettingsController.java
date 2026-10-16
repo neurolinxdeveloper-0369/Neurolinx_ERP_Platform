@@ -77,8 +77,42 @@ public class SettingsController {
         if (payload.containsKey("currencySymbol")) s.setCurrencySymbol((String) payload.get("currencySymbol"));
         if (payload.containsKey("openingTime")) s.setOpeningTime((String) payload.get("openingTime"));
         if (payload.containsKey("closingTime")) s.setClosingTime((String) payload.get("closingTime"));
+        if (payload.containsKey("themePreference")) s.setThemePreference((String) payload.get("themePreference"));
         return ResponseEntity.ok(settingsRepo.save(s));
+    }
 
+    @GetMapping("/theme")
+    public ResponseEntity<?> getTheme() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        String theme = userRepo.findByEmail(email)
+            .map(User::getThemePreference)
+            .orElse("light");
+        return ResponseEntity.ok(Map.of("theme", theme));
+    }
+
+    @PutMapping("/theme")
+    public ResponseEntity<?> updateTheme(@RequestBody Map<String, String> payload) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        String newTheme = payload.getOrDefault("theme", "light");
+        if (!"light".equalsIgnoreCase(newTheme) && !"dark".equalsIgnoreCase(newTheme)) {
+            newTheme = "light";
+        }
+        final String finalTheme = newTheme.toLowerCase();
+
+        userRepo.findByEmail(email).ifPresent(user -> {
+            user.setThemePreference(finalTheme);
+            userRepo.save(user);
+        });
+
+        Company c = getUserCompany();
+        if (c != null) {
+            RestaurantSettings s = settingsRepo.findByCompany(c).orElse(new RestaurantSettings());
+            s.setCompany(c);
+            s.setThemePreference(finalTheme);
+            settingsRepo.save(s);
+        }
+
+        return ResponseEntity.ok(Map.of("theme", finalTheme, "message", "Theme preference saved successfully"));
     }
 
     @GetMapping("/printers")

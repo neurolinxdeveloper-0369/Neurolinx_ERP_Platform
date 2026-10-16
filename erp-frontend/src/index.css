@@ -1,8 +1,65 @@
-body {
+:root, [data-theme="light"] {
+  --bg-page: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f1f5f9;
+  --bg-subtle: #f8fafc;
+  --bg-input: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+  --border-color: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --border-card: #e2e8f0;
+  --primary: #0284c7;
+  --primary-hover: #0369a1;
+  --primary-subtle: #f0f9ff;
+  --shadow-pill: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.04);
+  --shadow-dropdown: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-hover: #94a3b8;
+  --modal-overlay: rgba(15, 23, 42, 0.5);
+}
+
+[data-theme="dark"] {
+  --bg-page: #0b1120;
+  --bg-sidebar: #111827;
+  --bg-card: #1e293b;
+  --bg-surface: #1e293b;
+  --bg-elevated: #334155;
+  --bg-subtle: #0f172a;
+  --bg-input: #0f172a;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  --border-color: #334155;
+  --border-subtle: #1e293b;
+  --border-card: #334155;
+  --primary: #38bdf8;
+  --primary-hover: #0ea5e9;
+  --primary-subtle: #0c4a6e;
+  --shadow-pill: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-dropdown: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  --scrollbar-thumb: #475569;
+  --scrollbar-hover: #64748b;
+  --modal-overlay: rgba(0, 0, 0, 0.75);
+}
+
+html, body {
   margin: 0;
   padding: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
+
 * {
   box-sizing: border-box;
 }
@@ -16,13 +73,185 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
+  background-color: var(--scrollbar-thumb);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
+  background-color: var(--scrollbar-hover);
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/* ==========================================================================
+   Comprehensive Dark Theme Engine Overrides
+   ========================================================================== */
+
+[data-theme="dark"] body {
+  background-color: #0b1120 !important;
+  color: #f8fafc !important;
+}
+
+/* Inputs, Selects, and Textareas */
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #64748b !important;
+}
+
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+  border-color: #38bdf8 !important;
+  outline: none;
+}
+
+/* Tables in Dark Mode */
+[data-theme="dark"] table {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+[data-theme="dark"] thead tr,
+[data-theme="dark"] thead th {
+  background-color: #0f172a !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+
+[data-theme="dark"] tbody tr {
+  border-color: #334155 !important;
+  background-color: #1e293b !important;
+}
+
+[data-theme="dark"] tbody tr:hover {
+  background-color: #243248 !important;
+}
+
+[data-theme="dark"] td {
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+/* Card, Container & Surface Inversions */
+[data-theme="dark"] [style*="background-color: white"],
+[data-theme="dark"] [style*="background-color: #ffffff"],
+[data-theme="dark"] [style*="background-color: #fff"],
+[data-theme="dark"] [style*="background-color: rgb(255, 255, 255)"],
+[data-theme="dark"] [style*="background: white"],
+[data-theme="dark"] [style*="background: #ffffff"],
+[data-theme="dark"] [style*="background: #fff"],
+[data-theme="dark"] [style*="background: rgb(255, 255, 255)"] {
+  background-color: #1e293b !important;
+}
+
+[data-theme="dark"] [style*="background-color: #f8fafc"],
+[data-theme="dark"] [style*="background-color: #f9fafb"],
+[data-theme="dark"] [style*="background-color: #f1f5f9"],
+[data-theme="dark"] [style*="background-color: rgb(248, 250, 252)"],
+[data-theme="dark"] [style*="background-color: rgb(249, 250, 251)"],
+[data-theme="dark"] [style*="background-color: rgb(241, 245, 249)"],
+[data-theme="dark"] [style*="background: #f8fafc"],
+[data-theme="dark"] [style*="background: #f9fafb"],
+[data-theme="dark"] [style*="background: #f1f5f9"],
+[data-theme="dark"] [style*="background: rgb(248, 250, 252)"],
+[data-theme="dark"] [style*="background: rgb(249, 250, 251)"],
+[data-theme="dark"] [style*="background: rgb(241, 245, 249)"] {
+  background-color: #0f172a !important;
+}
+
+/* Border overrides */
+[data-theme="dark"] [style*="border: 1px solid #e2e8f0"],
+[data-theme="dark"] [style*="border: 1px solid #f1f5f9"],
+[data-theme="dark"] [style*="border: 1px solid #cbd5e1"],
+[data-theme="dark"] [style*="border: 1px solid rgb(226, 232, 240)"],
+[data-theme="dark"] [style*="border: 1px solid rgb(241, 245, 249)"],
+[data-theme="dark"] [style*="border: 1px solid rgb(203, 213, 225)"],
+[data-theme="dark"] [style*="border-bottom: 1px solid #e2e8f0"],
+[data-theme="dark"] [style*="border-bottom: 1px solid rgb(226, 232, 240)"],
+[data-theme="dark"] [style*="border-top: 1px solid #e2e8f0"],
+[data-theme="dark"] [style*="border-top: 1px solid rgb(226, 232, 240)"],
+[data-theme="dark"] [style*="border-left: 1px solid #e2e8f0"],
+[data-theme="dark"] [style*="border-left: 1px solid rgb(226, 232, 240)"],
+[data-theme="dark"] [style*="border-right: 1px solid #e2e8f0"],
+[data-theme="dark"] [style*="border-right: 1px solid rgb(226, 232, 240)"],
+[data-theme="dark"] [style*="border-color: #e2e8f0"],
+[data-theme="dark"] [style*="border-color: #cbd5e1"],
+[data-theme="dark"] [style*="border-color: rgb(226, 232, 240)"],
+[data-theme="dark"] [style*="border-color: rgb(203, 213, 225)"] {
+  border-color: #334155 !important;
+}
+
+/* Text color contrast enhancements */
+[data-theme="dark"] [style*="color: #0f172a"],
+[data-theme="dark"] [style*="color: #1e293b"],
+[data-theme="dark"] [style*="color: #111827"],
+[data-theme="dark"] [style*="color: rgb(15, 23, 42)"],
+[data-theme="dark"] [style*="color: rgb(30, 41, 59)"],
+[data-theme="dark"] [style*="color: rgb(17, 24, 39)"] {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] [style*="color: #334155"],
+[data-theme="dark"] [style*="color: #475569"],
+[data-theme="dark"] [style*="color: rgb(51, 65, 85)"],
+[data-theme="dark"] [style*="color: rgb(71, 85, 105)"] {
+  color: #cbd5e1 !important;
+}
+
+/* Modals and Overlays in Dark Mode */
+[data-theme="dark"] [style*="rgba(0, 0, 0, 0.5)"],
+[data-theme="dark"] [style*="rgba(0,0,0,0.5)"] {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+/* Sub-card tags & soft badges */
+[data-theme="dark"] [style*="background-color: #eff6ff"],
+[data-theme="dark"] [style*="backgroundColor: #eff6ff"] {
+  background-color: #172554 !important;
+}
+
+[data-theme="dark"] [style*="color: #1d4ed8"],
+[data-theme="dark"] [style*="color: #2563eb"],
+[data-theme="dark"] [style*="color: #0284c7"] {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] [style*="background-color: #f0fdf4"],
+[data-theme="dark"] [style*="backgroundColor: #f0fdf4"] {
+  background-color: #052e16 !important;
+}
+
+[data-theme="dark"] [style*="background-color: #fef2f2"],
+[data-theme="dark"] [style*="backgroundColor: #fef2f2"] {
+  background-color: #450a0a !important;
+}
+
+[data-theme="dark"] [style*="background-color: #fffbeb"],
+[data-theme="dark"] [style*="backgroundColor: #fffbeb"] {
+  background-color: #451a03 !important;
+}
+
+/* Recharts Tooltip Dark Mode */
+[data-theme="dark"] .recharts-default-tooltip {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .recharts-cartesian-grid line {
+  stroke: #334155 !important;
+}
+
+[data-theme="dark"] .recharts-text {
+  fill: #94a3b8 !important;
 }

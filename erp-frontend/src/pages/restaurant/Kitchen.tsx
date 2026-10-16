@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { apiFetch } from '../../api';
 import * as Icons from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 interface OrderItem {
   id?: number;
@@ -44,6 +45,7 @@ interface CustomerOrder {
 }
 
 export default function KitchenDisplay() {
+  const { isDark } = useTheme();
   const [allOrders, setAllOrders] = useState<CustomerOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -188,12 +190,12 @@ export default function KitchenDisplay() {
       case 'pending':
         return {
           title: 'Pending',
-          bg: '#fff1f2',
-          cardBorder: '#fecdd3',
-          badgeBg: '#ffe4e6',
-          badgeText: '#e11d48',
-          headerBg: '#ffe4e6',
-          accent: '#e11d48',
+          bg: isDark ? '#1e293b' : '#fff1f2',
+          cardBorder: isDark ? '#f43f5e' : '#fecdd3',
+          badgeBg: isDark ? 'rgba(244, 63, 94, 0.2)' : '#ffe4e6',
+          badgeText: isDark ? '#fda4af' : '#e11d48',
+          headerBg: isDark ? '#2e1218' : '#ffe4e6',
+          accent: isDark ? '#fb7185' : '#e11d48',
           nextStatus: 'Preparing',
           nextLabel: 'Start Preparing',
           nextBg: '#f59e0b',
@@ -203,12 +205,12 @@ export default function KitchenDisplay() {
       case 'preparing':
         return {
           title: 'Preparing',
-          bg: '#fffbeb',
-          cardBorder: '#fde68a',
-          badgeBg: '#fef3c7',
-          badgeText: '#d97706',
-          headerBg: '#fef3c7',
-          accent: '#d97706',
+          bg: isDark ? '#1e293b' : '#fffbeb',
+          cardBorder: isDark ? '#f59e0b' : '#fde68a',
+          badgeBg: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
+          badgeText: isDark ? '#fde68a' : '#d97706',
+          headerBg: isDark ? '#2b1d0c' : '#fef3c7',
+          accent: isDark ? '#fbbf24' : '#d97706',
           nextStatus: 'Ready',
           nextLabel: 'Mark Ready',
           nextBg: '#10b981',
@@ -218,12 +220,12 @@ export default function KitchenDisplay() {
       case 'ready':
         return {
           title: 'Ready',
-          bg: '#f0fdf4',
-          cardBorder: '#bbf7d0',
-          badgeBg: '#dcfce7',
-          badgeText: '#15803d',
-          headerBg: '#dcfce7',
-          accent: '#15803d',
+          bg: isDark ? '#1e293b' : '#f0fdf4',
+          cardBorder: isDark ? '#10b981' : '#bbf7d0',
+          badgeBg: isDark ? 'rgba(16, 185, 129, 0.2)' : '#dcfce7',
+          badgeText: isDark ? '#86efac' : '#15803d',
+          headerBg: isDark ? '#0e2b18' : '#dcfce7',
+          accent: isDark ? '#34d399' : '#15803d',
           nextStatus: 'Completed',
           nextLabel: 'Mark Completed',
           nextBg: '#0284c7',
@@ -234,12 +236,12 @@ export default function KitchenDisplay() {
       case 'delivered':
         return {
           title: 'Completed',
-          bg: '#f8fafc',
-          cardBorder: '#e2e8f0',
-          badgeBg: '#e2e8f0',
-          badgeText: '#475569',
-          headerBg: '#f1f5f9',
-          accent: '#475569',
+          bg: isDark ? '#1e293b' : '#f8fafc',
+          cardBorder: isDark ? '#334155' : '#e2e8f0',
+          badgeBg: isDark ? '#334155' : '#e2e8f0',
+          badgeText: isDark ? '#cbd5e1' : '#475569',
+          headerBg: isDark ? '#0f172a' : '#f1f5f9',
+          accent: isDark ? '#94a3b8' : '#475569',
           nextStatus: null,
           nextLabel: null,
           nextBg: '#64748b',
@@ -249,12 +251,12 @@ export default function KitchenDisplay() {
       default:
         return {
           title: status || 'Pending',
-          bg: '#ffffff',
-          cardBorder: '#cbd5e1',
-          badgeBg: '#f1f5f9',
-          badgeText: '#475569',
-          headerBg: '#f8fafc',
-          accent: '#64748b',
+          bg: isDark ? '#1e293b' : '#ffffff',
+          cardBorder: isDark ? '#334155' : '#cbd5e1',
+          badgeBg: isDark ? '#0f172a' : '#f1f5f9',
+          badgeText: isDark ? '#94a3b8' : '#475569',
+          headerBg: isDark ? '#0f172a' : '#f8fafc',
+          accent: isDark ? '#94a3b8' : '#64748b',
           nextStatus: 'Preparing',
           nextLabel: 'Start Preparing',
           nextBg: '#f59e0b',
@@ -349,12 +351,12 @@ export default function KitchenDisplay() {
       {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ padding: '0.6rem', backgroundColor: '#e0f2fe', color: '#0284c7', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ padding: '0.6rem', backgroundColor: isDark ? '#082f49' : '#e0f2fe', color: isDark ? '#38bdf8' : '#0284c7', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Icons.ChefHat size={26} />
           </div>
           <div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>Kitchen Display System (KDS)</h1>
-            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>Live Kitchen Order Ticket (KOT) workflow & status manager</p>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: isDark ? '#f8fafc' : '#0f172a' }}>Kitchen Display System (KDS)</h1>
+            <p style={{ margin: 0, fontSize: '0.875rem', color: isDark ? '#94a3b8' : '#64748b' }}>Live Kitchen Order Ticket (KOT) workflow & status manager</p>
           </div>
         </div>
 
@@ -369,9 +371,9 @@ export default function KitchenDisplay() {
               gap: '0.4rem',
               padding: '0.5rem 0.85rem',
               borderRadius: '6px',
-              border: `1px solid ${autoRefresh ? '#86efac' : '#cbd5e1'}`,
-              backgroundColor: autoRefresh ? '#f0fdf4' : '#f8fafc',
-              color: autoRefresh ? '#15803d' : '#64748b',
+              border: isDark ? (autoRefresh ? '1px solid #059669' : '1px solid #334155') : `1px solid ${autoRefresh ? '#86efac' : '#cbd5e1'}`,
+              backgroundColor: isDark ? (autoRefresh ? '#064e3b' : '#1e293b') : (autoRefresh ? '#f0fdf4' : '#f8fafc'),
+              color: isDark ? (autoRefresh ? '#86efac' : '#94a3b8') : (autoRefresh ? '#15803d' : '#64748b'),
               fontSize: '0.85rem',
               fontWeight: 600,
               cursor: 'pointer'
@@ -397,13 +399,13 @@ export default function KitchenDisplay() {
               alignItems: 'center',
               gap: '0.4rem',
               padding: '0.5rem 1rem',
-              backgroundColor: '#ffffff',
-              border: '1px solid #cbd5e1',
+              backgroundColor: isDark ? '#1e293b' : '#ffffff',
+              border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
               borderRadius: '6px',
               cursor: isRefreshing ? 'not-allowed' : 'pointer',
               fontWeight: 600,
               fontSize: '0.875rem',
-              color: '#334155'
+              color: isDark ? '#f8fafc' : '#334155'
             }}
           >
             <Icons.RefreshCw size={15} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
@@ -474,7 +476,7 @@ export default function KitchenDisplay() {
         gap: '1rem',
         marginBottom: '1.5rem',
         paddingBottom: '1rem',
-        borderBottom: '1px solid #e2e8f0'
+        borderBottom: isDark ? '1px solid #334155' : '1px solid #e2e8f0'
       }}>
         {/* Status Filter Tabs */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -497,9 +499,9 @@ export default function KitchenDisplay() {
                   gap: '0.4rem',
                   padding: '0.55rem 0.95rem',
                   borderRadius: '6px',
-                  border: isSelected ? '1px solid #0284c7' : '1px solid #e2e8f0',
-                  backgroundColor: isSelected ? '#0284c7' : '#ffffff',
-                  color: isSelected ? '#ffffff' : '#475569',
+                  border: isSelected ? '1px solid #0284c7' : (isDark ? '1px solid #334155' : '1px solid #e2e8f0'),
+                  backgroundColor: isSelected ? '#0284c7' : (isDark ? '#1e293b' : '#ffffff'),
+                  color: isSelected ? '#ffffff' : (isDark ? '#cbd5e1' : '#475569'),
                   fontSize: '0.85rem',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -512,8 +514,8 @@ export default function KitchenDisplay() {
                   borderRadius: '999px',
                   fontSize: '0.75rem',
                   fontWeight: 700,
-                  backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.25)' : '#f1f5f9',
-                  color: isSelected ? '#ffffff' : (tab.color || '#475569')
+                  backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.25)' : (isDark ? '#0f172a' : '#f1f5f9'),
+                  color: isSelected ? '#ffffff' : (tab.color || (isDark ? '#cbd5e1' : '#475569'))
                 }}>
                   {tab.count}
                 </span>
@@ -533,7 +535,9 @@ export default function KitchenDisplay() {
             style={{
               padding: '0.5rem 0.75rem 0.5rem 2.25rem',
               borderRadius: '6px',
-              border: '1px solid #cbd5e1',
+              border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
+              backgroundColor: isDark ? '#0f172a' : '#ffffff',
+              color: isDark ? '#f8fafc' : '#0f172a',
               fontSize: '0.875rem',
               outline: 'none',
               width: '100%',
@@ -553,22 +557,22 @@ export default function KitchenDisplay() {
         <div style={{
           padding: '4rem 2rem',
           textAlign: 'center',
-          backgroundColor: '#ffffff',
+          backgroundColor: isDark ? '#1e293b' : '#ffffff',
           borderRadius: '12px',
-          border: '1px dashed #cbd5e1',
-          color: '#64748b'
+          border: isDark ? '1px dashed #334155' : '1px dashed #cbd5e1',
+          color: isDark ? '#94a3b8' : '#64748b'
         }}>
           {activeTab === 'Completed' ? (
             <>
-              <Icons.Archive size={48} style={{ marginBottom: '1rem', color: '#94a3b8' }} />
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#334155', margin: '0 0 0.5rem 0' }}>No Completed Orders Found</h3>
-              <p style={{ margin: 0, fontSize: '0.9rem' }}>Orders marked as completed will appear in this history tab.</p>
+              <Icons.Archive size={48} style={{ marginBottom: '1rem', color: isDark ? '#64748b' : '#94a3b8' }} />
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: isDark ? '#f8fafc' : '#334155', margin: '0 0 0.5rem 0' }}>No Completed Orders Found</h3>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: isDark ? '#94a3b8' : '#64748b' }}>Orders marked as completed will appear in this history tab.</p>
             </>
           ) : (
             <>
               <Icons.CheckCircle2 size={48} style={{ marginBottom: '1rem', color: '#22c55e' }} />
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#334155', margin: '0 0 0.5rem 0' }}>Kitchen is All Caught Up!</h3>
-              <p style={{ margin: 0, fontSize: '0.9rem' }}>There are currently no active orders waiting in the queue.</p>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: isDark ? '#f8fafc' : '#334155', margin: '0 0 0.5rem 0' }}>Kitchen is All Caught Up!</h3>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: isDark ? '#94a3b8' : '#64748b' }}>There are currently no active orders waiting in the queue.</p>
             </>
           )}
         </div>
@@ -602,10 +606,10 @@ export default function KitchenDisplay() {
               <div
                 key={order.id}
                 style={{
-                  backgroundColor: '#ffffff',
+                  backgroundColor: isDark ? '#1e293b' : '#ffffff',
                   borderRadius: '10px',
                   border: `2px solid ${theme.cardBorder}`,
-                  boxShadow: '0 2px 6px -1px rgba(0, 0, 0, 0.05)',
+                  boxShadow: isDark ? '0 4px 12px rgba(0, 0, 0, 0.4)' : '0 2px 6px -1px rgba(0, 0, 0, 0.05)',
                   overflow: 'hidden',
                   display: 'flex',
                   flexDirection: 'column',
@@ -623,7 +627,7 @@ export default function KitchenDisplay() {
                 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                      <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                      <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: isDark ? '#f8fafc' : '#0f172a' }}>
                         #{order.orderNumber || order.id}
                       </h3>
                       {/* Current Status Badge */}
@@ -644,9 +648,9 @@ export default function KitchenDisplay() {
                           borderRadius: '999px',
                           fontSize: '0.7rem',
                           fontWeight: 800,
-                          backgroundColor: '#ecfeff',
-                          color: '#0e7490',
-                          border: '1px solid #a5f3fc',
+                          backgroundColor: isDark ? '#083344' : '#ecfeff',
+                          color: isDark ? '#38bdf8' : '#0e7490',
+                          border: isDark ? '1px solid #155e75' : '1px solid #a5f3fc',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '2px'
@@ -657,7 +661,7 @@ export default function KitchenDisplay() {
                     </div>
 
                     {/* Table / Order Type info */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: isDark ? '#cbd5e1' : '#475569', fontWeight: 600 }}>
                       {order.orderType === 'Takeaway' ? (
                         <Icons.ShoppingBag size={14} style={{ color: '#0284c7' }} />
                       ) : order.orderType === 'Delivery' ? (
@@ -671,7 +675,7 @@ export default function KitchenDisplay() {
                           : tableText}
                       </span>
                       {order.orderType && order.orderType !== 'Dine-In' && order.orderType !== tableText && order.orderType !== 'Delivery' && (
-                        <span style={{ color: '#94a3b8' }}>• {order.orderType}</span>
+                        <span style={{ color: isDark ? '#64748b' : '#94a3b8' }}>• {order.orderType}</span>
                       )}
                     </div>
                   </div>
@@ -684,8 +688,8 @@ export default function KitchenDisplay() {
                       gap: '0.25rem',
                       padding: '0.25rem 0.55rem',
                       borderRadius: '6px',
-                      backgroundColor: elapsedBg,
-                      color: elapsedColor,
+                      backgroundColor: isDark ? (elapsed >= 20 ? '#450a0a' : elapsed >= 10 ? '#451a03' : '#052e16') : elapsedBg,
+                      color: isDark ? (elapsed >= 20 ? '#fca5a5' : elapsed >= 10 ? '#fde047' : '#86efac') : elapsedColor,
                       fontSize: '0.85rem',
                       fontWeight: 700,
                       border: `1px solid ${elapsedColor}30`
@@ -693,15 +697,15 @@ export default function KitchenDisplay() {
                       <Icons.Clock size={13} />
                       <span>{elapsed}m</span>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
+                    <div style={{ fontSize: '0.75rem', color: isDark ? '#94a3b8' : '#64748b', marginTop: '0.2rem' }}>
                       {orderTimeStr}
                     </div>
                   </div>
                 </div>
 
                 {/* Order Items Body */}
-                <div style={{ padding: '1rem', flex: 1, backgroundColor: '#ffffff' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', marginBottom: '0.5rem' }}>
+                <div style={{ padding: '1rem', flex: 1, backgroundColor: isDark ? '#1e293b' : '#ffffff' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: isDark ? '#64748b' : '#94a3b8', marginBottom: '0.5rem' }}>
                     Order Items
                   </div>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
@@ -714,7 +718,7 @@ export default function KitchenDisplay() {
                             alignItems: 'flex-start',
                             justifyContent: 'space-between',
                             padding: '0.55rem 0',
-                            borderBottom: idx === (order.items?.length || 0) - 1 ? 'none' : '1px dashed #e2e8f0',
+                            borderBottom: idx === (order.items?.length || 0) - 1 ? 'none' : (isDark ? '1px dashed #334155' : '1px dashed #e2e8f0'),
                             fontSize: '0.95rem'
                           }}
                         >
@@ -726,8 +730,8 @@ export default function KitchenDisplay() {
                               minWidth: '24px',
                               height: '24px',
                               padding: '0 0.35rem',
-                              backgroundColor: '#f1f5f9',
-                              color: '#0f172a',
+                              backgroundColor: isDark ? '#334155' : '#f1f5f9',
+                              color: isDark ? '#f8fafc' : '#0f172a',
                               borderRadius: '4px',
                               fontWeight: 700,
                               fontSize: '0.85rem'
@@ -735,11 +739,11 @@ export default function KitchenDisplay() {
                               {item.quantity}x
                             </span>
                             <div style={{ flex: 1 }}>
-                              <span style={{ fontWeight: 600, color: '#1e293b' }}>
+                              <span style={{ fontWeight: 600, color: isDark ? '#f8fafc' : '#1e293b' }}>
                                 {item.dish?.name || item.dishName || 'Dish Item'}
                               </span>
                               {item.notes && (
-                                <div style={{ fontSize: '0.8rem', color: '#dc2626', marginTop: '0.15rem', fontStyle: 'italic' }}>
+                                <div style={{ fontSize: '0.8rem', color: isDark ? '#f87171' : '#dc2626', marginTop: '0.15rem', fontStyle: 'italic' }}>
                                   Note: {item.notes}
                                 </div>
                               )}
@@ -748,7 +752,7 @@ export default function KitchenDisplay() {
                         </li>
                       ))
                     ) : (
-                      <li style={{ color: '#94a3b8', fontSize: '0.85rem', fontStyle: 'italic', padding: '0.5rem 0' }}>
+                      <li style={{ color: isDark ? '#64748b' : '#94a3b8', fontSize: '0.85rem', fontStyle: 'italic', padding: '0.5rem 0' }}>
                         No items detailed
                       </li>
                     )}
@@ -759,11 +763,11 @@ export default function KitchenDisplay() {
                     <div style={{
                       marginTop: '0.85rem',
                       padding: '0.65rem 0.85rem',
-                      backgroundColor: '#fef2f2',
-                      border: '1px solid #fecaca',
+                      backgroundColor: isDark ? '#450a0a' : '#fef2f2',
+                      border: isDark ? '1px solid #7f1d1d' : '1px solid #fecaca',
                       borderRadius: '6px',
                       fontSize: '0.85rem',
-                      color: '#991b1b',
+                      color: isDark ? '#fca5a5' : '#991b1b',
                       display: 'flex',
                       gap: '0.4rem',
                       alignItems: 'flex-start'
@@ -779,8 +783,8 @@ export default function KitchenDisplay() {
                 {/* Status Transitions Action Footer */}
                 <div style={{
                   padding: '0.85rem 1rem',
-                  backgroundColor: '#f8fafc',
-                  borderTop: '1px solid #e2e8f0',
+                  backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                  borderTop: isDark ? '1px solid #334155' : '1px solid #e2e8f0',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.5rem'
@@ -832,8 +836,8 @@ export default function KitchenDisplay() {
                         width: '100%',
                         padding: '0.45rem',
                         backgroundColor: 'transparent',
-                        color: '#64748b',
-                        border: '1px solid #cbd5e1',
+                        color: isDark ? '#94a3b8' : '#64748b',
+                        border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
                         borderRadius: '6px',
                         fontWeight: 600,
                         fontSize: '0.8rem',

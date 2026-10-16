@@ -22,9 +22,15 @@ public class User {
     @JoinColumn(name = "company_id")
     private Company company;
 
+    @Column(name = "theme_preference", length = 20)
+    private String themePreference = "light";
+
     public User() {}
     public User(String email, String password) { this.email = email; this.password = password; }
     
+    public String getThemePreference() { return themePreference != null ? themePreference : "light"; }
+    public void setThemePreference(String themePreference) { this.themePreference = themePreference; }
+
     public Branch getBranch() { return branch; }
     public void setBranch(Branch branch) { this.branch = branch; }
 
