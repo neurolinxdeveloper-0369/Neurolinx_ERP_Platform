@@ -24,6 +24,7 @@ public class PosController {
     @Autowired private RecipeItemRepository recipeItemRepo;
     @Autowired private IngredientRepository ingredientRepo;
     @Autowired private EmployeeRepository employeeRepo;
+    @Autowired private com.neurolinx.erp.service.InventoryService inventoryService;
     
 
     @Autowired private BranchRepository branchRepo;
@@ -329,26 +330,9 @@ public class PosController {
         
         order = orderRepo.save(order);
 
-        // Auto-deduct inventory based on Recipe
+        // Auto-deduct inventory using unit-aware and idempotent InventoryService
         try {
-            if (order.getItems() != null) {
-                for (OrderItem item : order.getItems()) {
-                    if (item.getDish() != null) {
-                        List<RecipeItem> recipes = recipeItemRepo.findByDishId(item.getDish().getId());
-                        int qtyOrdered = item.getQuantity() != null ? item.getQuantity() : 1;
-                        for (RecipeItem r : recipes) {
-                            if (r.getIngredient() != null && r.getQuantityRequired() != null) {
-                                BigDecimal totalNeeded = r.getQuantityRequired().multiply(new BigDecimal(qtyOrdered));
-                                Ingredient ing = r.getIngredient();
-                                if (ing.getStockLevel() != null) {
-                                    ing.setStockLevel(ing.getStockLevel().subtract(totalNeeded));
-                                    ingredientRepo.save(ing);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            inventoryService.deductInventoryForOrder(order, SecurityContextHolder.getContext().getAuthentication().getName());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -388,13 +372,34 @@ public class PosController {
                 }
             }
             if (payload.containsKey("status") && payload.get("status") != null) {
-                order.setStatus(payload.get("status").toString());
+                String newStatus = payload.get("status").toString();
+                order.setStatus(newStatus);
+                if ("Cancelled".equalsIgnoreCase(newStatus)) {
+                    inventoryService.restoreInventoryForOrder(order, SecurityContextHolder.getContext().getAuthentication().getName());
+                }
             }
             if (payload.containsKey("notes") && payload.get("notes") != null) {
                 order.setNotes(payload.get("notes").toString());
             }
             CustomerOrder saved = orderRepo.save(order);
             return ResponseEntity.ok(saved);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/orders/{id}/status")
+    public ResponseEntity<?> updateOrderStatus(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+        return orderRepo.findById(id).map(order -> {
+            if (!order.getCompany().getId().equals(company.getId())) return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
+            if (payload.containsKey("status") && payload.get("status") != null) {
+                String newStatus = payload.get("status").toString();
+                order.setStatus(newStatus);
+                if ("Cancelled".equalsIgnoreCase(newStatus)) {
+                    inventoryService.restoreInventoryForOrder(order, SecurityContextHolder.getContext().getAuthentication().getName());
+                }
+            }
+            return ResponseEntity.ok(orderRepo.save(order));
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -521,6 +526,7 @@ public class PosController {
                 case "Cancelled":
                     order.setDeliveryStatus("Cancelled");
                     order.setStatus("Cancelled");
+                    inventoryService.restoreInventoryForOrder(order, SecurityContextHolder.getContext().getAuthentication().getName());
                     break;
                 default:
                     return ResponseEntity.badRequest().body(java.util.Map.of("message", "Invalid delivery status: " + newStatus));

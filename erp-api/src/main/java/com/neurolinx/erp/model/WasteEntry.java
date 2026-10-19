@@ -22,14 +22,25 @@ public class WasteEntry {
     @JsonIgnore
     private Company company;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id", nullable = true)
+    @JsonIgnore
+    private Branch branch;
+
     @Column(nullable = false)
     private BigDecimal quantity;
+
+    @Column(length = 20)
+    private String unit;
 
     @Column(nullable = false)
     private BigDecimal costLost = BigDecimal.ZERO;
 
     @Column(nullable = false)
     private String reason; // Spoilage, Spilled, Expired, Burnt, Other
+
+    @Column(length = 100)
+    private String staffName;
 
     private LocalDate dateRecorded;
 
@@ -44,12 +55,18 @@ public class WasteEntry {
     public void setIngredient(Ingredient ingredient) { this.ingredient = ingredient; }
     public Company getCompany() { return company; }
     public void setCompany(Company company) { this.company = company; }
+    public Branch getBranch() { return branch; }
+    public void setBranch(Branch branch) { this.branch = branch; }
     public BigDecimal getQuantity() { return quantity; }
     public void setQuantity(BigDecimal quantity) { this.quantity = quantity; }
-    public BigDecimal getCostLost() { return costLost; }
+    public String getUnit() { return unit != null ? unit : (ingredient != null ? ingredient.getUnit() : "kg"); }
+    public void setUnit(String unit) { this.unit = unit; }
+    public BigDecimal getCostLost() { return costLost != null ? costLost : BigDecimal.ZERO; }
     public void setCostLost(BigDecimal costLost) { this.costLost = costLost; }
     public String getReason() { return reason; }
     public void setReason(String reason) { this.reason = reason; }
+    public String getStaffName() { return staffName; }
+    public void setStaffName(String staffName) { this.staffName = staffName; }
     public LocalDate getDateRecorded() { return dateRecorded; }
     public void setDateRecorded(LocalDate dateRecorded) { this.dateRecorded = dateRecorded; }
     public LocalDateTime getCreatedAt() { return createdAt; }

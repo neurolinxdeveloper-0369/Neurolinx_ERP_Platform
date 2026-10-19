@@ -8,9 +8,12 @@ import com.neurolinx.erp.repository.UserRepository;
 import com.neurolinx.erp.repository.VendorRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/inventory/vendors")
@@ -19,6 +22,7 @@ public class VendorController {
     @Autowired private VendorRepository vendorRepository;
     @Autowired private UserRepository userRepo;
     @Autowired private CompanyRepository companyRepo;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     private Company getUserCompany() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -39,6 +43,7 @@ public class VendorController {
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<?> createVendor(@RequestBody Map<String, Object> payload) {
         Company company = getUserCompany();
         if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
@@ -56,10 +61,13 @@ public class VendorController {
     }
 
     @PutMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> updateVendor(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         Company company = getUserCompany();
         return vendorRepository.findById(id).map(vendor -> {
-            if (!vendor.getCompany().getId().equals(company.getId())) return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
+            if (company != null && vendor.getCompany() != null && !vendor.getCompany().getId().equals(company.getId())) {
+                return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
+            }
             if (payload.containsKey("name")) vendor.setName(payload.get("name").toString());
             if (payload.containsKey("contactPerson")) vendor.setContactPerson(payload.get("contactPerson").toString());
             if (payload.containsKey("phone")) vendor.setPhone(payload.get("phone").toString());
@@ -71,12 +79,31 @@ public class VendorController {
     }
 
     @DeleteMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> deleteVendor(@PathVariable Long id) {
         Company company = getUserCompany();
-        return vendorRepository.findById(id).map(vendor -> {
-            if (!vendor.getCompany().getId().equals(company.getId())) return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
+        Optional<Vendor> vendorOpt = vendorRepository.findById(id);
+        if (vendorOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Vendor vendor = vendorOpt.get();
+        if (company != null && vendor.getCompany() != null && !vendor.getCompany().getId().equals(company.getId())) {
+            return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
+        }
+
+        try {
+            // 1. Unlink stock batches tied to this vendor's purchase orders
+            jdbcTemplate.update("UPDATE stock_batches SET purchase_order_id = NULL WHERE purchase_order_id IN (SELECT id FROM purchase_orders WHERE vendor_id = ?)", id);
+            
+            // 2. Delete purchase orders tied to this vendor
+            jdbcTemplate.update("DELETE FROM purchase_orders WHERE vendor_id = ?", id);
+
+            // 3. Delete vendor
             vendorRepository.delete(vendor);
-            return ResponseEntity.ok(Map.of("message", "Deleted"));
-        }).orElse(ResponseEntity.notFound().build());
+            
+            return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", "Failed to delete vendor: " + e.getMessage()));
+        }
     }
 }

@@ -80,6 +80,8 @@ public class CustomerOrder {
     private LocalDateTime dispatchedAt;
 
     private LocalDateTime deliveredAt;
+    private Boolean inventoryDeducted = false;
+    private Boolean inventoryRestored = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id", nullable = true)
@@ -194,4 +196,10 @@ public class CustomerOrder {
 
     public LocalDateTime getDeliveredAt() { return deliveredAt; }
     public void setDeliveredAt(LocalDateTime deliveredAt) { this.deliveredAt = deliveredAt; }
+
+    public Boolean getInventoryDeducted() { return inventoryDeducted != null ? inventoryDeducted : false; }
+    public void setInventoryDeducted(Boolean inventoryDeducted) { this.inventoryDeducted = inventoryDeducted; }
+
+    public Boolean getInventoryRestored() { return inventoryRestored != null ? inventoryRestored : false; }
+    public void setInventoryRestored(Boolean inventoryRestored) { this.inventoryRestored = inventoryRestored; }
 }

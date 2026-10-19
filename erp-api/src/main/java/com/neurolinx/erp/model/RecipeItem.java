@@ -21,6 +21,9 @@ public class RecipeItem {
     @Column(nullable = false)
     private BigDecimal quantityRequired;
 
+    @Column(length = 20)
+    private String unit;
+
     public RecipeItem() {}
 
     public Long getId() { return id; }
@@ -31,4 +34,6 @@ public class RecipeItem {
     public void setIngredient(Ingredient ingredient) { this.ingredient = ingredient; }
     public BigDecimal getQuantityRequired() { return quantityRequired; }
     public void setQuantityRequired(BigDecimal quantityRequired) { this.quantityRequired = quantityRequired; }
+    public String getUnit() { return unit != null ? unit : (ingredient != null ? ingredient.getUnit() : "kg"); }
+    public void setUnit(String unit) { this.unit = unit; }
 }
