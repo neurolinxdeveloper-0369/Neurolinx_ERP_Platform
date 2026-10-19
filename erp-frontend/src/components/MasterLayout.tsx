@@ -3,8 +3,6 @@ import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import AccountSettingsModal from './AccountSettingsModal';
 import { apiFetch } from '../api';
-import { useTheme } from '../context/ThemeContext';
-import ThemeSwitcher from './ThemeSwitcher';
 
 export default function MasterLayout() {
   const [menus, setMenus] = useState<any[]>([]);
@@ -15,7 +13,6 @@ export default function MasterLayout() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
 
-  const { isDark } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const username = localStorage.getItem('username');
@@ -83,28 +80,17 @@ export default function MasterLayout() {
   const parentMenus = menus.filter(m => !m.parentId || m.parentId === 0);
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: isDark ? '#0b1120' : '#f9fafb', transition: 'background-color 0.2s ease' }}>
+    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb' }}>
       {/* Sidebar */}
-      <div style={{ 
-        width: '250px', 
-        backgroundColor: isDark ? '#111827' : '#ffffff', 
-        borderRight: isDark ? '1px solid #1f2937' : 'none', 
-        boxShadow: isDark ? '4px 0 20px rgba(0,0,0,0.5)' : '4px 0 15px rgba(0,0,0,0.05)', 
-        color: isDark ? '#cbd5e1' : '#374151', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        zIndex: 50,
-        transition: 'background-color 0.2s ease, border-color 0.2s ease'
-      }}>
+      <div style={{ width: '250px', backgroundColor: 'white', borderRight: 'none', boxShadow: '4px 0 15px rgba(0,0,0,0.05)', color: '#374151', display: 'flex', flexDirection: 'column', zIndex: 50 }}>
         <div style={{ height: '80px', display: 'flex', alignItems: 'center', padding: '0 1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: 'none', boxSizing: 'border-box' }}>
-          <span style={{ color: isDark ? '#60a5fa' : '#1d4ed8' }}>Neurolinx</span><span style={{ color: isDark ? '#f8fafc' : '#1e293b' }}>One</span>
+          <span style={{ color: '#1d4ed8' }}>Neurolinx</span><span style={{ color: '#1e293b' }}>One</span>
         </div>
         <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', overflowY: 'auto' }}>
           {parentMenus.map((menu, index) => {
             const children = menus.filter(m => m.parentId === menu.id);
             const hasChildren = children.length > 0;
             const isExpanded = expanded[menu.id];
-            const isCurrent = location.pathname === menu.route;
             
             return (
               <div key={index}>
@@ -113,28 +99,15 @@ export default function MasterLayout() {
                   onClick={hasChildren ? (e) => toggleExpand(menu.id, e) : undefined}
                   style={{ 
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                    padding: '0.75rem', 
-                    color: isCurrent 
-                      ? (isDark ? '#93c5fd' : '#0284c7') 
-                      : (isDark ? '#94a3b8' : '#475569'), 
-                    textDecoration: 'none', 
-                    borderRadius: '8px', 
-                    fontWeight: '500',
-                    backgroundColor: isCurrent 
-                      ? (isDark ? '#1e3a8a' : '#f0f9ff') 
-                      : 'transparent',
-                    transition: 'all 0.15s ease'
+                    padding: '0.75rem', color: location.pathname === menu.route ? '#0284c7' : '#475569', textDecoration: 'none', 
+                    borderRadius: '8px', fontWeight: '500',
+                    backgroundColor: location.pathname === menu.route ? '#f0f9ff' : 'transparent'
                   }}
-                  onMouseOver={e => { 
-                    e.currentTarget.style.backgroundColor = isCurrent 
-                      ? (isDark ? '#1e3a8a' : '#f0f9ff') 
-                      : (isDark ? '#1f2937' : '#f0f9ff'); 
-                    e.currentTarget.style.color = isDark ? '#93c5fd' : '#0284c7'; 
-                  }}
+                  onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f0f9ff'; e.currentTarget.style.color = '#0284c7'; }}
                   onMouseOut={e => { 
-                    if (!isCurrent) {
+                    if (location.pathname !== menu.route) {
                       e.currentTarget.style.backgroundColor = 'transparent'; 
-                      e.currentTarget.style.color = isDark ? '#94a3b8' : '#475569'; 
+                      e.currentTarget.style.color = '#475569'; 
                     }
                   }}
                 >
@@ -142,18 +115,7 @@ export default function MasterLayout() {
                     {renderIcon(menu.icon)}
                     {menu.name}
                       {hasChildren && (
-                        <span style={{ 
-                          backgroundColor: location.pathname.startsWith(menu.route) 
-                            ? (isDark ? '#1e3a8a' : '#bae6fd') 
-                            : (isDark ? '#374151' : '#e2e8f0'), 
-                          color: location.pathname.startsWith(menu.route) 
-                            ? (isDark ? '#93c5fd' : '#0369a1') 
-                            : (isDark ? '#94a3b8' : '#64748b'), 
-                          padding: '0.1rem 0.5rem', 
-                          borderRadius: '999px', 
-                          fontSize: '0.7rem', 
-                          fontWeight: 600 
-                        }}>
+                        <span style={{ backgroundColor: location.pathname.startsWith(menu.route) ? '#bae6fd' : '#e2e8f0', color: location.pathname.startsWith(menu.route) ? '#0369a1' : '#64748b', padding: '0.1rem 0.5rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600 }}>
                           {children.length}
                         </span>
                       )}
@@ -164,50 +126,27 @@ export default function MasterLayout() {
                 </Link>
 
                 {hasChildren && isExpanded && (
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    marginLeft: '1.5rem', 
-                    marginTop: '0.25rem', 
-                    borderLeft: isDark ? '1px solid #374151' : '1px solid #e5e7eb', 
-                    paddingLeft: '0.5rem', 
-                    gap: '0.25rem' 
-                  }}>
-                    {children.map(child => {
-                      const isChildCurrent = location.pathname === child.route;
-                      return (
-                        <Link
-                          key={child.id}
-                          to={child.route}
-                          style={{ 
-                            display: 'block', 
-                            padding: '0.5rem 0.75rem', 
-                            color: isChildCurrent 
-                              ? (isDark ? '#93c5fd' : '#0284c7') 
-                              : (isDark ? '#94a3b8' : '#64748b'), 
-                            textDecoration: 'none', 
-                            borderRadius: '6px', 
-                            fontSize: '0.875rem',
-                            backgroundColor: isChildCurrent 
-                              ? (isDark ? '#1e3a8a' : '#f0f9ff') 
-                              : 'transparent',
-                            transition: 'all 0.15s ease'
-                          }}
-                          onMouseOver={e => { 
-                            e.currentTarget.style.backgroundColor = isDark ? '#1f2937' : '#f0f9ff'; 
-                            e.currentTarget.style.color = isDark ? '#93c5fd' : '#0284c7'; 
-                          }}
-                          onMouseOut={e => { 
-                            if (!isChildCurrent) {
-                              e.currentTarget.style.backgroundColor = 'transparent'; 
-                              e.currentTarget.style.color = isDark ? '#94a3b8' : '#64748b'; 
-                            }
-                          }}
-                        >
-                          {child.name}
-                        </Link>
-                      );
-                    })}
+                  <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '1.5rem', marginTop: '0.25rem', borderLeft: '1px solid #e5e7eb', paddingLeft: '0.5rem', gap: '0.25rem' }}>
+                    {children.map(child => (
+                      <Link
+                        key={child.id}
+                        to={child.route}
+                        style={{ 
+                          display: 'block', padding: '0.5rem 0.75rem', color: location.pathname === child.route ? '#0284c7' : '#64748b', 
+                          textDecoration: 'none', borderRadius: '6px', fontSize: '0.875rem',
+                          backgroundColor: location.pathname === child.route ? '#f0f9ff' : 'transparent'
+                        }}
+                        onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f0f9ff'; e.currentTarget.style.color = '#0284c7'; }}
+                        onMouseOut={e => { 
+                          if (location.pathname !== child.route) {
+                            e.currentTarget.style.backgroundColor = 'transparent'; 
+                            e.currentTarget.style.color = '#64748b'; 
+                          }
+                        }}
+                      >
+                        {child.name}
+                      </Link>
+                    ))}
                   </div>
                 )}
               </div>
@@ -217,179 +156,79 @@ export default function MasterLayout() {
       </div>
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: isDark ? '#0b1120' : '#f9fafb', transition: 'background-color 0.2s ease' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <header style={{ height: '80px', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', boxSizing: 'border-box', position: 'relative', zIndex: 40 }}>
           
           {/* Left Pill: Company Logo & Title */}
-          <div style={{ 
-            backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-            padding: '0.5rem 1.25rem', 
-            borderRadius: '9999px', 
-            border: isDark ? '1px solid #334155' : '1px solid #f1f5f9',
-            boxShadow: isDark ? '0 4px 6px -1px rgba(0,0,0,0.4)' : '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.75rem',
-            transition: 'background-color 0.2s ease, border-color 0.2s ease'
-          }}>
+          <div style={{ backgroundColor: 'white', padding: '0.5rem 1.25rem', borderRadius: '9999px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {companyLogo && <img src={companyLogo} alt="Logo" style={{ width: '24px', height: '24px', borderRadius: '4px', objectFit: 'contain' }} />}
-            <span style={{ fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', fontSize: '0.95rem', letterSpacing: '-0.01em' }}>
+            <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.95rem', letterSpacing: '-0.01em' }}>
               {companyName}
             </span>
           </div>
 
           {/* Center Pill: Search & Filters */}
-          <div style={{ 
-            backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-            padding: '0.35rem 0.5rem 0.35rem 1.25rem', 
-            borderRadius: '9999px', 
-            border: isDark ? '1px solid #334155' : '1px solid #f1f5f9',
-            boxShadow: isDark ? '0 4px 6px -1px rgba(0,0,0,0.4)' : '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            width: '500px', 
-            maxWidth: '40%',
-            transition: 'background-color 0.2s ease, border-color 0.2s ease'
-          }}>
-            <Icons.Search size={18} color={isDark ? '#94a3b8' : '#64748b'} />
+          <div style={{ backgroundColor: 'white', padding: '0.35rem 0.5rem 0.35rem 1.25rem', borderRadius: '9999px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', width: '600px', maxWidth: '50%' }}>
+            <Icons.Search size={18} color="#64748b" />
             <input 
               type="text" 
               placeholder="Search anything..." 
-              style={{ border: 'none', outline: 'none', background: 'transparent', padding: '0.5rem 0.75rem', flex: 1, fontSize: '0.9rem', color: isDark ? '#f8fafc' : '#334155' }} 
+              style={{ border: 'none', outline: 'none', background: 'transparent', padding: '0.5rem 0.75rem', flex: 1, fontSize: '0.9rem', color: '#334155' }} 
             />
-            <button style={{ 
-              background: isDark ? '#0f172a' : '#f8fafc', 
-              border: isDark ? '1px solid #334155' : '1px solid #e2e8f0', 
-              borderRadius: '9999px', 
-              width: '32px', 
-              height: '32px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              cursor: 'pointer', 
-              color: isDark ? '#94a3b8' : '#475569' 
-            }} title="Filters">
+            <button style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '9999px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }} title="Filters">
               <Icons.SlidersHorizontal size={14} />
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {/* Theme Switcher Pill (Light Mode & Dark Mode options) */}
-            <ThemeSwitcher variant="pill" />
-
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {/* Date Pill */}
-            <div style={{ 
-              backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-              padding: '0.5rem 1.1rem', 
-              borderRadius: '9999px', 
-              border: isDark ? '1px solid #334155' : '1px solid #f1f5f9',
-              boxShadow: isDark ? '0 4px 6px -1px rgba(0,0,0,0.4)' : '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              color: isDark ? '#cbd5e1' : '#475569', 
-              fontSize: '0.85rem', 
-              fontWeight: 600,
-              transition: 'background-color 0.2s ease, border-color 0.2s ease'
-            }}>
-              <Icons.Calendar size={16} color={isDark ? '#94a3b8' : '#64748b'} />
+            <div style={{ backgroundColor: 'white', padding: '0.5rem 1.25rem', borderRadius: '9999px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#475569', fontSize: '0.85rem', fontWeight: 600 }}>
+              <Icons.Calendar size={16} color="#64748b" />
               {todayDateStr}
             </div>
 
             {/* Right Pill: Profile & Notifications */}
-            <div style={{ 
-              backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-              padding: '0.25rem 0.5rem 0.25rem 1rem', 
-              borderRadius: '9999px', 
-              border: isDark ? '1px solid #334155' : '1px solid #f1f5f9',
-              boxShadow: isDark ? '0 4px 6px -1px rgba(0,0,0,0.4)' : '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.75rem',
-              transition: 'background-color 0.2s ease, border-color 0.2s ease'
-            }}>
+            <div style={{ backgroundColor: 'white', padding: '0.25rem 0.5rem 0.25rem 1rem', borderRadius: '9999px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
               
               {/* Notification Bell */}
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', color: isDark ? '#cbd5e1' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Icons.Bell size={18} />
-                <span style={{ position: 'absolute', top: -1, right: -1, width: 8, height: 8, backgroundColor: '#ef4444', borderRadius: '50%', border: isDark ? '2px solid #1e293b' : '2px solid white' }}></span>
+                <span style={{ position: 'absolute', top: -1, right: -1, width: 8, height: 8, backgroundColor: '#ef4444', borderRadius: '50%', border: '2px solid white' }}></span>
               </button>
               
-              <div style={{ width: '1px', height: '20px', backgroundColor: isDark ? '#334155' : '#e2e8f0' }}></div>
+              <div style={{ width: '1px', height: '20px', backgroundColor: '#e2e8f0' }}></div>
 
+              
               {/* Branch Switcher Dropdown */}
               {branches.length > 0 && (
                 <div 
-                  style={{ position: 'relative', marginRight: '0.5rem' }}
+                  style={{ position: 'relative', marginRight: '1rem' }}
                   onMouseEnter={() => setShowBranchMenu(true)}
                   onMouseLeave={() => setShowBranchMenu(false)}
                 >
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '0.5rem', 
-                    cursor: 'pointer', 
-                    padding: '0.45rem 0.85rem', 
-                    backgroundColor: isDark ? '#0f172a' : '#f8fafc', 
-                    borderRadius: '8px', 
-                    border: isDark ? '1px solid #334155' : '1px solid #e2e8f0' 
-                  }}>
-                    <Icons.Store size={16} color={isDark ? '#94a3b8' : '#64748b'} />
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: isDark ? '#f8fafc' : '#334155' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <Icons.Store size={16} color="#64748b" />
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#334155' }}>
                       {activeBranchId === 'global' ? 'Global (All Branches)' : branches.find(b => b.id.toString() === activeBranchId)?.name || 'Unknown Branch'}
                     </span>
-                    <Icons.ChevronDown size={14} color={isDark ? '#94a3b8' : '#94a3b8'} />
+                    <Icons.ChevronDown size={14} color="#94a3b8" />
                   </div>
 
                   {showBranchMenu && (
                     <div style={{ position: 'absolute', top: '100%', right: 0, paddingTop: '0.5rem', width: '220px', zIndex: 50 }}>
-                      <div style={{ 
-                        backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-                        borderRadius: '12px', 
-                        boxShadow: isDark ? '0 20px 25px -5px rgba(0,0,0,0.6)' : '0 20px 25px -5px rgba(0,0,0,0.15)', 
-                        border: isDark ? '1px solid #334155' : '1px solid #f1f5f9', 
-                        padding: '0.5rem' 
-                      }}>
+                      <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)', border: '1px solid #f1f5f9', padding: '0.5rem' }}>
                         <button 
                           onClick={() => { localStorage.setItem('activeBranchId', 'global'); setActiveBranchId('global'); window.dispatchEvent(new Event('branch_changed')); }}
-                          style={{ 
-                            width: '100%', 
-                            padding: '0.5rem 1rem', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '0.5rem', 
-                            background: activeBranchId === 'global' ? (isDark ? '#1e3a8a' : '#eff6ff') : 'none', 
-                            border: 'none', 
-                            borderRadius: '8px', 
-                            cursor: 'pointer', 
-                            color: activeBranchId === 'global' ? (isDark ? '#93c5fd' : '#2563eb') : (isDark ? '#cbd5e1' : '#334155'), 
-                            fontSize: '0.875rem', 
-                            fontWeight: 500, 
-                            textAlign: 'left' 
-                          }}
+                          style={{ width: '100%', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: activeBranchId === 'global' ? '#eff6ff' : 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', color: activeBranchId === 'global' ? '#2563eb' : '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
                         >
                           Global (All Branches)
                         </button>
-                        <div style={{ height: '1px', backgroundColor: isDark ? '#334155' : '#e2e8f0', margin: '0.25rem 0' }}></div>
+                        <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '0.25rem 0' }}></div>
                         {branches.map(b => (
                           <button 
                             key={b.id}
                             onClick={() => { localStorage.setItem('activeBranchId', b.id.toString()); setActiveBranchId(b.id.toString()); window.dispatchEvent(new Event('branch_changed')); }}
-                            style={{ 
-                              width: '100%', 
-                              padding: '0.5rem 1rem', 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '0.5rem', 
-                              background: activeBranchId === b.id.toString() ? (isDark ? '#1e3a8a' : '#eff6ff') : 'none', 
-                              border: 'none', 
-                              borderRadius: '8px', 
-                              cursor: 'pointer', 
-                              color: activeBranchId === b.id.toString() ? (isDark ? '#93c5fd' : '#2563eb') : (isDark ? '#cbd5e1' : '#334155'), 
-                              fontSize: '0.875rem', 
-                              fontWeight: 500, 
-                              textAlign: 'left' 
-                            }}
+                            style={{ width: '100%', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: activeBranchId === b.id.toString() ? '#eff6ff' : 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', color: activeBranchId === b.id.toString() ? '#2563eb' : '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
                           >
                             {b.name}
                           </button>
@@ -401,6 +240,7 @@ export default function MasterLayout() {
               )}
               
               {/* User Profile Dropdown */}
+
               <div 
                 style={{ position: 'relative' }}
                 onMouseEnter={() => setShowProfileMenu(true)}
@@ -408,94 +248,41 @@ export default function MasterLayout() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <span style={{ color: isDark ? '#f8fafc' : '#0f172a', fontSize: '0.8rem', fontWeight: 700, lineHeight: '1.2' }}>{username ? (username.split('@')[0].length > 12 ? username.split('@')[0].substring(0, 12) + '...' : username.split('@')[0]) : 'User'}</span>
-                    <span style={{ color: isDark ? '#94a3b8' : '#64748b', fontSize: '0.7rem', fontWeight: 500, lineHeight: '1.2' }}>{localStorage.getItem('role') || 'Master Admin'}</span>
+                    <span style={{ color: '#0f172a', fontSize: '0.8rem', fontWeight: 700, lineHeight: '1.2' }}>{username ? (username.split('@')[0].length > 12 ? username.split('@')[0].substring(0, 12) + '...' : username.split('@')[0]) : 'User'}</span>
+                    <span style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 500, lineHeight: '1.2' }}>{localStorage.getItem('role') || 'Master Admin'}</span>
                   </div>
-                  <div style={{ 
-                    width: '36px', 
-                    height: '36px', 
-                    borderRadius: '50%', 
-                    backgroundColor: isDark ? '#1e3a8a' : '#eff6ff', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    color: isDark ? '#93c5fd' : '#2563eb', 
-                    fontWeight: 600, 
-                    border: isDark ? '1px solid #2563eb' : '1px solid #bfdbfe' 
-                  }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', fontWeight: 600, border: '1px solid #bfdbfe' }}>
                     {username ? username.charAt(0).toUpperCase() : 'U'}
                   </div>
                 </div>
 
                 {/* Dropdown Menu */}
                 {showProfileMenu && (
-                  <div style={{ position: 'absolute', top: '100%', right: 0, paddingTop: '0.5rem', width: '230px', zIndex: 50 }}>
-                    <div style={{ 
-                      backgroundColor: isDark ? '#1e293b' : '#ffffff', 
-                      borderRadius: '16px', 
-                      boxShadow: isDark ? '0 20px 25px -5px rgba(0,0,0,0.6)' : '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)', 
-                      border: isDark ? '1px solid #334155' : '1px solid #f1f5f9', 
-                      padding: '0.5rem' 
-                    }}>
-                      <button 
-                        onClick={() => { setShowAccountSettings(true); setShowProfileMenu(false); }}
-                        style={{ 
-                          width: '100%', 
-                          padding: '0.75rem 1rem', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '0.75rem', 
-                          background: 'none', 
-                          border: 'none', 
-                          borderRadius: '10px', 
-                          cursor: 'pointer', 
-                          color: isDark ? '#cbd5e1' : '#334155', 
-                          fontSize: '0.875rem', 
-                          fontWeight: 500, 
-                          textAlign: 'left' 
-                        }}
-                        onMouseOver={e => e.currentTarget.style.backgroundColor = isDark ? '#334155' : '#f8fafc'}
-                        onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <Icons.Settings size={16} />
-                        Account Settings
-                      </button>
-
-                      <div style={{ height: '1px', backgroundColor: isDark ? '#334155' : '#e2e8f0', margin: '0.35rem 0' }}></div>
-
-                      {/* Theme Switcher inside Dropdown */}
-                      <div style={{ padding: '0.25rem 0.5rem' }}>
-                        <ThemeSwitcher variant="dropdown" />
-                      </div>
-                      
-                      <div style={{ height: '1px', backgroundColor: isDark ? '#334155' : '#e2e8f0', margin: '0.35rem 0' }}></div>
-                      
-                      <button 
-                        onClick={handleLogout}
-                        style={{ 
-                          width: '100%', 
-                          padding: '0.75rem 1rem', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '0.75rem', 
-                          background: 'none', 
-                          border: 'none', 
-                          borderRadius: '10px', 
-                          cursor: 'pointer', 
-                          color: '#ef4444', 
-                          fontSize: '0.875rem', 
-                          fontWeight: 500, 
-                          textAlign: 'left' 
-                        }}
-                        onMouseOver={e => e.currentTarget.style.backgroundColor = isDark ? '#450a0a' : '#fef2f2'}
-                        onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                      >
-                        <Icons.LogOut size={16} />
-                        Logout
-                      </button>
-                    </div>
+                <div style={{ position: 'absolute', top: '100%', right: 0, paddingTop: '0.5rem', width: '200px', zIndex: 50 }}>
+                  <div style={{ backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)', border: '1px solid #f1f5f9', padding: '0.5rem' }}>
+                    <button 
+                      style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Icons.Settings size={16} />
+                      Account Settings
+                    </button>
+                    
+                    <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '0.25rem 0' }}></div>
+                    
+                    <button 
+                      onClick={handleLogout}
+                      style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#ef4444', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Icons.LogOut size={16} />
+                      Logout
+                    </button>
                   </div>
-                )}
+                </div>
+              )}
               </div>
             </div>
           </div>

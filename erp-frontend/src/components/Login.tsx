@@ -1,11 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
-import { useTheme } from '../context/ThemeContext';
-import ThemeSwitcher from './ThemeSwitcher';
 
 export default function Login() {
-  const { isDark, setTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
@@ -25,11 +22,6 @@ export default function Login() {
     if (data.companySlug) localStorage.setItem('companySlug', data.companySlug);
     if (data.companyName) localStorage.setItem('companyName', data.companyName);
     if (data.companyLogo) localStorage.setItem('companyLogo', data.companyLogo);
-
-    if (data.themePreference === 'light' || data.themePreference === 'dark') {
-      setTheme(data.themePreference);
-    }
-    window.dispatchEvent(new CustomEvent('neurolinx_login'));
 
     if (data.role === 'Master Admin') {
       navigate('/dashboard');
@@ -188,22 +180,17 @@ export default function Login() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100vw', backgroundColor: isDark ? '#0b1120' : '#ffffff', fontFamily: 'system-ui, -apple-system, sans-serif', position: 'relative', transition: 'background-color 0.2s ease' }}>
+    <div style={{ display: 'flex', height: '100vh', width: '100vw', backgroundColor: '#ffffff', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       
-      {/* Floating Theme Switcher */}
-      <div style={{ position: 'fixed', top: '1.25rem', right: '1.25rem', zIndex: 100 }}>
-        <ThemeSwitcher variant="pill" />
-      </div>
-
       {/* Left Side: Form */}
       <div style={{ flex: '1', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
         <div style={{ width: '100%', maxWidth: '380px' }}>
           
           <div style={{ marginBottom: '2rem' }}>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: isDark ? '#f8fafc' : '#111827', margin: '0 0 0.5rem 0' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', margin: '0 0 0.5rem 0' }}>
               {loginMode === 'OTP_VERIFY' ? 'Check your email' : 'Sign In'}
             </h1>
-            <p style={{ color: isDark ? '#94a3b8' : '#6b7280', fontSize: '0.875rem', margin: 0 }}>
+            <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: 0 }}>
               {loginMode === 'OTP_VERIFY' ? `We sent a 6-digit code to ${email}` : 'Choose a method to access your workspace'}
             </p>
           </div>
@@ -253,7 +240,7 @@ export default function Login() {
                   {isLoading ? 'Sending...' : 'Send OTP Login Code'}
                 </button>
 
-                <button type="button" onClick={() => setLoginMode('PASSWORD')} style={{ width: '100%', padding: '0.875rem', backgroundColor: isDark ? '#1e293b' : 'transparent', color: isDark ? '#f8fafc' : '#374151', border: isDark ? '1px solid #334155' : '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem', transition: 'background-color 0.2s' }}>
+                <button type="button" onClick={() => setLoginMode('PASSWORD')} style={{ width: '100%', padding: '0.875rem', backgroundColor: 'transparent', color: '#374151', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '1rem', transition: 'background-color 0.2s' }}>
                   Sign in with Password
                 </button>
               </form>
@@ -355,37 +342,28 @@ export default function Login() {
       </div>
 
       {/* Right Side: Branding (hidden on small screens, flex on large) */}
-      <div style={{ 
-        flex: '1', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'center', 
-        padding: '4rem', 
-        backgroundColor: isDark ? '#111827' : '#f8fafc', 
-        borderLeft: isDark ? '1px solid #1f2937' : '1px solid #e2e8f0',
-        transition: 'background-color 0.2s ease, border-color 0.2s ease'
-      }}>
+      <div style={{ flex: '1', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '4rem', backgroundColor: '#f8fafc', borderLeft: '1px solid #e2e8f0' }}>
         <div style={{ maxWidth: '480px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
             <div style={{ width: '32px', height: '32px', backgroundColor: '#2563eb', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', fontWeight: 'bold' }}>
               N
             </div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: isDark ? '#f8fafc' : '#0f172a', margin: 0 }}>Neurolinx One</h2>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0f172a', margin: 0 }}>Neurolinx One</h2>
           </div>
           
-          <h3 style={{ fontSize: '2rem', fontWeight: '700', color: isDark ? '#f8fafc' : '#0f172a', marginBottom: '1.5rem', lineHeight: '1.2' }}>
+          <h3 style={{ fontSize: '2rem', fontWeight: '700', color: '#0f172a', marginBottom: '1.5rem', lineHeight: '1.2' }}>
             Welcome to a new experience
           </h3>
           
-          <p style={{ fontSize: '1rem', color: isDark ? '#94a3b8' : '#475569', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+          <p style={{ fontSize: '1rem', color: '#475569', lineHeight: '1.6', marginBottom: '1.5rem' }}>
             Neurolinx One is a software dedicated to you and your employees. Built on an entirely new type of data architecture, you'll have profiles and records of every interaction within your network in minutes, always updated in real-time.
           </p>
           
-          <p style={{ fontSize: '1rem', color: isDark ? '#94a3b8' : '#475569', lineHeight: '1.6', marginBottom: '1.5rem' }}>
+          <p style={{ fontSize: '1rem', color: '#475569', lineHeight: '1.6', marginBottom: '1.5rem' }}>
             You'll be able to track your performance and attendance in the company seamlessly across our entire suite of global modules.
           </p>
           
-          <p style={{ fontSize: '1rem', fontWeight: '600', color: isDark ? '#f8fafc' : '#0f172a' }}>
+          <p style={{ fontSize: '1rem', fontWeight: '600', color: '#0f172a' }}>
             Let's begin.
           </p>
         </div>

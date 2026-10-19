@@ -36,18 +36,12 @@ public class RestaurantSettings {
     @Column(columnDefinition = "TEXT")
     private String upiQrImageBase64;
 
-    @Column(name = "theme_preference", length = 20)
-    private String themePreference = "light";
-
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 
     public RestaurantSettings() {}
     
-    public String getThemePreference() { return themePreference != null ? themePreference : "light"; }
-    public void setThemePreference(String themePreference) { this.themePreference = themePreference; }
-
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getStoreName() { return storeName; }

@@ -85,9 +85,6 @@ public class AuthController {
                     res.put("companySlug", url);
                 }
             }
-            res.put("themePreference", user.getThemePreference() != null ? user.getThemePreference() : "light");
-        } else {
-            res.put("themePreference", "light");
         }
         if (email.equalsIgnoreCase("neurolinxdeveloper@gmail.com")) {
             res.put("role", "Master Admin");
