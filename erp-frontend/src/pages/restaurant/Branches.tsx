@@ -12,9 +12,8 @@ export default function Branches() {
   const fetchData = () => {
     setIsLoading(true);
     apiFetch('https://erp-api.neurolinx.in/api/branches')
-      .then(res => res.ok ? res.json() : [])
-      .catch(() => [])
-      .then(data => { setBranches(Array.isArray(data) ? data : []); setIsLoading(false); })
+      .then(res => res.json())
+      .then(data => { setBranches(data); setIsLoading(false); })
       .catch(e => { console.error(e); setIsLoading(false); });
   };
 

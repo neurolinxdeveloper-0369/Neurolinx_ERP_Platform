@@ -80,82 +80,77 @@ public class RecipeController {
 
     @GetMapping("/dish-cost-summary")
     public ResponseEntity<?> getDishCostSummary() {
-        try {
-            Company company = getUserCompany();
-            if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
 
-            List<Dish> dishes = dishRepository.findByCompany(company);
-            List<Map<String, Object>> summaries = new ArrayList<>();
+        List<Dish> dishes = dishRepository.findByCompany(company);
+        List<Map<String, Object>> summaries = new ArrayList<>();
 
-            for (Dish dish : dishes) {
-                List<RecipeItem> items = recipeItemRepository.findByDishId(dish.getId());
-                BigDecimal recipeCost = BigDecimal.ZERO;
-                boolean hasRecipe = !items.isEmpty();
-                int maxServingsPossible = hasRecipe ? Integer.MAX_VALUE : 0;
-                boolean isOutOfStock = false;
+        for (Dish dish : dishes) {
+            List<RecipeItem> items = recipeItemRepository.findByDishId(dish.getId());
+            BigDecimal recipeCost = BigDecimal.ZERO;
+            boolean hasRecipe = !items.isEmpty();
+            int maxServingsPossible = hasRecipe ? Integer.MAX_VALUE : 0;
+            boolean isOutOfStock = false;
 
-                for (RecipeItem item : items) {
-                    Ingredient ing = item.getIngredient();
-                    if (ing != null) {
-                        BigDecimal convertedQty = inventoryService.convertUnit(item.getQuantityRequired(), item.getUnit(), ing.getUnit());
-                        BigDecimal ingCost = ing.getCostPerUnit() != null ? ing.getCostPerUnit() : BigDecimal.ZERO;
-                        recipeCost = recipeCost.add(convertedQty.multiply(ingCost));
+            for (RecipeItem item : items) {
+                Ingredient ing = item.getIngredient();
+                if (ing != null) {
+                    BigDecimal convertedQty = inventoryService.convertUnit(item.getQuantityRequired(), item.getUnit(), ing.getUnit());
+                    BigDecimal ingCost = ing.getCostPerUnit() != null ? ing.getCostPerUnit() : BigDecimal.ZERO;
+                    recipeCost = recipeCost.add(convertedQty.multiply(ingCost));
 
-                        BigDecimal currentStock = ing.getStockLevel() != null ? ing.getStockLevel() : BigDecimal.ZERO;
-                        if (convertedQty.compareTo(BigDecimal.ZERO) > 0) {
-                            int servingsForThisIng = currentStock.divide(convertedQty, 0, RoundingMode.FLOOR).intValue();
-                            if (servingsForThisIng < maxServingsPossible) {
-                                maxServingsPossible = Math.max(0, servingsForThisIng);
-                            }
-                            if (servingsForThisIng <= 0) {
-                                isOutOfStock = true;
-                            }
+                    BigDecimal currentStock = ing.getStockLevel() != null ? ing.getStockLevel() : BigDecimal.ZERO;
+                    if (convertedQty.compareTo(BigDecimal.ZERO) > 0) {
+                        int servingsForThisIng = currentStock.divide(convertedQty, 0, RoundingMode.FLOOR).intValue();
+                        if (servingsForThisIng < maxServingsPossible) {
+                            maxServingsPossible = Math.max(0, servingsForThisIng);
+                        }
+                        if (servingsForThisIng <= 0) {
+                            isOutOfStock = true;
                         }
                     }
                 }
-
-                if (!hasRecipe || maxServingsPossible == Integer.MAX_VALUE) {
-                    maxServingsPossible = 0;
-                }
-
-                BigDecimal price = dish.getPrice() != null ? dish.getPrice() : BigDecimal.ZERO;
-                BigDecimal margin = price.subtract(recipeCost);
-                BigDecimal marginPercent = BigDecimal.ZERO;
-                if (price.compareTo(BigDecimal.ZERO) > 0) {
-                    marginPercent = margin.divide(price, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100"));
-                }
-
-                String stockStatus;
-                if (!hasRecipe) {
-                    stockStatus = "No Recipe";
-                } else if (isOutOfStock || maxServingsPossible <= 0) {
-                    stockStatus = "Out of Stock";
-                } else if (maxServingsPossible <= 5) {
-                    stockStatus = "Low Stock";
-                } else {
-                    stockStatus = "In Stock";
-                }
-
-                Map<String, Object> map = new HashMap<>();
-                map.put("dishId", dish.getId());
-                map.put("dishName", dish.getName());
-                map.put("price", price);
-                map.put("categoryName", dish.getCategory() != null ? dish.getCategory().getName() : "Uncategorized");
-                map.put("hasRecipe", hasRecipe);
-                map.put("recipeCost", recipeCost);
-                map.put("grossMargin", margin);
-                map.put("grossMarginPercent", marginPercent);
-                map.put("servingsAvailable", maxServingsPossible);
-                map.put("stockStatus", stockStatus);
-                map.put("itemCount", items.size());
-
-                summaries.add(map);
             }
 
-            return ResponseEntity.ok(summaries);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
+            if (!hasRecipe || maxServingsPossible == Integer.MAX_VALUE) {
+                maxServingsPossible = 0;
+            }
+
+            BigDecimal price = dish.getPrice() != null ? dish.getPrice() : BigDecimal.ZERO;
+            BigDecimal margin = price.subtract(recipeCost);
+            BigDecimal marginPercent = BigDecimal.ZERO;
+            if (price.compareTo(BigDecimal.ZERO) > 0) {
+                marginPercent = margin.divide(price, 4, RoundingMode.HALF_UP).multiply(new BigDecimal("100"));
+            }
+
+            String stockStatus;
+            if (!hasRecipe) {
+                stockStatus = "No Recipe";
+            } else if (isOutOfStock || maxServingsPossible <= 0) {
+                stockStatus = "Out of Stock";
+            } else if (maxServingsPossible <= 5) {
+                stockStatus = "Low Stock";
+            } else {
+                stockStatus = "In Stock";
+            }
+
+            Map<String, Object> map = new HashMap<>();
+            map.put("dishId", dish.getId());
+            map.put("dishName", dish.getName());
+            map.put("price", price);
+            map.put("categoryName", dish.getCategory() != null ? dish.getCategory().getName() : "Uncategorized");
+            map.put("hasRecipe", hasRecipe);
+            map.put("recipeCost", recipeCost);
+            map.put("grossMargin", margin);
+            map.put("grossMarginPercent", marginPercent);
+            map.put("servingsAvailable", maxServingsPossible);
+            map.put("stockStatus", stockStatus);
+            map.put("itemCount", items.size());
+
+            summaries.add(map);
         }
+
+        return ResponseEntity.ok(summaries);
     }
 }

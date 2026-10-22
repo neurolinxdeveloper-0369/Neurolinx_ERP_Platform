@@ -11,10 +11,9 @@ export default function Reports() {
   const fetchOrders = () => {
     setIsLoading(true);
     apiFetch('https://erp-api.neurolinx.in/api/pos/orders/all')
-      .then(res => res.ok ? res.json() : [])
-      .catch(() => [])
+      .then(res => res.json())
       .then(data => {
-        setOrders(Array.isArray(data) ? data.filter((o: any) => o && o.status === 'Completed') : []);
+        setOrders(data.filter((o: any) => o.status === 'Completed'));
         setIsLoading(false);
       })
       .catch(e => { console.error(e); setIsLoading(false); });
@@ -28,8 +27,7 @@ export default function Reports() {
   }, []);
 
   // Filter orders by date range
-  const safeOrders = Array.isArray(orders) ? orders : [];
-  const filteredOrders = safeOrders.filter(o => {
+  const filteredOrders = orders.filter(o => {
     if (!o.createdAt) return false;
     const d = new Date(o.createdAt);
     const now = new Date();

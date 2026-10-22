@@ -48,34 +48,24 @@ public class InventoryController {
 
     @GetMapping("/batches")
     public ResponseEntity<?> getBatches() {
-        try {
-            Company company = getUserCompany();
-            if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
-            Long branchId = getBranchId();
-            if (branchId != null) {
-                return ResponseEntity.ok(stockBatchRepository.findByCompanyAndBranchId(company, branchId));
-            }
-            return ResponseEntity.ok(stockBatchRepository.findByCompany(company));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+        Long branchId = getBranchId();
+        if (branchId != null) {
+            return ResponseEntity.ok(stockBatchRepository.findByCompanyAndBranchId(company, branchId));
         }
+        return ResponseEntity.ok(stockBatchRepository.findByCompany(company));
     }
 
     @GetMapping("/ingredients")
     public ResponseEntity<?> getIngredients() {
-        try {
-            Company company = getUserCompany();
-            if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
-            Long branchId = getBranchId();
-            if (branchId != null) {
-                return ResponseEntity.ok(ingredientRepository.findByCompanyAndBranchId(company, branchId));
-            }
-            return ResponseEntity.ok(ingredientRepository.findByCompany(company));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+        Long branchId = getBranchId();
+        if (branchId != null) {
+            return ResponseEntity.ok(ingredientRepository.findByCompanyAndBranchId(company, branchId));
         }
+        return ResponseEntity.ok(ingredientRepository.findByCompany(company));
     }
 
     @PostMapping("/ingredients")

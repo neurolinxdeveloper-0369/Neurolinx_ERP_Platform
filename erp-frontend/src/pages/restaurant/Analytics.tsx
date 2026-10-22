@@ -22,22 +22,20 @@ export default function Analytics() {
   useEffect(() => {
     setIsLoading(true);
     apiFetch('https://erp-api.neurolinx.in/api/pos/orders/all')
-      .then(res => res.ok ? res.json() : [])
-      .catch(() => [])
+      .then(res => res.json())
       .then(data => {
-        setOrders(Array.isArray(data) ? data.filter((o: any) => o && o.status === 'Completed') : []);
+        setOrders(data.filter((o: any) => o.status === 'Completed'));
         setIsLoading(false);
       })
       .catch(e => { console.error(e); setIsLoading(false); });
   }, [activeBranchId]); // Refetch when branch context changes!
 
   // Analytics Engine
-  const safeOrders = Array.isArray(orders) ? orders : [];
-  const totalRevenue = safeOrders.reduce((sum, o) => sum + (o?.totalAmount || 0), 0);
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
   
   // 1. Branch Performance (Only relevant if in 'global' view)
   const branchSales: Record<string, number> = {};
-  safeOrders.forEach(o => {
+  orders.forEach(o => {
     const bName = o.branch?.name || 'Headquarters / Unassigned';
     if (!branchSales[bName]) branchSales[bName] = 0;
     branchSales[bName] += (o.totalAmount || 0);
@@ -52,7 +50,7 @@ export default function Analytics() {
     last7DaysData[d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })] = 0;
   }
   
-  safeOrders.forEach(o => {
+  orders.forEach(o => {
     if (o.createdAt) {
       const d = new Date(o.createdAt);
       const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -65,7 +63,7 @@ export default function Analytics() {
 
   // 3. Top Selling Items
   const dishSales: Record<string, { qty: number, rev: number }> = {};
-  safeOrders.forEach(o => {
+  orders.forEach(o => {
     if (o.items) {
       o.items.forEach((item: any) => {
         const dishName = item.dish?.name || item.name || 'Unknown';
@@ -82,7 +80,7 @@ export default function Analytics() {
   const salesByTime: Record<string, number> = {
     'Morning': 0, 'Afternoon': 0, 'Evening': 0, 'Late Night': 0
   };
-  safeOrders.forEach(o => {
+  orders.forEach(o => {
     if (o.createdAt) {
       const hour = new Date(o.createdAt).getHours();
       if (hour >= 6 && hour < 12) salesByTime['Morning'] += o.totalAmount || 0;

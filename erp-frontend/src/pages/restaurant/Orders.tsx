@@ -391,8 +391,8 @@ export default function RestaurantOrders() {
       apiFetch('https://erp-api.neurolinx.in/api/settings/my-company').then(res => res.ok ? res.json() : null),
       apiFetch('https://erp-api.neurolinx.in/api/staff/employees').then(res => res.ok ? res.json() : []).catch(() => [])
     ]).then(([cats, items, sets, comp, staff]) => {
-      setCategories(Array.isArray(cats) ? cats : []);
-      setDishes(Array.isArray(items) ? items : []);
+      setCategories(cats);
+      setDishes(items);
       setSettings(sets);
       if (comp) setCompany(comp);
       if (Array.isArray(staff)) setStaffList(staff.filter((s: any) => s.isActive !== false));
