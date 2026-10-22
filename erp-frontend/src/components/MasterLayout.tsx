@@ -4,9 +4,27 @@ import * as Icons from 'lucide-react';
 import AccountSettingsModal from './AccountSettingsModal';
 import { apiFetch } from '../api';
 
+const DEFAULT_RESTAURANT_MENUS = [
+  { id: 2001, name: "Dashboard", route: "/res-dashboard", icon: "layout-dashboard", parentId: 0 },
+  { id: 2002, name: "Orders", route: "/res-orders", icon: "clipboard-list", parentId: 0 },
+  { id: 2003, name: "Kitchen KDS", route: "/res-kitchen", icon: "monitor-play", parentId: 0 },
+  { id: 2004, name: "Inventory", route: "/res-inventory", icon: "boxes", parentId: 0 },
+  { id: 2005, name: "Menu Management", route: "/res-inventory", icon: "book-open", parentId: 2004 },
+  { id: 2006, name: "Waste Management", route: "/res-waste", icon: "trash-2", parentId: 2004 },
+  { id: 2007, name: "Vendor Management", route: "/res-vendors", icon: "truck", parentId: 2004 },
+  { id: 2008, name: "Raw Material", route: "/res-raw-materials", icon: "apple", parentId: 2004 },
+  { id: 2009, name: "Recipe Management", route: "/res-recipes", icon: "chef-hat", parentId: 2004 },
+  { id: 2010, name: "Billing", route: "/res-billing", icon: "receipt", parentId: 0 },
+  { id: 2011, name: "Analytics", route: "/res-analytics", icon: "bar-chart-3", parentId: 0 },
+  { id: 2012, name: "Reports", route: "/res-reports", icon: "file-text", parentId: 0 },
+  { id: 2013, name: "Staff", route: "/res-staff", icon: "users", parentId: 0 },
+  { id: 2014, name: "Branches", route: "/res-branches", icon: "store", parentId: 0 },
+  { id: 2015, name: "Settings", route: "/res-settings", icon: "settings", parentId: 0 },
+];
+
 export default function MasterLayout() {
   const [menus, setMenus] = useState<any[]>([]);
-  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<string | number, boolean>>({});
   const [branches, setBranches] = useState<any[]>([]);
   const [activeBranchId, setActiveBranchId] = useState<string>(localStorage.getItem('activeBranchId') || 'global');
   const [showBranchMenu, setShowBranchMenu] = useState(false);
@@ -38,26 +56,88 @@ export default function MasterLayout() {
       apiFetch('https://erp-api.neurolinx.in/api/menus/my-menus/' + username)
         .then(res => res.json())
         .then(data => {
-          if (!Array.isArray(data)) return;
+          if (!Array.isArray(data) || data.length === 0) {
+            setMenus(DEFAULT_RESTAURANT_MENUS);
+            return;
+          }
           const filtered = data.filter((m: any) => m.route !== '/res-qr-ordering' && m.name !== 'QR Ordering');
           if (!filtered.some((m: any) => m.route === '/res-dashboard' || m.route === '/dashboard')) {
             filtered.unshift({ id: -1, name: "Dashboard", route: "/res-dashboard", icon: "layout-dashboard", parentId: null });
           }
+
+          // Ensure standard inventory submodules exist if parent inventory exists
+          const invParent = filtered.find((m: any) => m.route === '/res-inventory' || m.name === 'Inventory');
+          if (invParent) {
+            const defaultSubmodules = [
+              { name: "Waste Management", route: "/res-waste", icon: "trash-2" },
+              { name: "Vendor Management", route: "/res-vendors", icon: "truck" },
+              { name: "Raw Material", route: "/res-raw-materials", icon: "apple" },
+              { name: "Recipe Management", route: "/res-recipes", icon: "chef-hat" },
+            ];
+            defaultSubmodules.forEach((sub, sIdx) => {
+              if (!filtered.some((m: any) => m.route === sub.route)) {
+                filtered.push({
+                  id: 9000 + sIdx,
+                  name: sub.name,
+                  route: sub.route,
+                  icon: sub.icon,
+                  parentId: invParent.id
+                });
+              }
+            });
+          }
+
+          // Ensure other essential restaurant menus exist
+          const otherEssentialMenus = [
+            { name: "Orders", route: "/res-orders", icon: "clipboard-list" },
+            { name: "Kitchen KDS", route: "/res-kitchen", icon: "monitor-play" },
+            { name: "Billing", route: "/res-billing", icon: "receipt" },
+            { name: "Analytics", route: "/res-analytics", icon: "bar-chart-3" },
+            { name: "Reports", route: "/res-reports", icon: "file-text" },
+            { name: "Staff", route: "/res-staff", icon: "users" },
+            { name: "Branches", route: "/res-branches", icon: "store" },
+            { name: "Settings", route: "/res-settings", icon: "settings" },
+          ];
+          otherEssentialMenus.forEach((em, idx) => {
+            if (!filtered.some((m: any) => m.route === em.route)) {
+              filtered.push({
+                id: 9100 + idx,
+                name: em.name,
+                route: em.route,
+                icon: em.icon,
+                parentId: 0
+              });
+            }
+          });
+
           setMenus(filtered);
         })
-        .catch(err => console.error("Failed to load menus", err));
+        .catch(err => {
+          console.error("Failed to load menus, falling back to defaults", err);
+          setMenus(DEFAULT_RESTAURANT_MENUS);
+        });
     }
 
     if (username !== 'admin' && username !== 'neurolinxdeveloper@gmail.com') {
       apiFetch('https://erp-api.neurolinx.in/api/branches')
         .then(res => res.json())
-        .then(data => setBranches(data))
+        .then(data => {
+          if (Array.isArray(data)) setBranches(data);
+        })
         .catch(err => console.error(err));
     }
   }, [navigate, username]);
 
-
-
+  // Auto-expand parent menu when current route matches parent route or any child route
+  useEffect(() => {
+    menus.forEach(menu => {
+      const children = menus.filter(m => String(m.parentId) === String(menu.id));
+      const isCurrent = location.pathname === menu.route || children.some(c => location.pathname === c.route);
+      if (isCurrent && children.length > 0) {
+        setExpanded(prev => ({ ...prev, [menu.id]: true }));
+      }
+    });
+  }, [location.pathname, menus]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -66,18 +146,19 @@ export default function MasterLayout() {
 
   const renderIcon = (iconName: string) => {
     if (!iconName) return <Icons.Circle size={16} />;
-    const IconComponent = (Icons as any)[
-      iconName.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join('')
-    ] || Icons.Circle;
+    const formatted = iconName
+      .split('-')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join('');
+    const IconComponent = (Icons as any)[formatted] || Icons.Circle;
     return <IconComponent size={20} />;
   };
 
-  const toggleExpand = (id: number, e: React.MouseEvent) => {
-    e.preventDefault();
+  const toggleExpand = (id: string | number) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const parentMenus = menus.filter(m => !m.parentId || m.parentId === 0);
+  const parentMenus = menus.filter(m => !m.parentId || m.parentId === 0 || m.parentId === '0');
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb' }}>
@@ -86,67 +167,120 @@ export default function MasterLayout() {
         <div style={{ height: '80px', display: 'flex', alignItems: 'center', padding: '0 1.5rem', fontSize: '1.25rem', fontWeight: 'bold', borderBottom: 'none', boxSizing: 'border-box' }}>
           <span style={{ color: '#1d4ed8' }}>Neurolinx</span><span style={{ color: '#1e293b' }}>One</span>
         </div>
-        <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', overflowY: 'auto' }}>
+        <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', overflowY: 'auto' }}>
           {parentMenus.map((menu, index) => {
-            const children = menus.filter(m => m.parentId === menu.id);
-            const hasChildren = children.length > 0;
-            const isExpanded = expanded[menu.id];
+            const directChildren = menus.filter(m => String(m.parentId) === String(menu.id));
+            const hasChildren = directChildren.length > 0;
+            const isExpanded = !!expanded[menu.id];
+
+            // Build complete children list: if parent has a valid route (e.g. /res-inventory), ensure primary page is reachable
+            const allChildItems = [...directChildren];
+            if (hasChildren && menu.route && menu.route !== '#' && !allChildItems.some(c => c.route === menu.route)) {
+              const primaryChildName = menu.name === 'Inventory' ? 'Menu Management' : `${menu.name} Overview`;
+              allChildItems.unshift({
+                id: `primary_${menu.id}`,
+                name: primaryChildName,
+                route: menu.route,
+                icon: menu.icon,
+                parentId: menu.id
+              });
+            }
+
+            const isParentActive = location.pathname === menu.route || allChildItems.some(c => location.pathname === c.route);
             
             return (
-              <div key={index}>
-                <Link 
-                  to={hasChildren ? '#' : menu.route}
-                  onClick={hasChildren ? (e) => toggleExpand(menu.id, e) : undefined}
-                  style={{ 
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                    padding: '0.75rem', color: location.pathname === menu.route ? '#0284c7' : '#475569', textDecoration: 'none', 
-                    borderRadius: '8px', fontWeight: '500',
-                    backgroundColor: location.pathname === menu.route ? '#f0f9ff' : 'transparent'
-                  }}
-                  onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f0f9ff'; e.currentTarget.style.color = '#0284c7'; }}
-                  onMouseOut={e => { 
-                    if (location.pathname !== menu.route) {
-                      e.currentTarget.style.backgroundColor = 'transparent'; 
-                      e.currentTarget.style.color = '#475569'; 
-                    }
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    {renderIcon(menu.icon)}
-                    {menu.name}
+              <div key={menu.id || index}>
+                <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                  <Link 
+                    to={menu.route && menu.route !== '#' ? menu.route : '#'}
+                    onClick={(e) => {
+                      if (!menu.route || menu.route === '#') {
+                        e.preventDefault();
+                        toggleExpand(menu.id);
+                      } else if (hasChildren) {
+                        // Expand children accordion when clicking the menu
+                        setExpanded(prev => ({ ...prev, [menu.id]: true }));
+                      }
+                    }}
+                    style={{ 
+                      flex: 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                      padding: '0.7rem 0.75rem', color: isParentActive ? '#0284c7' : '#475569', textDecoration: 'none', 
+                      borderRadius: '8px', fontWeight: isParentActive ? '600' : '500',
+                      backgroundColor: (location.pathname === menu.route) ? '#f0f9ff' : 'transparent',
+                      transition: 'background-color 0.15s ease'
+                    }}
+                    onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f0f9ff'; e.currentTarget.style.color = '#0284c7'; }}
+                    onMouseOut={e => { 
+                      if (location.pathname !== menu.route) {
+                        e.currentTarget.style.backgroundColor = 'transparent'; 
+                        e.currentTarget.style.color = isParentActive ? '#0284c7' : '#475569'; 
+                      }
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      {renderIcon(menu.icon)}
+                      <span>{menu.name}</span>
                       {hasChildren && (
-                        <span style={{ backgroundColor: location.pathname.startsWith(menu.route) ? '#bae6fd' : '#e2e8f0', color: location.pathname.startsWith(menu.route) ? '#0369a1' : '#64748b', padding: '0.1rem 0.5rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600 }}>
-                          {children.length}
+                        <span style={{ backgroundColor: isParentActive ? '#bae6fd' : '#e2e8f0', color: isParentActive ? '#0369a1' : '#64748b', padding: '0.1rem 0.5rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600 }}>
+                          {allChildItems.length}
                         </span>
                       )}
                     </div>
-                    {hasChildren && (
-                    isExpanded ? <Icons.ChevronDown size={16} /> : <Icons.ChevronRight size={16} />
+                  </Link>
+
+                  {hasChildren && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleExpand(menu.id);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '0.7rem 0.5rem',
+                        color: isParentActive ? '#0284c7' : '#94a3b8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px'
+                      }}
+                      title={isExpanded ? 'Collapse submodules' : 'Expand submodules'}
+                    >
+                      {isExpanded ? <Icons.ChevronDown size={16} /> : <Icons.ChevronRight size={16} />}
+                    </button>
                   )}
-                </Link>
+                </div>
 
                 {hasChildren && isExpanded && (
-                  <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '1.5rem', marginTop: '0.25rem', borderLeft: '1px solid #e5e7eb', paddingLeft: '0.5rem', gap: '0.25rem' }}>
-                    {children.map(child => (
-                      <Link
-                        key={child.id}
-                        to={child.route}
-                        style={{ 
-                          display: 'block', padding: '0.5rem 0.75rem', color: location.pathname === child.route ? '#0284c7' : '#64748b', 
-                          textDecoration: 'none', borderRadius: '6px', fontSize: '0.875rem',
-                          backgroundColor: location.pathname === child.route ? '#f0f9ff' : 'transparent'
-                        }}
-                        onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f0f9ff'; e.currentTarget.style.color = '#0284c7'; }}
-                        onMouseOut={e => { 
-                          if (location.pathname !== child.route) {
-                            e.currentTarget.style.backgroundColor = 'transparent'; 
-                            e.currentTarget.style.color = '#64748b'; 
-                          }
-                        }}
-                      >
-                        {child.name}
-                      </Link>
-                    ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '1.25rem', marginTop: '0.2rem', marginBottom: '0.35rem', borderLeft: '2px solid #e0f2fe', paddingLeft: '0.6rem', gap: '0.2rem' }}>
+                    {allChildItems.map((child: any, cIdx: number) => {
+                      const isChildActive = location.pathname === child.route;
+                      return (
+                        <Link
+                          key={child.id || cIdx}
+                          to={child.route}
+                          style={{ 
+                            display: 'block', padding: '0.45rem 0.75rem', color: isChildActive ? '#0284c7' : '#64748b', 
+                            textDecoration: 'none', borderRadius: '6px', fontSize: '0.85rem',
+                            fontWeight: isChildActive ? 600 : 400,
+                            backgroundColor: isChildActive ? '#f0f9ff' : 'transparent',
+                            transition: 'background-color 0.15s ease'
+                          }}
+                          onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f0f9ff'; e.currentTarget.style.color = '#0284c7'; }}
+                          onMouseOut={e => { 
+                            if (!isChildActive) {
+                              e.currentTarget.style.backgroundColor = 'transparent'; 
+                              e.currentTarget.style.color = '#64748b'; 
+                            }
+                          }}
+                        >
+                          {child.name}
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -198,7 +332,6 @@ export default function MasterLayout() {
               
               <div style={{ width: '1px', height: '20px', backgroundColor: '#e2e8f0' }}></div>
 
-              
               {/* Branch Switcher Dropdown */}
               {branches.length > 0 && (
                 <div 
@@ -240,7 +373,6 @@ export default function MasterLayout() {
               )}
               
               {/* User Profile Dropdown */}
-
               <div 
                 style={{ position: 'relative' }}
                 onMouseEnter={() => setShowProfileMenu(true)}
@@ -258,31 +390,32 @@ export default function MasterLayout() {
 
                 {/* Dropdown Menu */}
                 {showProfileMenu && (
-                <div style={{ position: 'absolute', top: '100%', right: 0, paddingTop: '0.5rem', width: '200px', zIndex: 50 }}>
-                  <div style={{ backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)', border: '1px solid #f1f5f9', padding: '0.5rem' }}>
-                    <button 
-                      style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
-                      onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                      onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <Icons.Settings size={16} />
-                      Account Settings
-                    </button>
-                    
-                    <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '0.25rem 0' }}></div>
-                    
-                    <button 
-                      onClick={handleLogout}
-                      style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#ef4444', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
-                      onMouseOver={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
-                      onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <Icons.LogOut size={16} />
-                      Logout
-                    </button>
+                  <div style={{ position: 'absolute', top: '100%', right: 0, paddingTop: '0.5rem', width: '200px', zIndex: 50 }}>
+                    <div style={{ backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)', border: '1px solid #f1f5f9', padding: '0.5rem' }}>
+                      <button 
+                        onClick={() => setShowAccountSettings(true)}
+                        style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#334155', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
+                        onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                        onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Icons.Settings size={16} />
+                        Account Settings
+                      </button>
+                      
+                      <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '0.25rem 0' }}></div>
+                      
+                      <button 
+                        onClick={handleLogout}
+                        style={{ width: '100%', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'none', border: 'none', borderRadius: '10px', cursor: 'pointer', color: '#ef4444', fontSize: '0.875rem', fontWeight: 500, textAlign: 'left' }}
+                        onMouseOver={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
+                        onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <Icons.LogOut size={16} />
+                        Logout
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
               </div>
             </div>
           </div>

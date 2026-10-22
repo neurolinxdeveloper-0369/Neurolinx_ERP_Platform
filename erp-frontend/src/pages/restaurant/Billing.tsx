@@ -14,11 +14,14 @@ export default function RestaurantBilling() {
   const fetchData = () => {
     setIsLoading(true);
     Promise.all([
-      apiFetch('https://erp-api.neurolinx.in/api/pos/orders/all').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/inventory/purchases').then(res => res.json())
+      apiFetch('https://erp-api.neurolinx.in/api/pos/orders/all').then(res => res.ok ? res.json() : []).catch(() => []),
+      apiFetch('https://erp-api.neurolinx.in/api/inventory/purchases').then(res => res.ok ? res.json() : []).catch(() => [])
     ]).then(([o, p]) => {
-      setOrders(o.filter((order: any) => order.status === 'Completed'));
-      setPurchases(p);
+      const validOrders = Array.isArray(o) ? o.filter((order: any) => order && order.status === 'Completed') : [];
+      const validPurchases = Array.isArray(p) ? p : [];
+      setOrders(validOrders);
+      setPurchases(validPurchases);
+
       setIsLoading(false);
     }).catch(e => { console.error(e); setIsLoading(false); });
   };
@@ -85,8 +88,11 @@ export default function RestaurantBilling() {
   };
 
   // EOD Calculation Logic (For today's transactions only)
-  const todayOrders = orders.filter(o => new Date(o.createdAt).toDateString() === new Date().toDateString());
-  const todayPurchases = purchases.filter(p => new Date(p.orderDate).toDateString() === new Date().toDateString());
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safePurchases = Array.isArray(purchases) ? purchases : [];
+
+  const todayOrders = safeOrders.filter(o => o && o.createdAt && new Date(o.createdAt).toDateString() === new Date().toDateString());
+  const todayPurchases = safePurchases.filter(p => p && p.orderDate && new Date(p.orderDate).toDateString() === new Date().toDateString());
 
   const totalCashSales = todayOrders.filter(o => o.paymentMethod === 'Cash').reduce((sum, o) => sum + o.totalAmount, 0);
   const totalCardSales = todayOrders.filter(o => o.paymentMethod === 'Card').reduce((sum, o) => sum + o.totalAmount, 0);

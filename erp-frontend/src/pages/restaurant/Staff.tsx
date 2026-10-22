@@ -21,10 +21,12 @@ export default function Staff() {
     if (shiftDateFilter) shiftUrl += `?date=${shiftDateFilter}`;
     
     Promise.all([
-      apiFetch('https://erp-api.neurolinx.in/api/staff/employees').then(res => res.json()),
-      apiFetch(shiftUrl).then(res => res.json())
+      apiFetch('https://erp-api.neurolinx.in/api/staff/employees').then(res => res.ok ? res.json() : []).catch(() => []),
+      apiFetch(shiftUrl).then(res => res.ok ? res.json() : []).catch(() => [])
     ]).then(([e, s]) => {
-      setEmployees(e); setShifts(s); setIsLoading(false);
+      setEmployees(Array.isArray(e) ? e : []);
+      setShifts(Array.isArray(s) ? s : []);
+      setIsLoading(false);
     }).catch(e => { console.error(e); setIsLoading(false); });
   };
 

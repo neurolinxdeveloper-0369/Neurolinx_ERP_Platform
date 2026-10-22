@@ -49,16 +49,25 @@ export default function RestaurantInventory() {
   const fetchData = () => {
     setIsLoading(true);
     Promise.all([
-      apiFetch('https://erp-api.neurolinx.in/api/pos/categories').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/pos/dishes').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/inventory/recipes/dish-cost-summary').then(res => res.json()).catch(() => [])
+      apiFetch('https://erp-api.neurolinx.in/api/pos/categories')
+        .then(res => res.ok ? res.json() : [])
+        .catch(() => []),
+      apiFetch('https://erp-api.neurolinx.in/api/pos/dishes')
+        .then(res => res.ok ? res.json() : [])
+        .catch(() => []),
+      apiFetch('https://erp-api.neurolinx.in/api/inventory/recipes/dish-cost-summary')
+        .then(res => res.ok ? res.json() : [])
+        .catch(() => [])
     ]).then(([cats, items, summaries]) => {
-      setCategories(cats || []);
-      setDishes(items || []);
-      setCostSummaries(summaries || []);
+      setCategories(Array.isArray(cats) ? cats : []);
+      setDishes(Array.isArray(items) ? items : []);
+      setCostSummaries(Array.isArray(summaries) ? summaries : []);
       setIsLoading(false);
     }).catch(err => {
       console.error(err);
+      setCategories([]);
+      setDishes([]);
+      setCostSummaries([]);
       setIsLoading(false);
     });
   };
@@ -153,24 +162,32 @@ export default function RestaurantInventory() {
     }).then(fetchData);
   };
 
+  // Safe array references
+  const safeCostSummaries = Array.isArray(costSummaries) ? costSummaries : [];
+  const safeDishes = Array.isArray(dishes) ? dishes : [];
+  const safeCategories = Array.isArray(categories) ? categories : [];
+
   // Map summaries by dishId
   const summaryMap = new Map<number, DishCostSummary>();
-  costSummaries.forEach(s => summaryMap.set(s.dishId, s));
+  safeCostSummaries.forEach(s => {
+    if (s && s.dishId) summaryMap.set(s.dishId, s);
+  });
 
   // Compute KPI metrics
-  const totalDishes = dishes.length;
-  const configuredRecipesCount = costSummaries.filter(s => s.hasRecipe).length;
-  const outOfStockRecipesCount = costSummaries.filter(s => s.hasRecipe && s.servingsAvailable <= 0).length;
-  const lowStockRecipesCount = costSummaries.filter(s => s.hasRecipe && s.servingsAvailable > 0 && s.servingsAvailable <= 5).length;
+  const totalDishes = safeDishes.length;
+  const configuredRecipesCount = safeCostSummaries.filter(s => s && s.hasRecipe).length;
+  const outOfStockRecipesCount = safeCostSummaries.filter(s => s && s.hasRecipe && s.servingsAvailable <= 0).length;
+  const lowStockRecipesCount = safeCostSummaries.filter(s => s && s.hasRecipe && s.servingsAvailable > 0 && s.servingsAvailable <= 5).length;
   
   const avgGrossMargin = configuredRecipesCount > 0 
-    ? (costSummaries.filter(s => s.hasRecipe).reduce((acc, curr) => acc + (curr.grossMarginPercent || 0), 0) / configuredRecipesCount).toFixed(1)
+    ? (safeCostSummaries.filter(s => s && s.hasRecipe).reduce((acc, curr) => acc + (curr.grossMarginPercent || 0), 0) / configuredRecipesCount).toFixed(1)
     : '0.0';
 
   // Filter dishes
-  const filteredDishes = dishes.filter(d => {
-    const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          d.category?.name.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredDishes = safeDishes.filter(d => {
+    if (!d) return false;
+    const matchesSearch = (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (d.category?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
 
     const summary = summaryMap.get(d.id);
@@ -299,10 +316,10 @@ export default function RestaurantInventory() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '2rem', borderBottom: '1px solid #e2e8f0', marginBottom: '2rem' }}>
         <button onClick={() => { setActiveTab('Dishes'); setShowForm(false); }} style={{ background: 'none', border: 'none', padding: '0 0 1rem 0', fontWeight: 600, color: activeTab === 'Dishes' ? '#0284c7' : '#64748b', borderBottom: activeTab === 'Dishes' ? '2px solid #0284c7' : '2px solid transparent', cursor: 'pointer' }}>
-          Dishes ({dishes.length})
+          Dishes ({safeDishes.length})
         </button>
         <button onClick={() => { setActiveTab('Categories'); setShowForm(false); }} style={{ background: 'none', border: 'none', padding: '0 0 1rem 0', fontWeight: 600, color: activeTab === 'Categories' ? '#0284c7' : '#64748b', borderBottom: activeTab === 'Categories' ? '2px solid #0284c7' : '2px solid transparent', cursor: 'pointer' }}>
-          Categories ({categories.length})
+          Categories ({safeCategories.length})
         </button>
       </div>
 
@@ -337,7 +354,7 @@ export default function RestaurantInventory() {
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#475569', marginBottom: '0.5rem' }}>Category</label>
                   <select required value={dishForm.categoryId} onChange={e => setDishForm({ ...dishForm, categoryId: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', backgroundColor: 'white', boxSizing: 'border-box' }}>
                     <option value="">Select Category</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {safeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
               </div>
@@ -375,7 +392,7 @@ export default function RestaurantInventory() {
       {/* Lists */}
       {activeTab === 'Categories' ? (
         <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          {categories.length === 0 ? (
+          {safeCategories.length === 0 ? (
             <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No categories created yet.</div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -387,10 +404,10 @@ export default function RestaurantInventory() {
                 </tr>
               </thead>
               <tbody>
-                {categories.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase())).map(c => (
+                {safeCategories.filter(c => (c.name || '').toLowerCase().includes(searchQuery.toLowerCase())).map(c => (
                   <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '1rem', color: '#1e293b', fontWeight: 500 }}>{c.name}</td>
-                    <td style={{ padding: '1rem', color: '#64748b' }}>{dishes.filter(d => d.category?.id === c.id).length} dishes</td>
+                    <td style={{ padding: '1rem', color: '#64748b' }}>{safeDishes.filter(d => d.category?.id === c.id).length} dishes</td>
                     <td style={{ padding: '1rem', textAlign: 'right', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                       <button onClick={() => deleteCategory(c.id)} title="Delete Category" style={{ padding: '0.5rem', borderRadius: '6px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', cursor: 'pointer' }}>
                         <Icons.Trash2 size={16} />

@@ -11,8 +11,12 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/menus")
-
 public class MenuController {
+
+    @Autowired private UserRepository userRepository;
+    @Autowired private RolePrivilegeRepository rolePrivilegeRepository;
+    @Autowired private MenuItemRepository menuItemRepository;
+
     @GetMapping("/debug-privileges/{email}")
     public ResponseEntity<?> debugPrivileges(@PathVariable String email) {
         var userOpt = userRepository.findByEmail(email);
@@ -34,11 +38,7 @@ public class MenuController {
         return ResponseEntity.ok(privs);
     }
 
-
-    @Autowired private UserRepository userRepository;
-    @Autowired private RolePrivilegeRepository rolePrivilegeRepository;
-
-    // Temporary method to fetch menus by username until JWT filter is fully implemented
+    // Fetch menus by username / email with auto-grant fallback for Company Admins
     @GetMapping("/my-menus/{email}")
     public ResponseEntity<?> getMyMenus(@PathVariable String email) {
         var userOpt = userRepository.findByEmail(email);
@@ -54,19 +54,48 @@ public class MenuController {
             return ResponseEntity.ok(List.of());
         }
 
-        List<RolePrivilege> privileges = rolePrivilegeRepository.findByRole(role);
+        List<RolePrivilege> privileges = new java.util.ArrayList<>(rolePrivilegeRepository.findByRole(role));
 
-        // Filter only active master menus and map to a simple DTO structure
+        // If no privileges assigned yet or if Company Admin is missing modules, auto-grant active modules for industry
+        if (privileges.isEmpty() || (role.getName() != null && role.getName().contains("Admin"))) {
+            String industry = (user.getCompany() != null && user.getCompany().getIndustryType() != null)
+                    ? user.getCompany().getIndustryType()
+                    : "Restaurant";
+            
+            java.util.Set<Long> alreadyAssigned = privileges.stream()
+                    .map(p -> p.getMenuItem().getId())
+                    .collect(Collectors.toSet());
+
+            List<MenuItem> allActive = menuItemRepository.findAll().stream()
+                    .filter(MenuItem::getIsMasterEnabled)
+                    .filter(m -> "All".equalsIgnoreCase(m.getIndustryType()) || industry.equalsIgnoreCase(m.getIndustryType()))
+                    .collect(Collectors.toList());
+            
+            for (MenuItem item : allActive) {
+                if (!alreadyAssigned.contains(item.getId())) {
+                    try {
+                        RolePrivilege rp = new RolePrivilege(role, item, true, true, true);
+                        rolePrivilegeRepository.save(rp);
+                        privileges.add(rp);
+                        alreadyAssigned.add(item.getId());
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        // Filter only active master menus and map to a null-safe DTO structure
         var menus = privileges.stream()
-                .filter(p -> p.getMenuItem().getIsMasterEnabled())
-                .filter(p -> p.getCanRead())
-                .map(p -> java.util.Map.of(
-                        "id", p.getMenuItem().getId(),
-                        "name", p.getMenuItem().getName(),
-                        "route", p.getMenuItem().getFrontendRoute(),
-                        "icon", p.getMenuItem().getIcon() != null ? p.getMenuItem().getIcon() : "",
-                        "parentId", p.getMenuItem().getParentId() != null ? p.getMenuItem().getParentId() : 0L
-                ))
+                .filter(p -> p.getMenuItem() != null && Boolean.TRUE.equals(p.getMenuItem().getIsMasterEnabled()))
+                .filter(p -> Boolean.TRUE.equals(p.getCanRead()))
+                .map(p -> {
+                    java.util.Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("id", p.getMenuItem().getId());
+                    map.put("name", p.getMenuItem().getName() != null ? p.getMenuItem().getName() : "");
+                    map.put("route", p.getMenuItem().getFrontendRoute() != null ? p.getMenuItem().getFrontendRoute() : "");
+                    map.put("icon", p.getMenuItem().getIcon() != null ? p.getMenuItem().getIcon() : "");
+                    map.put("parentId", p.getMenuItem().getParentId() != null ? p.getMenuItem().getParentId() : 0L);
+                    return map;
+                })
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(menus);

@@ -41,16 +41,21 @@ public class PurchaseController {
 
     @GetMapping
     public ResponseEntity<?> getPurchases(@RequestParam(required = false) Long vendorId) {
-        Company company = getUserCompany();
-        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+        try {
+            Company company = getUserCompany();
+            if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
 
-        if (vendorId != null) {
-            var vendorOpt = vendorRepository.findById(vendorId);
-            if (vendorOpt.isPresent()) {
-                return ResponseEntity.ok(purchaseOrderRepository.findByVendor(vendorOpt.get()));
+            if (vendorId != null) {
+                var vendorOpt = vendorRepository.findById(vendorId);
+                if (vendorOpt.isPresent()) {
+                    return ResponseEntity.ok(purchaseOrderRepository.findByVendor(vendorOpt.get()));
+                }
             }
+            return ResponseEntity.ok(purchaseOrderRepository.findByCompany(company));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage() != null ? e.getMessage() : e.toString()));
         }
-        return ResponseEntity.ok(purchaseOrderRepository.findByCompany(company));
     }
 
     @GetMapping("/{id}")
