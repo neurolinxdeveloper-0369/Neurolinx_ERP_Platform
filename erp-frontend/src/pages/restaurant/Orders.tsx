@@ -839,7 +839,7 @@ export default function RestaurantOrders() {
   if (isLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>Loading POS Terminal...</div>;
 
   return (
-    <div style={{ display: 'flex', height: '100%', gap: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ display: 'flex', minHeight: '100%', gap: '1.5rem', fontFamily: 'Inter, sans-serif' }}>
       
       {/* Checkout Modal */}
       {showCheckout && (
@@ -877,7 +877,7 @@ export default function RestaurantOrders() {
       )}
 
       {/* Left Menu Section */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
               <div style={{ display: 'flex', backgroundColor: '#f1f5f9', borderRadius: '8px', padding: '0.25rem' }}>
@@ -935,16 +935,39 @@ export default function RestaurantOrders() {
 
             {/* Dishes Grid */}
             {dishes.length === 0 ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
+              <div style={{ minHeight: '320px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
                 <Icons.UtensilsCrossed size={48} color="#94a3b8" style={{ marginBottom: '1rem' }} />
                 <h3 style={{ margin: 0, color: '#334155' }}>No Dishes Found</h3>
                 <p style={{ color: '#64748b', fontSize: '0.875rem' }}>Add dishes in the Menu Management module to start taking orders.</p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.25rem', overflowY: 'auto', paddingRight: '0.5rem' }}>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', 
+                gap: '1.25rem', 
+                minHeight: '380px',
+                maxHeight: '560px', 
+                overflowY: 'auto', 
+                padding: '0.25rem 0.5rem 0.75rem 0.25rem',
+                alignContent: 'start',
+                scrollbarWidth: 'thin'
+              }}>
                 {filteredDishes.map(dish => (
-                  <div key={dish.id} style={{ backgroundColor: 'white', borderRadius: '16px', padding: '1rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                    <div style={{ height: '140px', backgroundColor: '#f8fafc', borderRadius: '12px', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <div 
+                    key={dish.id} 
+                    style={{ 
+                      backgroundColor: 'white', 
+                      borderRadius: '16px', 
+                      padding: '1rem', 
+                      boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      position: 'relative',
+                      minHeight: '260px',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <div style={{ height: '140px', backgroundColor: '#f8fafc', borderRadius: '12px', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                       {dish.imageBase64 ? (
                         <img src={dish.imageBase64} alt={dish.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       ) : (
@@ -956,13 +979,15 @@ export default function RestaurantOrders() {
                         </div>
                       )}
                     </div>
-                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 700, color: '#1e293b' }}>{dish.name}</h3>
-                    <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={dish.name}>
+                      {dish.name}
+                    </h3>
+                    <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem' }}>
                       <span style={{ fontWeight: 800, color: '#0284c7', fontSize: '1.125rem' }}>₹{dish.price}</span>
                       <button 
                         disabled={!dish.isAvailable}
                         onClick={() => addToCart(dish)}
-                        style={{ padding: '0.5rem 1rem', backgroundColor: dish.isAvailable ? '#f0f9ff' : '#f1f5f9', color: dish.isAvailable ? '#0284c7' : '#94a3b8', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '0.875rem', cursor: dish.isAvailable ? 'pointer' : 'not-allowed', transition: 'all 0.2s' }}>
+                        style={{ padding: '0.5rem 1rem', backgroundColor: dish.isAvailable ? '#f0f9ff' : '#f1f5f9', color: dish.isAvailable ? '#0284c7' : '#94a3b8', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '0.875rem', cursor: dish.isAvailable ? 'pointer' : 'not-allowed', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
                         Add to Order
                       </button>
                     </div>
@@ -1041,7 +1066,7 @@ export default function RestaurantOrders() {
                   No orders placed yet. Once an order is completed or parked, the latest 10 orders will appear here row-by-row.
                 </div>
               ) : (
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', maxHeight: '380px', overflowY: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
                     <thead>
                       <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1819,7 +1844,19 @@ export default function RestaurantOrders() {
       </div>
 
       {/* Right Order Sidebar */}
-      <div style={{ width: '350px', backgroundColor: 'white', borderRadius: '16px', padding: '1.5rem', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+      <div style={{ 
+        width: '350px', 
+        flexShrink: 0,
+        backgroundColor: 'white', 
+        borderRadius: '16px', 
+        padding: '1.5rem', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+        position: 'sticky',
+        top: 0,
+        maxHeight: 'calc(100vh - 120px)'
+      }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b', margin: '0 0 1.5rem 0' }}>Current Order</h2>
         
         {/* Order Type Toggle */}
