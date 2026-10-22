@@ -183,7 +183,7 @@ export default function Vendors() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
                 <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                   <p style={{ margin: 0, color: '#64748b' }}>Total Procurement Spend</p>
-                  <h2 style={{ margin: '0.5rem 0 0 0' }}>₹{scorecards.reduce((sum, s) => sum + s.totalSpent, 0).toFixed(2)}</h2>
+                  <h2 style={{ margin: '0.5rem 0 0 0' }}>₹{scorecards.reduce((sum, s) => sum + (Number(s.totalSpent) || 0), 0).toFixed(2)}</h2>
                 </div>
                 <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                   <p style={{ margin: 0, color: '#64748b' }}>Active Suppliers</p>
@@ -213,7 +213,7 @@ export default function Vendors() {
                       <td style={{ padding: '1rem', fontWeight: 600 }}>{s.name}</td>
                       <td style={{ padding: '1rem' }}>{s.orderCount} POs</td>
                       <td style={{ padding: '1rem' }}>{s.totalItems} Batches</td>
-                      <td style={{ padding: '1rem', fontWeight: 600 }}>₹{s.totalSpent.toFixed(2)}</td>
+                      <td style={{ padding: '1rem', fontWeight: 600 }}>₹{Number(s.totalSpent || 0).toFixed(2)}</td>
                       <td style={{ padding: '1rem' }}>
                         {s.orderCount > 0 ? <span style={{ padding: '0.25rem 0.5rem', backgroundColor: '#d1fae5', color: '#10b981', borderRadius: '4px', fontSize: '0.75rem' }}>Active</span> : <span style={{ padding: '0.25rem 0.5rem', backgroundColor: '#f1f5f9', color: '#64748b', borderRadius: '4px', fontSize: '0.75rem' }}>Dormant</span>}
                       </td>
@@ -257,7 +257,7 @@ export default function Vendors() {
                     <td style={{ padding: '0.75rem' }}>{po.expectedDeliveryDate || po.invoiceDate || 'N/A'}</td>
                     <td style={{ padding: '0.75rem' }}>{po.invoiceNumber && !po.invoiceNumber.startsWith('INV-PO-') ? po.invoiceNumber : '—'}</td>
                     <td style={{ padding: '0.75rem' }}>{po.items?.length || 0} items</td>
-                    <td style={{ padding: '0.75rem', fontWeight: 600 }}>₹{(po.totalAmount || 0).toFixed(2)}</td>
+                    <td style={{ padding: '0.75rem', fontWeight: 600 }}>₹{Number(po?.totalAmount || 0).toFixed(2)}</td>
                     <td style={{ padding: '0.75rem' }}>
                       <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: po.status === 'Received' ? '#d1fae5' : po.status === 'Cancelled' ? '#fee2e2' : '#e0f2fe', color: po.status === 'Received' ? '#047857' : po.status === 'Cancelled' ? '#b91c1c' : '#0369a1' }}>
                         {po.status}

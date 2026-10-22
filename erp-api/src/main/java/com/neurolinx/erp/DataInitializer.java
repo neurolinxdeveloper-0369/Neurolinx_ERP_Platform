@@ -78,6 +78,13 @@ public class DataInitializer {
                 System.err.println("Migration notice for stock_movements: " + e.getMessage());
             }
 
+            try {
+                // Ensure parent_id is correctly set to Inventory for all inventory submodules
+                jdbcTemplate.execute("UPDATE menu_items SET parent_id = (SELECT id FROM menu_items WHERE name = 'Inventory' LIMIT 1) WHERE frontend_route IN ('/res-inventory', '/res-waste', '/res-vendors', '/res-raw-materials', '/res-recipes') AND name != 'Inventory'");
+            } catch (Exception e) {
+                System.err.println("Notice updating menu_items parent_id: " + e.getMessage());
+            }
+
             // 1. Seed Master Admin Role
             Role masterAdmin = roleRepository.findByNameAndCompanyIsNull("Master Admin").orElseGet(() -> {
                 return roleRepository.save(new Role("Master Admin", null)); // Global role
@@ -98,6 +105,7 @@ public class DataInitializer {
             MenuItem inv = getOrCreateMenu(menuItemRepository, "Inventory", "/res-inventory", "boxes", "Restaurant", null);
             
             // Inventory Submodules
+            MenuItem menuMgmt = getOrCreateMenu(menuItemRepository, "Menu Management", "/res-inventory", "book-open", "Restaurant", inv.getId());
             MenuItem waste = getOrCreateMenu(menuItemRepository, "Waste Management", "/res-waste", "trash-2", "Restaurant", inv.getId());
             MenuItem vendors = getOrCreateMenu(menuItemRepository, "Vendor Management", "/res-vendors", "truck", "Restaurant", inv.getId());
             MenuItem rawMat = getOrCreateMenu(menuItemRepository, "Raw Material", "/res-raw-materials", "apple", "Restaurant", inv.getId());
@@ -110,7 +118,7 @@ public class DataInitializer {
             MenuItem branches = getOrCreateMenu(menuItemRepository, "Branches", "/res-branches", "store", "Restaurant", null);
             MenuItem settings = getOrCreateMenu(menuItemRepository, "Settings", "/res-settings", "settings", "Restaurant", null);
 
-            List<MenuItem> allMenus = List.of(dash, orders, kitchen, inv, waste, vendors, rawMat, recipes, billing, analytics, reports, staff, branches, settings);
+            List<MenuItem> allMenus = List.of(dash, orders, kitchen, inv, menuMgmt, waste, vendors, rawMat, recipes, billing, analytics, reports, staff, branches, settings);
 
             // 4. Auto-grant all standard menu privileges to any Company Admin roles
             List<Role> companyAdminRoles = roleRepository.findAll().stream()
@@ -136,8 +144,9 @@ public class DataInitializer {
 
     private MenuItem getOrCreateMenu(MenuItemRepository repo, String name, String route, String icon, String industry, Long parentId) {
         return repo.findAll().stream()
-                .filter(m -> route.equalsIgnoreCase(m.getFrontendRoute()))
+                .filter(m -> name.equalsIgnoreCase(m.getName()))
                 .findFirst()
+                .or(() -> repo.findAll().stream().filter(m -> route.equalsIgnoreCase(m.getFrontendRoute())).findFirst())
                 .map(existing -> {
                     boolean changed = false;
                     if (parentId != null && (existing.getParentId() == null || !existing.getParentId().equals(parentId))) {

@@ -205,7 +205,7 @@ export default function Recipes() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
                       <span>{dish.category?.name || 'General'}</span>
                       {summary && summary.hasRecipe ? (
-                        <span style={{ color: '#059669', fontWeight: 600 }}>Food Cost: ₹{summary.recipeCost.toFixed(2)} ({summary.grossMarginPercent.toFixed(0)}% Margin)</span>
+                        <span style={{ color: '#059669', fontWeight: 600 }}>Food Cost: ₹{Number(summary.recipeCost || 0).toFixed(2)} ({Number(summary.grossMarginPercent || 0).toFixed(0)}% Margin)</span>
                       ) : (
                         <span style={{ color: '#94a3b8' }}>No Recipe Mapped</span>
                       )}

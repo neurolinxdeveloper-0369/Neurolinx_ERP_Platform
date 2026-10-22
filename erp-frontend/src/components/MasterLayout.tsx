@@ -68,6 +68,27 @@ export default function MasterLayout() {
           // Ensure standard inventory submodules exist if parent inventory exists
           const invParent = filtered.find((m: any) => m.route === '/res-inventory' || m.name === 'Inventory');
           if (invParent) {
+            const inventorySubRoutes = ['/res-waste', '/res-vendors', '/res-raw-materials', '/res-recipes'];
+            
+            // Re-assign parentId for any inventory submodules in filtered that have wrong parentId
+            filtered.forEach((m: any) => {
+              if (m.id !== invParent.id && (inventorySubRoutes.includes(m.route) || m.name === 'Menu Management')) {
+                m.parentId = invParent.id;
+              }
+            });
+
+            // Ensure Menu Management child exists if invParent has route /res-inventory
+            const hasMenuMgmt = filtered.some((m: any) => m.id !== invParent.id && (m.name === 'Menu Management' || m.route === '/res-inventory'));
+            if (!hasMenuMgmt) {
+              filtered.push({
+                id: 8999,
+                name: "Menu Management",
+                route: "/res-inventory",
+                icon: "book-open",
+                parentId: invParent.id
+              });
+            }
+
             const defaultSubmodules = [
               { name: "Waste Management", route: "/res-waste", icon: "trash-2" },
               { name: "Vendor Management", route: "/res-vendors", icon: "truck" },
@@ -75,7 +96,8 @@ export default function MasterLayout() {
               { name: "Recipe Management", route: "/res-recipes", icon: "chef-hat" },
             ];
             defaultSubmodules.forEach((sub, sIdx) => {
-              if (!filtered.some((m: any) => m.route === sub.route)) {
+              const existing = filtered.find((m: any) => m.route === sub.route);
+              if (!existing) {
                 filtered.push({
                   id: 9000 + sIdx,
                   name: sub.name,
@@ -83,6 +105,9 @@ export default function MasterLayout() {
                   icon: sub.icon,
                   parentId: invParent.id
                 });
+              } else {
+                existing.parentId = invParent.id;
+                if (!existing.icon) existing.icon = sub.icon;
               }
             });
           }
@@ -130,7 +155,13 @@ export default function MasterLayout() {
 
   // Auto-expand parent menu when current route matches parent route or any child route
   useEffect(() => {
+    const invRoutes = ['/res-inventory', '/res-waste', '/res-vendors', '/res-raw-materials', '/res-recipes'];
     menus.forEach(menu => {
+      const isInv = menu.name === 'Inventory' || menu.route === '/res-inventory';
+      if (isInv && invRoutes.includes(location.pathname)) {
+        setExpanded(prev => ({ ...prev, [menu.id]: true }));
+        return;
+      }
       const children = menus.filter(m => String(m.parentId) === String(menu.id));
       const isCurrent = location.pathname === menu.route || children.some(c => location.pathname === c.route);
       if (isCurrent && children.length > 0) {
@@ -158,7 +189,11 @@ export default function MasterLayout() {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const parentMenus = menus.filter(m => !m.parentId || m.parentId === 0 || m.parentId === '0');
+  const inventorySubRoutes = ['/res-waste', '/res-vendors', '/res-raw-materials', '/res-recipes'];
+  const parentMenus = menus.filter(m => {
+    if (inventorySubRoutes.includes(m.route) || m.name === 'Menu Management') return false;
+    return !m.parentId || m.parentId === 0 || m.parentId === '0';
+  });
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb' }}>
@@ -169,22 +204,44 @@ export default function MasterLayout() {
         </div>
         <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', overflowY: 'auto' }}>
           {parentMenus.map((menu, index) => {
-            const directChildren = menus.filter(m => String(m.parentId) === String(menu.id));
-            const hasChildren = directChildren.length > 0;
-            const isExpanded = !!expanded[menu.id];
+            const isInventory = menu.name === 'Inventory' || menu.route === '/res-inventory';
 
-            // Build complete children list: if parent has a valid route (e.g. /res-inventory), ensure primary page is reachable
-            const allChildItems = [...directChildren];
-            if (hasChildren && menu.route && menu.route !== '#' && !allChildItems.some(c => c.route === menu.route)) {
-              const primaryChildName = menu.name === 'Inventory' ? 'Menu Management' : `${menu.name} Overview`;
-              allChildItems.unshift({
-                id: `primary_${menu.id}`,
-                name: primaryChildName,
-                route: menu.route,
-                icon: menu.icon,
-                parentId: menu.id
+            let allChildItems: any[];
+            if (isInventory) {
+              const standardInventorySubmodules = [
+                { name: "Menu Management", route: "/res-inventory", icon: "book-open" },
+                { name: "Waste Management", route: "/res-waste", icon: "trash-2" },
+                { name: "Vendor Management", route: "/res-vendors", icon: "truck" },
+                { name: "Raw Material", route: "/res-raw-materials", icon: "apple" },
+                { name: "Recipe Management", route: "/res-recipes", icon: "chef-hat" },
+              ];
+
+              allChildItems = standardInventorySubmodules.map((sub, sIdx) => {
+                const found = menus.find((m: any) => m.id !== menu.id && (m.route === sub.route || m.name?.toLowerCase() === sub.name.toLowerCase()));
+                return found ? { ...found, name: sub.name, icon: found.icon || sub.icon, route: sub.route } : {
+                  id: `inv_sub_${sIdx}`,
+                  name: sub.name,
+                  route: sub.route,
+                  icon: sub.icon,
+                  parentId: menu.id
+                };
               });
+            } else {
+              const directChildren = menus.filter(m => String(m.parentId) === String(menu.id));
+              allChildItems = [...directChildren];
+              if (directChildren.length > 0 && menu.route && menu.route !== '#' && !allChildItems.some(c => c.route === menu.route)) {
+                allChildItems.unshift({
+                  id: `primary_${menu.id}`,
+                  name: `${menu.name} Overview`,
+                  route: menu.route,
+                  icon: menu.icon,
+                  parentId: menu.id
+                });
+              }
             }
+
+            const hasChildren = allChildItems.length > 0;
+            const isExpanded = !!expanded[menu.id];
 
             const isParentActive = location.pathname === menu.route || allChildItems.some(c => location.pathname === c.route);
             

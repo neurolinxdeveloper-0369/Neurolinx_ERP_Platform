@@ -138,7 +138,7 @@ export default function WasteManagement() {
             <Icons.TrendingDown size={18} /> Total Cost Lost
           </h3>
           <p style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', fontWeight: 'bold', color: '#7f1d1d' }}>
-            ₹{wasteEntries.reduce((sum, w) => sum + (parseFloat(w.costLost) || 0), 0).toFixed(2)}
+            ₹{wasteEntries.reduce((sum, w) => sum + (parseFloat(w?.costLost) || 0), 0).toFixed(2)}
           </p>
         </div>
         <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -298,7 +298,7 @@ export default function WasteManagement() {
                   </td>
                   <td style={{ padding: '1rem', color: '#475569' }}>{w.staffName || 'Staff'}</td>
                   <td style={{ padding: '1rem', fontWeight: 600, color: '#dc2626' }}>
-                    ₹{(w.costLost || 0).toFixed(2)}
+                    ₹{Number(w?.costLost || 0).toFixed(2)}
                   </td>
                 </tr>
               ))}
