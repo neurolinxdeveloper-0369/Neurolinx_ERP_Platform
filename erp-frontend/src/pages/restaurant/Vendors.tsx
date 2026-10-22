@@ -78,9 +78,12 @@ export default function Vendors() {
     }
   };
 
+  const safeVendors = Array.isArray(vendors) ? vendors : [];
+  const safePOs = Array.isArray(purchaseOrders) ? purchaseOrders : [];
+
   // Scorecard calculations
-  const scorecards = vendors.map(v => {
-    const vOrders = purchaseOrders.filter(po => po.vendor?.id === v.id);
+  const scorecards = safeVendors.map(v => {
+    const vOrders = safePOs.filter(po => po?.vendor?.id === v.id);
     const totalSpent = vOrders.reduce((sum, po) => sum + (po.totalAmount || 0), 0);
     const totalItems = vOrders.reduce((sum, po) => sum + (po.items?.length || 0), 0);
     return { ...v, orderCount: vOrders.length, totalSpent, totalItems };
