@@ -15,4 +15,5 @@ public interface GoodsReceiptRepository extends JpaRepository<GoodsReceipt, Long
     List<GoodsReceipt> findByPurchaseOrderOrderByCreatedAtDesc(PurchaseOrder purchaseOrder);
     List<GoodsReceipt> findByVendorOrderByCreatedAtDesc(Vendor vendor);
     boolean existsByPurchaseOrderAndInvoiceNumberIgnoreCase(PurchaseOrder purchaseOrder, String invoiceNumber);
+    boolean existsByVendorAndInvoiceNumberIgnoreCase(Vendor vendor, String invoiceNumber);
 }

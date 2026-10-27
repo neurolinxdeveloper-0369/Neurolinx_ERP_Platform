@@ -394,12 +394,12 @@ public class PurchaseController {
             }
         }
 
-        // 2. Duplicate Invoice Check
-        if (goodsReceiptRepository.existsByPurchaseOrderAndInvoiceNumberIgnoreCase(po, inputInvoice)) {
+        // 2. Duplicate Invoice Check across vendor
+        if (po.getVendor() != null && goodsReceiptRepository.existsByVendorAndInvoiceNumberIgnoreCase(po.getVendor(), inputInvoice)) {
             return ResponseEntity.ok(Map.of(
                     "verified", false,
                     "status", "DUPLICATE",
-                    "message", "Duplicate Invoice Detected: Invoice #" + inputInvoice + " has already been processed and inwarded into stock for Purchase Order #" + po.getPoNumber() + ". Duplicate stock posting is prohibited."
+                    "message", "Duplicate Invoice Blocked: Invoice #" + inputInvoice + " has already been processed and inwarded into stock for vendor " + po.getVendor().getName() + ". Duplicate stock inwarding is strictly prohibited under GST law."
             ));
         }
 
@@ -451,83 +451,122 @@ public class PurchaseController {
             } catch (Exception ignored) {}
         }
 
-        // 4. Check against PO's registered invoiceNumber if present
+        // 4. Authenticate Invoice Number directly via E-Invoice / Supplier Catalog (e.g. Zepto/Geddit 261036G002900941 or attached doc)
+        Map<String, Object> extracted = invoiceParserService.extractInvoiceData(inputInvoice, po.getInvoiceAttachmentUrl());
+        if (extracted != null && extracted.containsKey("items") && !((List<?>) extracted.get("items")).isEmpty()) {
+            Object invVendorName = extracted.get("vendorName");
+            Object invVendorGstin = extracted.get("vendorGstin");
+            if (po.getVendor() != null && !invoiceParserService.isVendorMatch(po.getVendor(), invVendorName, invVendorGstin)) {
+                return ResponseEntity.ok(Map.of(
+                        "verified", false,
+                        "status", "VENDOR_MISMATCH",
+                        "message", "Vendor Mismatch: The supplier on invoice #" + inputInvoice + " ('" + (invVendorName != null ? invVendorName : "Unknown") + "') does not match the vendor on Purchase Order #" + po.getPoNumber() + " ('" + po.getVendor().getName() + "')."
+                ));
+            }
+
+            List<Map<String, Object>> rawItems = (List<Map<String, Object>>) extracted.getOrDefault("items", Collections.emptyList());
+            List<Map<String, Object>> reconciled = invoiceParserService.reconcileWithPO(rawItems, po, company);
+
+            // Persist verified invoice payload on PO
+            try {
+                po.setInvoiceData(objectMapper.writeValueAsString(extracted));
+                po.setInvoiceNumber(inputInvoice);
+                purchaseOrderRepository.save(po);
+            } catch (Exception ignored) {}
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("verified", true);
+            response.put("status", "VERIFIED");
+            response.put("message", "Supplier Invoice #" + inputInvoice + " authenticated successfully. Genuine line items, pack sizes, and prices loaded.");
+            response.put("invoiceNumber", inputInvoice);
+            response.put("invoiceDate", extracted.getOrDefault("invoiceDate", po.getInvoiceDate() != null ? po.getInvoiceDate().toString() : LocalDate.now().toString()));
+            response.put("vendorName", extracted.getOrDefault("vendorName", po.getVendor() != null ? po.getVendor().getName() : "Vendor"));
+            response.put("vendorGstin", extracted.getOrDefault("vendorGstin", ""));
+            response.put("subtotal", extracted.getOrDefault("subtotal", po.getTotalAmount()));
+            response.put("discountAmount", extracted.getOrDefault("discountAmount", BigDecimal.ZERO));
+            response.put("taxableAmount", extracted.getOrDefault("taxableAmount", BigDecimal.ZERO));
+            response.put("cgstAmount", extracted.getOrDefault("cgstAmount", BigDecimal.ZERO));
+            response.put("sgstAmount", extracted.getOrDefault("sgstAmount", BigDecimal.ZERO));
+            response.put("taxAmount", extracted.getOrDefault("taxAmount", BigDecimal.ZERO));
+            response.put("invoiceTotal", extracted.getOrDefault("invoiceTotal", po.getTotalAmount()));
+            response.put("items", reconciled);
+            return ResponseEntity.ok(response);
+        }
+
+        // 5. Check against PO's registered invoiceNumber if pre-recorded with genuine prices
         String registeredInv = po.getInvoiceNumber() != null ? po.getInvoiceNumber().trim() : "";
         boolean isDefaultPoInv = registeredInv.startsWith("INV-PO-");
 
-        if (!isDefaultPoInv && !registeredInv.isEmpty() && !registeredInv.equalsIgnoreCase(inputInvoice)) {
-            return ResponseEntity.ok(Map.of(
-                    "verified", false,
-                    "status", "INVALID",
-                    "message", "Invalid Invoice Number: Invoice '" + inputInvoice + "' does not match registered supplier invoice #" + registeredInv + " for PO #" + po.getPoNumber() + "."
-            ));
-        }
+        if (!isDefaultPoInv && !registeredInv.isEmpty() && registeredInv.equalsIgnoreCase(inputInvoice)) {
+            List<Map<String, Object>> poLineItems = new ArrayList<>();
+            BigDecimal calculatedTotal = BigDecimal.ZERO;
 
-        // 5. Document upload is optional: Verify against Purchase Order line items directly
-        List<Map<String, Object>> poLineItems = new ArrayList<>();
-        BigDecimal calculatedTotal = BigDecimal.ZERO;
+            if (po.getItems() != null && !po.getItems().isEmpty()) {
+                for (PurchaseOrderItem poi : po.getItems()) {
+                    Ingredient ing = poi.getIngredient();
+                    BigDecimal ordered = poi.getQuantityOrdered() != null ? poi.getQuantityOrdered() : BigDecimal.ZERO;
+                    BigDecimal received = poi.getQuantityReceived() != null ? poi.getQuantityReceived() : BigDecimal.ZERO;
+                    BigDecimal remaining = ordered.subtract(received);
+                    if (remaining.compareTo(BigDecimal.ZERO) < 0) remaining = BigDecimal.ZERO;
 
-        if (po.getItems() != null && !po.getItems().isEmpty()) {
-            for (PurchaseOrderItem poi : po.getItems()) {
-                Ingredient ing = poi.getIngredient();
-                BigDecimal ordered = poi.getQuantityOrdered() != null ? poi.getQuantityOrdered() : BigDecimal.ZERO;
-                BigDecimal received = poi.getQuantityReceived() != null ? poi.getQuantityReceived() : BigDecimal.ZERO;
-                BigDecimal remaining = ordered.subtract(received);
-                if (remaining.compareTo(BigDecimal.ZERO) < 0) {
-                    remaining = BigDecimal.ZERO;
+                    BigDecimal unitCost = poi.getUnitCost() != null ? poi.getUnitCost()
+                            : (ing != null && ing.getCostPerUnit() != null ? ing.getCostPerUnit() : BigDecimal.ZERO);
+                    BigDecimal lineTotal = unitCost.multiply(remaining);
+                    calculatedTotal = calculatedTotal.add(lineTotal);
+
+                    String unit = poi.getUnit() != null && !poi.getUnit().trim().isEmpty() ? poi.getUnit()
+                            : (ing != null && ing.getUnit() != null ? ing.getUnit() : "kg");
+
+                    Map<String, Object> itemMap = new LinkedHashMap<>();
+                    itemMap.put("matchedIngredientId", ing != null ? ing.getId() : null);
+                    itemMap.put("matchedIngredientName", ing != null ? ing.getName() : "Raw Material");
+                    itemMap.put("shortName", ing != null ? ing.getName() : "Raw Material");
+                    itemMap.put("description", ing != null ? ing.getName() : "Raw Material");
+                    itemMap.put("itemCode", ing != null && ing.getBarcode() != null ? ing.getBarcode() : "");
+                    itemMap.put("invoiceQuantity", remaining);
+                    itemMap.put("invoiceUnit", unit);
+                    itemMap.put("packSize", BigDecimal.ONE);
+                    itemMap.put("packUnit", unit);
+                    itemMap.put("multiplier", BigDecimal.ONE);
+                    itemMap.put("baseUnit", unit);
+                    itemMap.put("inwardQuantity", remaining);
+                    itemMap.put("orderedQuantity", ordered);
+                    itemMap.put("alreadyReceivedQuantity", received);
+                    itemMap.put("remainingQuantity", remaining);
+                    itemMap.put("receivingQuantity", remaining);
+                    itemMap.put("unitRate", unitCost);
+                    itemMap.put("costPerUnit", unitCost);
+                    itemMap.put("mrp", unitCost);
+                    itemMap.put("discountPercent", BigDecimal.ZERO);
+                    itemMap.put("discountAmount", BigDecimal.ZERO);
+                    itemMap.put("taxRate", BigDecimal.ZERO);
+                    itemMap.put("taxAmount", BigDecimal.ZERO);
+                    itemMap.put("lineTotal", lineTotal);
+                    itemMap.put("mismatchFlag", false);
+                    itemMap.put("mismatchReason", "");
+
+                    poLineItems.add(itemMap);
                 }
-
-                BigDecimal unitCost = poi.getUnitCost() != null ? poi.getUnitCost()
-                        : (ing != null && ing.getCostPerUnit() != null ? ing.getCostPerUnit() : BigDecimal.ZERO);
-                BigDecimal lineTotal = unitCost.multiply(remaining);
-                calculatedTotal = calculatedTotal.add(lineTotal);
-
-                String unit = poi.getUnit() != null && !poi.getUnit().trim().isEmpty() ? poi.getUnit()
-                        : (ing != null && ing.getUnit() != null ? ing.getUnit() : "kg");
-
-                Map<String, Object> itemMap = new LinkedHashMap<>();
-                itemMap.put("matchedIngredientId", ing != null ? ing.getId() : null);
-                itemMap.put("matchedIngredientName", ing != null ? ing.getName() : "Raw Material");
-                itemMap.put("shortName", ing != null ? ing.getName() : "Raw Material");
-                itemMap.put("description", ing != null ? ing.getName() : "Raw Material");
-                itemMap.put("itemCode", ing != null && ing.getBarcode() != null ? ing.getBarcode() : "");
-                itemMap.put("invoiceQuantity", remaining);
-                itemMap.put("invoiceUnit", unit);
-                itemMap.put("packSize", BigDecimal.ONE);
-                itemMap.put("packUnit", unit);
-                itemMap.put("multiplier", BigDecimal.ONE);
-                itemMap.put("baseUnit", unit);
-                itemMap.put("inwardQuantity", remaining);
-                itemMap.put("orderedQuantity", ordered);
-                itemMap.put("alreadyReceivedQuantity", received);
-                itemMap.put("remainingQuantity", remaining);
-                itemMap.put("receivingQuantity", remaining);
-                itemMap.put("unitRate", unitCost);
-                itemMap.put("costPerUnit", unitCost);
-                itemMap.put("mrp", unitCost);
-                itemMap.put("discountPercent", BigDecimal.ZERO);
-                itemMap.put("discountAmount", BigDecimal.ZERO);
-                itemMap.put("taxRate", BigDecimal.ZERO);
-                itemMap.put("taxAmount", BigDecimal.ZERO);
-                itemMap.put("lineTotal", lineTotal);
-                itemMap.put("mismatchFlag", false);
-                itemMap.put("mismatchReason", "");
-
-                poLineItems.add(itemMap);
             }
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("verified", true);
+            response.put("status", "VERIFIED");
+            response.put("message", "Supplier Invoice #" + inputInvoice + " verified successfully against PO #" + po.getPoNumber() + ".");
+            response.put("invoiceNumber", inputInvoice);
+            response.put("invoiceDate", po.getInvoiceDate() != null ? po.getInvoiceDate().toString() : LocalDate.now().toString());
+            response.put("vendorName", po.getVendor() != null ? po.getVendor().getName() : "Supplier");
+            response.put("subtotal", po.getTotalAmount() != null ? po.getTotalAmount() : calculatedTotal);
+            response.put("invoiceTotal", po.getTotalAmount() != null ? po.getTotalAmount() : calculatedTotal);
+            response.put("items", poLineItems);
+            return ResponseEntity.ok(response);
         }
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("verified", true);
-        response.put("status", "VERIFIED");
-        response.put("message", "Supplier Invoice #" + inputInvoice + " verified successfully against PO #" + po.getPoNumber() + ". Genuine line items loaded.");
-        response.put("invoiceNumber", inputInvoice);
-        response.put("invoiceDate", po.getInvoiceDate() != null ? po.getInvoiceDate().toString() : LocalDate.now().toString());
-        response.put("vendorName", po.getVendor() != null ? po.getVendor().getName() : "Supplier");
-        response.put("subtotal", po.getTotalAmount() != null ? po.getTotalAmount() : calculatedTotal);
-        response.put("invoiceTotal", po.getTotalAmount() != null ? po.getTotalAmount() : calculatedTotal);
-        response.put("items", poLineItems);
-
-        return ResponseEntity.ok(response);
+        // 6. If invoice cannot be authenticated or is random text like 'safsdg'
+        return ResponseEntity.ok(Map.of(
+                "verified", false,
+                "status", "INVALID",
+                "message", "Invalid / Unverified Supplier Invoice: Invoice #" + inputInvoice + " could not be authenticated against supplier records or IRP portal. Please enter a genuine supplier invoice number (e.g. 261036G002900941) or attach the invoice document."
+        ));
     }
 }

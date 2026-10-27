@@ -190,63 +190,8 @@ export default function Purchases() {
           items: mappedItems
         }));
       } else {
-        // Resilient fallback: If server returned UNVERIFIED (no document attached), verify against PO line items directly
-        if (data.status === 'UNVERIFIED' && selectedPOObject?.items?.length) {
-          const fallbackItems = selectedPOObject.items.map((it: any) => {
-            const ordered = parseFloat(it.quantityOrdered) || 0;
-            const rec = parseFloat(it.quantityReceived) || 0;
-            const rem = Math.max(0, ordered - rec);
-            const unitCost = parseFloat(it.unitCost) || parseFloat(it.ingredient?.costPerUnit) || 0;
-            const unit = it.unit || it.ingredient?.unit || 'kg';
-            return {
-              ingredientId: it.ingredient?.id,
-              ingredientName: it.ingredient?.name || 'Raw Material',
-              itemCode: it.ingredient?.sku || '',
-              description: it.ingredient?.name || 'Raw Material',
-              invoiceQuantity: rem,
-              invoiceUnit: unit,
-              packSize: 1,
-              packUnit: unit,
-              packDisplay: `1 ${unit} = 1 ${unit}`,
-              multiplier: 1,
-              baseUnit: unit,
-              unit: unit,
-              inwardQuantity: rem,
-              quantityOrdered: ordered,
-              alreadyReceived: rec,
-              remaining: rem,
-              quantity: rem,
-              costPerUnit: unitCost,
-              unitRate: unitCost,
-              mrp: unitCost,
-              discountPercent: 0,
-              discountAmount: 0,
-              taxRate: 0,
-              taxAmount: 0,
-              lineTotal: unitCost * rem,
-              mismatchFlag: false,
-              mismatchReason: '',
-              expiryDate: ''
-            };
-          });
-
-          setInvoiceVerificationStatus('VERIFIED');
-          setInvoiceVerificationMessage(`Supplier Invoice #${invNum} verified against PO #${selectedPOObject.poNumber || selectedPOObject.id}.`);
-          setVerifiedInvoiceData({
-            invoiceNumber: invNum,
-            vendorName: selectedPOObject.vendor?.name,
-            invoiceTotal: selectedPOObject.totalAmount || 0
-          });
-          setReceiveForm(prev => ({
-            ...prev,
-            invoiceNumber: invNum,
-            items: fallbackItems
-          }));
-          return;
-        }
-
         setInvoiceVerificationStatus(data.status || 'INVALID');
-        setInvoiceVerificationMessage(data.message || 'Invoice verification failed. Please check the invoice number or upload the original document.');
+        setInvoiceVerificationMessage(data.message || 'Invoice verification failed. Please enter a valid supplier invoice number or attach the invoice document.');
         setVerifiedInvoiceData(null);
         setReceiveForm(prev => ({ ...prev, items: [] }));
       }
