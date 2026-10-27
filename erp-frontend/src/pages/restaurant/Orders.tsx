@@ -238,8 +238,9 @@ export default function RestaurantOrders() {
       const res = await apiFetch('https://erp-api.neurolinx.in/api/pos/tables');
       if (res.ok) {
         let data: RestaurantTableData[] = await res.json();
-        setTables(data);
-        localStorage.setItem('pos_tables_all', JSON.stringify(data));
+        const active = (Array.isArray(data) ? data : []).filter(t => t.position != null);
+        setTables(active);
+        localStorage.setItem('pos_tables_all', JSON.stringify(active));
       } else {
         const cached = localStorage.getItem('pos_tables_all');
         if (cached) {
@@ -1128,7 +1129,7 @@ export default function RestaurantOrders() {
               <div>
                 <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>Dine-In Tables</span>
                 <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '0.75rem', fontWeight: 500 }}>
-                  {tables.length} {tables.length === 1 ? 'table' : 'tables'} available
+                  {tables.filter(t => t.position != null).length} {tables.filter(t => t.position != null).length === 1 ? 'table' : 'tables'} available
                 </span>
               </div>
               {tables.length > 0 && (
@@ -1167,11 +1168,12 @@ export default function RestaurantOrders() {
                 </div>
               ) : (
                 (() => {
-                  const floorNums = Array.from(new Set(tables.map(t => t.floor || 1))).sort((a, b) => a - b);
+                  const activeTables = tables.filter(t => t.position != null);
+                  const floorNums = Array.from(new Set(activeTables.map(t => t.floor || 1))).sort((a, b) => a - b);
                   if (floorNums.length <= 1) {
                     return (
                       <FloorTableLayout
-                        tables={tables}
+                        tables={activeTables}
                         selectedTableId={selectedTableId}
                         onSelectTable={handleSelectTable}
                         onStatusChange={handleTableStatusChange}
@@ -1181,7 +1183,7 @@ export default function RestaurantOrders() {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                       {floorNums.map(floorNum => {
-                        const floorTables = tables.filter(t => (t.floor || 1) === floorNum);
+                        const floorTables = activeTables.filter(t => (t.floor || 1) === floorNum);
                         return (
                           <div key={floorNum}>
                             <div style={{ 

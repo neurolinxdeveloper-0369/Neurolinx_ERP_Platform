@@ -28,6 +28,7 @@ public class AdminControllerTest {
     @Mock private BranchRepository branchRepository;
     @Mock private RestaurantTableRepository tableRepo;
     @Mock private CustomerOrderRepository orderRepo;
+    @Mock private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     @Mock private PasswordEncoder passwordEncoder;
 
     @InjectMocks
@@ -88,10 +89,13 @@ public class AdminControllerTest {
 
         RestaurantTable t1 = new RestaurantTable();
         t1.setFloor(1);
+        t1.setPosition(1);
         RestaurantTable t2 = new RestaurantTable();
         t2.setFloor(1);
+        t2.setPosition(2);
         RestaurantTable t3 = new RestaurantTable();
         t3.setFloor(2);
+        t3.setPosition(1);
 
         when(tableRepo.findByCompanyOrderByFloorAscPositionAscIdAsc(testCompany)).thenReturn(List.of(t1, t2, t3));
 

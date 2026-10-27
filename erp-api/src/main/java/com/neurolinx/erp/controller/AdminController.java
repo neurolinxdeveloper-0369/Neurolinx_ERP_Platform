@@ -123,12 +123,12 @@ public class AdminController {
             map.put("kitchenSetup", company.getKitchenSetup());
             map.put("bypassDeviceLimit", company.getBypassDeviceLimit());
 
+            int floors = (company.getTotalFloors() != null && company.getTotalFloors() > 0) ? company.getTotalFloors() : 1;
             List<RestaurantTable> tables = tableRepo.findByCompanyOrderByFloorAscPositionAscIdAsc(company);
             java.util.Map<Integer, Long> floorCounts = tables.stream()
-                    .filter(t -> t.getFloor() != null)
+                    .filter(t -> t.getFloor() != null && t.getFloor() <= floors && t.getPosition() != null)
                     .collect(Collectors.groupingBy(RestaurantTable::getFloor, Collectors.counting()));
 
-            int floors = (company.getTotalFloors() != null && company.getTotalFloors() > 0) ? company.getTotalFloors() : 1;
             List<java.util.Map<String, Object>> floorTables = new java.util.ArrayList<>();
             for (int f = 1; f <= floors; f++) {
                 java.util.Map<String, Object> ft = new java.util.HashMap<>();
@@ -341,12 +341,10 @@ public class AdminController {
                 for (int i = targetCount; i < existing.size(); i++) {
                     RestaurantTable surplus = existing.get(i);
                     try {
-                        if (orderRepo.existsByRestaurantTable(surplus)) {
-                            surplus.setPosition(null);
-                            tableRepo.save(surplus);
-                        } else {
-                            tableRepo.delete(surplus);
+                        if (jdbcTemplate != null) {
+                            jdbcTemplate.update("UPDATE customer_orders SET table_id = NULL WHERE table_id = ?", surplus.getId());
                         }
+                        tableRepo.delete(surplus);
                     } catch (Exception ignored) {}
                 }
             }
@@ -357,12 +355,10 @@ public class AdminController {
         for (RestaurantTable t : allTables) {
             if (t.getFloor() != null && t.getFloor() > totalFloors) {
                 try {
-                    if (orderRepo.existsByRestaurantTable(t)) {
-                        t.setPosition(null);
-                        tableRepo.save(t);
-                    } else {
-                        tableRepo.delete(t);
+                    if (jdbcTemplate != null) {
+                        jdbcTemplate.update("UPDATE customer_orders SET table_id = NULL WHERE table_id = ?", t.getId());
                     }
+                    tableRepo.delete(t);
                 } catch (Exception ignored) {}
             }
         }

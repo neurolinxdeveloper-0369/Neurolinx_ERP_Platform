@@ -19,6 +19,7 @@ public class PosController {
     @Autowired private DishRepository dishRepo;
     @Autowired private RestaurantTableRepository tableRepo;
     @Autowired private CustomerOrderRepository orderRepo;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
     @Autowired private UserRepository userRepo;
     @Autowired private CompanyRepository companyRepo;
     @Autowired private RecipeItemRepository recipeItemRepo;
@@ -72,10 +73,38 @@ public class PosController {
     public ResponseEntity<?> getTables(@RequestParam(required = false) Integer floor) {
         Company company = getUserCompany();
         if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user: " + SecurityContextHolder.getContext().getAuthentication().getName()));
-        if (floor != null) {
-            return ResponseEntity.ok(tableRepo.findByCompanyAndFloorOrderByPositionAscIdAsc(company, floor));
+        
+        int maxFloors = (company.getTotalFloors() != null && company.getTotalFloors() > 0) ? company.getTotalFloors() : 1;
+
+        // Clean up surplus floors beyond company.getTotalFloors()
+        List<RestaurantTable> allTables = tableRepo.findByCompany(company);
+        for (RestaurantTable t : allTables) {
+            if (t.getFloor() != null && t.getFloor() > maxFloors) {
+                try {
+                    if (jdbcTemplate != null) {
+                        jdbcTemplate.update("UPDATE customer_orders SET table_id = NULL WHERE table_id = ?", t.getId());
+                    }
+                    tableRepo.delete(t);
+                } catch (Exception ignored) {}
+            }
         }
-        return ResponseEntity.ok(tableRepo.findByCompanyOrderByFloorAscPositionAscIdAsc(company));
+
+        if (floor != null) {
+            if (floor > maxFloors) {
+                return ResponseEntity.ok(java.util.Collections.emptyList());
+            }
+            List<RestaurantTable> list = tableRepo.findByCompanyAndFloorOrderByPositionAscIdAsc(company, floor)
+                    .stream()
+                    .filter(t -> t.getPosition() != null)
+                    .collect(java.util.stream.Collectors.toList());
+            return ResponseEntity.ok(list);
+        }
+
+        List<RestaurantTable> list = tableRepo.findByCompanyOrderByFloorAscPositionAscIdAsc(company)
+                .stream()
+                .filter(t -> t.getFloor() != null && t.getFloor() <= maxFloors && t.getPosition() != null)
+                .collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(list);
     }
 
     @PostMapping("/tables/configure")
