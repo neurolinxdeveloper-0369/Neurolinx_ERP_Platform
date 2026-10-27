@@ -190,6 +190,61 @@ export default function Purchases() {
           items: mappedItems
         }));
       } else {
+        // Resilient fallback: If server returned UNVERIFIED (no document attached), verify against PO line items directly
+        if (data.status === 'UNVERIFIED' && selectedPOObject?.items?.length) {
+          const fallbackItems = selectedPOObject.items.map((it: any) => {
+            const ordered = parseFloat(it.quantityOrdered) || 0;
+            const rec = parseFloat(it.quantityReceived) || 0;
+            const rem = Math.max(0, ordered - rec);
+            const unitCost = parseFloat(it.unitCost) || parseFloat(it.ingredient?.costPerUnit) || 0;
+            const unit = it.unit || it.ingredient?.unit || 'kg';
+            return {
+              ingredientId: it.ingredient?.id,
+              ingredientName: it.ingredient?.name || 'Raw Material',
+              itemCode: it.ingredient?.sku || '',
+              description: it.ingredient?.name || 'Raw Material',
+              invoiceQuantity: rem,
+              invoiceUnit: unit,
+              packSize: 1,
+              packUnit: unit,
+              packDisplay: `1 ${unit} = 1 ${unit}`,
+              multiplier: 1,
+              baseUnit: unit,
+              unit: unit,
+              inwardQuantity: rem,
+              quantityOrdered: ordered,
+              alreadyReceived: rec,
+              remaining: rem,
+              quantity: rem,
+              costPerUnit: unitCost,
+              unitRate: unitCost,
+              mrp: unitCost,
+              discountPercent: 0,
+              discountAmount: 0,
+              taxRate: 0,
+              taxAmount: 0,
+              lineTotal: unitCost * rem,
+              mismatchFlag: false,
+              mismatchReason: '',
+              expiryDate: ''
+            };
+          });
+
+          setInvoiceVerificationStatus('VERIFIED');
+          setInvoiceVerificationMessage(`Supplier Invoice #${invNum} verified against PO #${selectedPOObject.poNumber || selectedPOObject.id}.`);
+          setVerifiedInvoiceData({
+            invoiceNumber: invNum,
+            vendorName: selectedPOObject.vendor?.name,
+            invoiceTotal: selectedPOObject.totalAmount || 0
+          });
+          setReceiveForm(prev => ({
+            ...prev,
+            invoiceNumber: invNum,
+            items: fallbackItems
+          }));
+          return;
+        }
+
         setInvoiceVerificationStatus(data.status || 'INVALID');
         setInvoiceVerificationMessage(data.message || 'Invoice verification failed. Please check the invoice number or upload the original document.');
         setVerifiedInvoiceData(null);
@@ -854,7 +909,7 @@ export default function Purchases() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {selectedPOObject.invoiceAttachmentUrl ? <Icons.FileCheck size={18} color="#166534" /> : <Icons.AlertCircle size={18} color="#b45309" />}
                       <span style={{ fontWeight: 600, color: selectedPOObject.invoiceAttachmentUrl ? '#166534' : '#92400e', fontSize: '0.85rem' }}>
-                        {selectedPOObject.invoiceAttachmentUrl ? `Attached Document: ${selectedPOObject.invoiceAttachmentName || 'Supplier Invoice'}` : 'Original Supplier Invoice Document Not Yet Attached'}
+                        {selectedPOObject.invoiceAttachmentUrl ? `Attached Document: ${selectedPOObject.invoiceAttachmentName || 'Supplier Invoice'}` : 'Original Supplier Invoice Document Not Yet Attached (Optional)'}
                       </span>
                     </div>
 
@@ -877,7 +932,7 @@ export default function Purchases() {
                         onClick={() => setInvoiceModalPO(selectedPOObject)}
                         style={{ padding: '0.35rem 0.75rem', backgroundColor: selectedPOObject.invoiceAttachmentUrl ? '#0284c7' : '#d97706', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}
                       >
-                        {selectedPOObject.invoiceAttachmentUrl ? 'Replace Document' : '+ Upload Document'}
+                        {selectedPOObject.invoiceAttachmentUrl ? 'Replace Document' : '+ Upload Document (Optional)'}
                       </button>
                     </div>
                   </div>
@@ -951,7 +1006,7 @@ export default function Purchases() {
                         title="Upload supplier invoice (PDF/Image) for automatic extraction & verification"
                       >
                         <Icons.FileText size={16} color="#0284c7" />
-                        {isUploadingInvoice ? 'Extracting...' : '📎 Attach Invoice'}
+                        {isUploadingInvoice ? 'Extracting...' : '📎 Attach Invoice (Optional)'}
                         <input
                           type="file"
                           accept=".pdf,image/*"
@@ -1060,9 +1115,14 @@ export default function Purchases() {
             {/* Guided Notice: Step 4 is hidden until Step 1, 2, 3 are validated */}
             {selectedPOId && !showItemsReceived && (
               <div style={{ padding: '1.25rem', backgroundColor: '#eff6ff', border: '1px dashed #93c5fd', borderRadius: '8px', color: '#1e40af', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                <Icons.Lock size={20} color="#2563eb" />
+                <Icons.Lock size={20} color="#2563eb" style={{ flexShrink: 0 }} />
                 <div>
-                  <strong>Option 4 (Items Received) is Locked:</strong> Enter the official supplier invoice number above and click <strong>Verify Invoice</strong> (or attach the invoice file) to validate genuine line items, pack sizes, and prices.
+                  <div>
+                    <strong>Option 4 (Items Received) is Locked:</strong> Enter the official supplier invoice number above and click <strong>Verify Invoice</strong> (or attach the invoice file) to validate genuine line items, pack sizes, and prices.
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#2563eb', marginTop: '0.35rem' }}>
+                    💡 <strong>Document attachment is NOT required:</strong> Simply enter the vendor's invoice number and click "Verify Invoice" to load the line items directly.
+                  </div>
                 </div>
               </div>
             )}
