@@ -75,12 +75,10 @@ export default function RestaurantOrders() {
   const [viewMode, setViewMode] = useState<'POS' | 'Tables' | 'Reservations' | 'Deliveries'>('POS');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string>('');
-  const [activeFloor, setActiveFloor] = useState<number>(1);
   const [tables, setTables] = useState<RestaurantTableData[]>([]);
   const [loadingTables, setLoadingTables] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
-  const [company, setCompany] = useState<any>(null);
   const [recentOrders, setRecentOrders] = useState<PlacedOrder[]>(() => {
     const cached = localStorage.getItem('pos_recent_orders');
     if (cached) {
@@ -234,17 +232,16 @@ export default function RestaurantOrders() {
     }
   };
 
-  const loadFloorTables = async (floorNum: number) => {
+  const loadTables = async () => {
     setLoadingTables(true);
     try {
-      const res = await apiFetch(`https://erp-api.neurolinx.in/api/pos/tables?floor=${floorNum}`);
+      const res = await apiFetch('https://erp-api.neurolinx.in/api/pos/tables');
       if (res.ok) {
         let data: RestaurantTableData[] = await res.json();
-        
         setTables(data);
-        localStorage.setItem(`floor_tables_${floorNum}`, JSON.stringify(data));
+        localStorage.setItem('pos_tables_all', JSON.stringify(data));
       } else {
-        const cached = localStorage.getItem(`floor_tables_${floorNum}`);
+        const cached = localStorage.getItem('pos_tables_all');
         if (cached) {
           setTables(JSON.parse(cached));
         } else {
@@ -252,8 +249,8 @@ export default function RestaurantOrders() {
         }
       }
     } catch (err) {
-      console.warn('Network error loading floor tables, using cache if available', err);
-      const cached = localStorage.getItem(`floor_tables_${floorNum}`);
+      console.warn('Network error loading tables, using cache if available', err);
+      const cached = localStorage.getItem('pos_tables_all');
       if (cached) {
         setTables(JSON.parse(cached));
       } else {
@@ -265,8 +262,8 @@ export default function RestaurantOrders() {
   };
 
   useEffect(() => {
-    loadFloorTables(activeFloor);
-  }, [viewMode, activeFloor]);
+    loadTables();
+  }, [viewMode]);
 
   const handleTableStatusChange = async (tableId: number, newStatus: string) => {
     try {
@@ -280,7 +277,7 @@ export default function RestaurantOrders() {
     }
     setTables(prev => {
       const updated = prev.map(t => t.id === tableId ? { ...t, status: newStatus } : t);
-      localStorage.setItem(`floor_tables_${activeFloor}`, JSON.stringify(updated));
+      localStorage.setItem('pos_tables_all', JSON.stringify(updated));
       return updated;
     });
     if (selectedTableId === tableId && newStatus !== 'Free') {
@@ -303,7 +300,7 @@ export default function RestaurantOrders() {
     }
     setTables(prev => {
       const updated = prev.map(t => t.id === tableId ? { ...t, capacity, ...(tableName ? { tableName } : {}) } : t);
-      localStorage.setItem(`floor_tables_${activeFloor}`, JSON.stringify(updated));
+      localStorage.setItem('pos_tables_all', JSON.stringify(updated));
       return updated;
     });
     if (tableName) setSelectedTableName(tableName);
@@ -320,13 +317,11 @@ export default function RestaurantOrders() {
       apiFetch('https://erp-api.neurolinx.in/api/pos/categories').then(res => res.json()),
       apiFetch('https://erp-api.neurolinx.in/api/pos/dishes').then(res => res.json()),
       apiFetch('https://erp-api.neurolinx.in/api/settings').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/settings/my-company').then(res => res.ok ? res.json() : null),
       apiFetch('https://erp-api.neurolinx.in/api/staff/employees').then(res => res.ok ? res.json() : []).catch(() => [])
-    ]).then(([cats, items, sets, comp, staff]) => {
+    ]).then(([cats, items, sets, staff]) => {
       setCategories(Array.isArray(cats) ? cats : []);
       setDishes(Array.isArray(items) ? items : []);
       setSettings(sets);
-      if (comp) setCompany(comp);
       if (Array.isArray(staff)) setStaffList(staff.filter((s: any) => s.isActive !== false));
       setIsLoading(false);
     }).catch(err => {
@@ -1126,42 +1121,13 @@ export default function RestaurantOrders() {
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} /> Can't Select
                 </div>
               </div>
-
-              {/* Right Side Actions - Floor Switcher if client has > 1 floor */}
-              {(company?.totalFloors || 1) > 1 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'absolute', right: '1.5rem' }}>
-                  <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '0.2rem', borderRadius: '24px', gap: '0.2rem' }}>
-                    {Array.from({ length: company?.totalFloors || 1 }, (_, i) => i + 1).map(floorNum => (
-                      <button
-                        key={floorNum}
-                        onClick={() => setActiveFloor(floorNum)}
-                        style={{
-                          padding: '0.4rem 1.25rem',
-                          border: 'none',
-                          borderRadius: '20px',
-                          fontWeight: 700,
-                          fontSize: '0.75rem',
-                          cursor: 'pointer',
-                          backgroundColor: activeFloor === floorNum ? '#e2e8f0' : 'transparent',
-                          color: activeFloor === floorNum ? '#334155' : '#94a3b8',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        {floorNum}{floorNum === 1 ? 'st' : floorNum === 2 ? 'nd' : floorNum === 3 ? 'rd' : 'th'} Floor
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Subtitle / Overview */}
             <div style={{ padding: '0.85rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
               <div>
-                {(company?.totalFloors || 1) > 1 && (
-                  <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginRight: '0.75rem' }}>Floor {activeFloor}</span>
-                )}
-                <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
+                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>Dine-In Tables</span>
+                <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '0.75rem', fontWeight: 500 }}>
                   {tables.length} {tables.length === 1 ? 'table' : 'tables'} available
                 </span>
               </div>
@@ -1176,7 +1142,7 @@ export default function RestaurantOrders() {
             <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', position: 'relative' }}>
               {loadingTables ? (
                 <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                  Loading tables for Floor {activeFloor}...
+                  Loading tables...
                 </div>
               ) : tables.length === 0 ? (
                 <div style={{
@@ -1193,19 +1159,56 @@ export default function RestaurantOrders() {
                 }}>
                   <Icons.Armchair size={48} color="#94a3b8" style={{ marginBottom: '1rem' }} />
                   <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b', fontSize: '1.1rem' }}>
-                    {(company?.totalFloors || 1) > 1 ? `No Tables on Floor ${activeFloor}` : 'No Tables Configured'}
+                    No Tables Configured
                   </h3>
                   <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem', textAlign: 'center', maxWidth: '380px' }}>
-                    No tables have been provisioned for this floor. Table setup is configured when creating or editing the client profile.
+                    No tables have been provisioned. Tables are configured when creating or editing the client profile.
                   </p>
                 </div>
               ) : (
-                <FloorTableLayout
-                  tables={tables}
-                  selectedTableId={selectedTableId}
-                  onSelectTable={handleSelectTable}
-                  onStatusChange={handleTableStatusChange}
-                />
+                (() => {
+                  const floorNums = Array.from(new Set(tables.map(t => t.floor || 1))).sort((a, b) => a - b);
+                  if (floorNums.length <= 1) {
+                    return (
+                      <FloorTableLayout
+                        tables={tables}
+                        selectedTableId={selectedTableId}
+                        onSelectTable={handleSelectTable}
+                        onStatusChange={handleTableStatusChange}
+                      />
+                    );
+                  }
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                      {floorNums.map(floorNum => {
+                        const floorTables = tables.filter(t => (t.floor || 1) === floorNum);
+                        return (
+                          <div key={floorNum}>
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '0.5rem', 
+                              padding: '0.5rem 0.75rem', 
+                              backgroundColor: '#f8fafc', 
+                              borderRadius: '8px', 
+                              borderLeft: '4px solid #0284c7', 
+                              marginBottom: '1rem' 
+                            }}>
+                              <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Floor {floorNum}</span>
+                              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>({floorTables.length} tables)</span>
+                            </div>
+                            <FloorTableLayout
+                              tables={floorTables}
+                              selectedTableId={selectedTableId}
+                              onSelectTable={handleSelectTable}
+                              onStatusChange={handleTableStatusChange}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
               )}
             </div>
 

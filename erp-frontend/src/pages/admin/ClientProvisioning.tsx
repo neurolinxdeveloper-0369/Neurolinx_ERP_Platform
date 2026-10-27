@@ -160,29 +160,31 @@ export default function ClientProvisioning() {
     }
   };
 
-  const handleTotalFloorsChange = (newTotal: number) => {
-    const validTotal = Math.max(1, newTotal || 1);
-    setTotalFloors(validTotal);
+  const handleAddAnotherFloor = () => {
     setFloorConfigs(prev => {
-      const updated: { floor: number; tableCount: number }[] = [];
-      for (let f = 1; f <= validTotal; f++) {
-        const existing = prev.find(p => p.floor === f);
-        updated.push({
-          floor: f,
-          tableCount: existing ? existing.tableCount : 5
-        });
-      }
-      const sum = updated.reduce((acc, curr) => acc + (curr.tableCount || 0), 0);
-      setTotalTables(sum);
+      const nextFloor = prev.length + 1;
+      const updated = [...prev, { floor: nextFloor, tableCount: 5 }];
+      setTotalFloors(updated.length);
+      setTotalTables(updated.reduce((sum, f) => sum + (f.tableCount || 0), 0));
       return updated;
+    });
+  };
+
+  const handleRemoveFloor = (floorNum: number) => {
+    if (floorConfigs.length <= 1) return;
+    setFloorConfigs(prev => {
+      const filtered = prev.filter(f => f.floor !== floorNum);
+      const renumbered = filtered.map((f, idx) => ({ ...f, floor: idx + 1 }));
+      setTotalFloors(renumbered.length);
+      setTotalTables(renumbered.reduce((sum, f) => sum + (f.tableCount || 0), 0));
+      return renumbered;
     });
   };
 
   const handleFloorTableCountChange = (floor: number, count: number) => {
     setFloorConfigs(prev => {
       const updated = prev.map(p => p.floor === floor ? { ...p, tableCount: Math.max(0, count) } : p);
-      const sum = updated.reduce((acc, curr) => acc + (curr.tableCount || 0), 0);
-      setTotalTables(sum);
+      setTotalTables(updated.reduce((sum, f) => sum + (f.tableCount || 0), 0));
       return updated;
     });
   };
@@ -785,115 +787,103 @@ export default function ClientProvisioning() {
               </div>
 
               {(industryType === 'Restaurant' || industryType === 'Hotel' || industryType === 'Hybrid (Hotel & Restaurant)') && (
-                <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: '1rem',
-                  padding: '1.25rem',
-                  backgroundColor: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '12px'
-                }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Layers size={18} color="#2563eb" /> Floor & Table Configuration
-                      </h4>
-                      <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-                        Specify the number of floors and the number of tables for each floor.
-                      </p>
-                    </div>
-                    <div style={{ 
-                      backgroundColor: '#eff6ff', 
-                      color: '#1d4ed8', 
-                      padding: '0.35rem 0.75rem', 
-                      borderRadius: '20px', 
-                      fontSize: '0.8rem', 
-                      fontWeight: 700 
-                    }}>
-                      Total: {floorConfigs.reduce((acc, f) => acc + (f.tableCount || 0), 0)} Tables
-                    </div>
-                  </div>
-
-                  {/* Total Floors Selector */}
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>
-                      Number of Floors
+                    <label style={{ fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Floors & Tables Configuration
                     </label>
-                    <input 
-                      type="number" 
-                      min={1}
-                      max={20}
-                      value={totalFloors}
-                      onChange={e => handleTotalFloorsChange(e.target.value ? Math.max(1, parseInt(e.target.value)) : 1)}
-                      placeholder="e.g. 1, 2, 3"
-                      style={{ 
-                        width: '100%', 
-                        maxWidth: '220px',
-                        padding: '0.65rem 0.9rem', 
-                        border: '1px solid #cbd5e1', 
-                        borderRadius: '8px', 
-                        fontSize: '0.9rem',
-                        backgroundColor: 'white'
-                      }}
-                    />
+                    <span style={{ fontSize: '0.8125rem', color: '#2563eb', fontWeight: 700 }}>
+                      Total: {floorConfigs.length} {floorConfigs.length === 1 ? 'Floor' : 'Floors'} • {floorConfigs.reduce((acc, f) => acc + (f.tableCount || 0), 0)} Tables
+                    </span>
                   </div>
 
-                  {/* Floor by Floor Table Inputs */}
+                  {/* Floor List */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>
-                      Tables per Floor:
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
-                      {floorConfigs.map(fc => (
-                        <div 
-                          key={fc.floor} 
-                          style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'space-between',
-                            backgroundColor: 'white', 
-                            padding: '0.65rem 0.9rem', 
-                            borderRadius: '8px', 
-                            border: '1px solid #cbd5e1',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
-                          }}
-                        >
-                          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#1e293b' }}>
-                            Floor {fc.floor}
+                    {floorConfigs.map((fc, idx) => (
+                      <div key={fc.floor} style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                        <div style={{ flex: 1, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1e293b', minWidth: '65px' }}>
+                            Floor {fc.floor}:
                           </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <input 
-                              type="number" 
-                              min={0}
-                              max={100}
-                              value={fc.tableCount}
-                              onChange={e => handleFloorTableCountChange(fc.floor, e.target.value === '' ? 0 : parseInt(e.target.value))}
-                              style={{ 
-                                width: '65px', 
-                                padding: '0.4rem 0.5rem', 
-                                border: '1px solid #cbd5e1', 
-                                borderRadius: '6px', 
-                                textAlign: 'center',
-                                fontWeight: 700,
-                                fontSize: '0.875rem',
-                                color: '#0f172a'
-                              }}
-                            />
-                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>tables</span>
-                          </div>
+                          <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={fc.tableCount === 0 ? '' : fc.tableCount}
+                            onChange={e => handleFloorTableCountChange(fc.floor, e.target.value === '' ? 0 : parseInt(e.target.value))}
+                            placeholder={`Total Tables for Floor ${fc.floor}`}
+                            style={{ 
+                              flex: 1, 
+                              padding: '0.75rem 1rem', 
+                              border: '1px solid #cbd5e1', 
+                              borderRadius: '8px', 
+                              boxSizing: 'border-box', 
+                              outline: 'none', 
+                              fontSize: '0.9375rem',
+                              transition: 'border-color 0.2s' 
+                            }}
+                            onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
+                            onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+                          />
                         </div>
-                      ))}
-                    </div>
+
+                        {idx > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFloor(fc.floor)}
+                            title={`Delete Floor ${fc.floor}`}
+                            style={{
+                              background: '#fee2e2',
+                              border: '1px solid #fecaca',
+                              borderRadius: '8px',
+                              color: '#dc2626',
+                              padding: '0.65rem 0.75rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* + Add Another Floor Option */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleAddAnotherFloor}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        padding: '0.55rem 0.95rem',
+                        backgroundColor: '#eff6ff',
+                        color: '#2563eb',
+                        border: '1px dashed #60a5fa',
+                        borderRadius: '8px',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = '#dbeafe'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = '#eff6ff'}
+                    >
+                      <Plus size={16} /> Add Another Floor
+                    </button>
                   </div>
 
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>Service Model</label>
                       <select 
                         value={serviceModel} 
                         onChange={e => setServiceModel(e.target.value)}
-                        style={{ width: '100%', padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', backgroundColor: 'white' }}
+                        style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', backgroundColor: 'white', appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
                       >
                         <option value="Quick Service (QSR)">Quick Service (QSR)</option>
                         <option value="Fine Dining">Fine Dining</option>
@@ -902,11 +892,10 @@ export default function ClientProvisioning() {
                       </select>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>Kitchen Setup</label>
                       <select 
                         value={kitchenSetup} 
                         onChange={e => setKitchenSetup(e.target.value)}
-                        style={{ width: '100%', padding: '0.65rem 0.9rem', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', backgroundColor: 'white' }}
+                        style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', backgroundColor: 'white', appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
                       >
                         <option value="KDS">Kitchen Display System (KDS)</option>
                         <option value="Printed KOTs">Printed KOTs</option>
