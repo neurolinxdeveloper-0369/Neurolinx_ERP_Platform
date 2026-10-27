@@ -60,6 +60,9 @@ public class PurchaseOrder {
     @Column(length = 255)
     private String invoiceAttachmentName;
 
+    @Column(columnDefinition = "TEXT")
+    private String invoiceData; // Verified invoice JSON payload (extracted items, taxes, totals)
+
     @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<PurchaseOrderItem> items = new ArrayList<>();
 
@@ -98,6 +101,8 @@ public class PurchaseOrder {
     public void setInvoiceAttachmentUrl(String invoiceAttachmentUrl) { this.invoiceAttachmentUrl = invoiceAttachmentUrl; }
     public String getInvoiceAttachmentName() { return invoiceAttachmentName; }
     public void setInvoiceAttachmentName(String invoiceAttachmentName) { this.invoiceAttachmentName = invoiceAttachmentName; }
+    public String getInvoiceData() { return invoiceData; }
+    public void setInvoiceData(String invoiceData) { this.invoiceData = invoiceData; }
     public List<PurchaseOrderItem> getItems() { return items != null ? items : new ArrayList<>(); }
     public void setItems(List<PurchaseOrderItem> items) { this.items = items; }
     public LocalDateTime getCreatedAt() { return createdAt; }

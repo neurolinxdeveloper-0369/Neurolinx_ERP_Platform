@@ -33,12 +33,19 @@ export default function Purchases() {
     invoiceDate: new Date().toISOString().split('T')[0],
     receiptDate: new Date().toISOString().split('T')[0],
     amountPaid: 0,
-    paymentMethod: 'UPI',
+    paymentMethod: 'CREDIT',
     paymentReference: '',
     paymentDate: new Date().toISOString().split('T')[0],
     items: [] as any[]
   });
   const [isReceiving, setIsReceiving] = useState(false);
+
+  // Invoice Verification & Source of Truth State
+  const [invoiceVerificationStatus, setInvoiceVerificationStatus] = useState<
+    'IDLE' | 'CHECKING' | 'VERIFIED' | 'INVALID' | 'DUPLICATE' | 'UNVERIFIED' | 'VENDOR_MISMATCH' | 'MISMATCH'
+  >('IDLE');
+  const [invoiceVerificationMessage, setInvoiceVerificationMessage] = useState('');
+  const [verifiedInvoiceData, setVerifiedInvoiceData] = useState<any>(null);
 
   // Phase 5: Barcode Quick Search in Receiving Screen
   const [barcodeSearch, setBarcodeSearch] = useState('');
@@ -80,49 +87,102 @@ export default function Purchases() {
     fetchData();
   }, []);
 
-  // When PO is selected in Receive Stock screen, initialize received items from PO
+  // When PO is selected in Receive Stock screen, reset verification and enforce invoice verification before items display
   const handleSelectPOForReceive = (poId: string) => {
     setSelectedPOId(poId);
+    setInvoiceVerificationStatus('IDLE');
+    setInvoiceVerificationMessage('');
+    setVerifiedInvoiceData(null);
     if (!poId) {
       setReceiveForm(prev => ({
         ...prev,
         invoiceNumber: '',
-        amountPaid: 0,
-        paymentMethod: 'UPI',
-        paymentReference: '',
-        paymentDate: new Date().toISOString().split('T')[0],
         items: []
       }));
       return;
     }
     const po = purchases.find(p => p.id === parseInt(poId));
-    if (po && po.items && po.items.length > 0) {
-      const itemsToReceive = po.items.map((item: any) => {
-        const ordered = parseFloat(item.quantityOrdered) || 0;
-        const alreadyReceived = parseFloat(item.quantityReceived) || 0;
-        const remaining = Math.max(0, ordered - alreadyReceived);
-        return {
-          ingredientId: item.ingredient?.id,
-          ingredientName: item.ingredient?.name,
-          unit: item.unit || item.ingredient?.unit || 'kg',
-          quantityOrdered: ordered,
-          alreadyReceived: alreadyReceived,
-          remaining: remaining,
-          quantity: remaining > 0 ? remaining : 0,
-          costPerUnit: item.unitCost || item.ingredient?.costPerUnit || 0,
-          expiryDate: ''
-        };
+    const suggestedInv = po?.invoiceNumber && !po.invoiceNumber.startsWith('INV-PO-') ? po.invoiceNumber : '';
+    setReceiveForm(prev => ({
+      ...prev,
+      invoiceNumber: suggestedInv,
+      invoiceDate: po?.invoiceDate ? po.invoiceDate : prev.invoiceDate,
+      items: [] // Items strictly hidden until invoice is validated!
+    }));
+  };
+
+  // Verify original supplier invoice against backend records, PO, and vendor
+  const handleVerifyInvoice = async (forcedInvoiceNumber?: string) => {
+    const invNum = (forcedInvoiceNumber !== undefined ? forcedInvoiceNumber : receiveForm.invoiceNumber).trim();
+    if (!selectedPOId) {
+      alert('Please select a Purchase Order first.');
+      return;
+    }
+    if (!invNum) {
+      setInvoiceVerificationStatus('INVALID');
+      setInvoiceVerificationMessage('Please enter a Vendor Invoice Number to verify.');
+      setReceiveForm(prev => ({ ...prev, items: [] }));
+      return;
+    }
+
+    setInvoiceVerificationStatus('CHECKING');
+    setInvoiceVerificationMessage('Verifying invoice details against supplier records and Purchase Order...');
+
+    try {
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/inventory/purchases/${selectedPOId}/verify-invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoiceNumber: invNum,
+          vendorId: selectedVendorId ? parseInt(selectedVendorId) : null
+        })
       });
-      setReceiveForm(prev => ({
-        ...prev,
-        invoiceNumber: po.invoiceNumber && !po.invoiceNumber.startsWith('INV-PO-') ? po.invoiceNumber : '',
-        amountPaid: 0,
-        paymentMethod: 'UPI',
-        paymentReference: '',
-        paymentDate: new Date().toISOString().split('T')[0],
-        items: itemsToReceive
-      }));
-    } else {
+      const data = await res.json().catch(() => ({}));
+      if (data.verified) {
+        setInvoiceVerificationStatus('VERIFIED');
+        setInvoiceVerificationMessage(data.message || 'Invoice successfully verified against original supplier records.');
+        setVerifiedInvoiceData(data);
+        const mappedItems = Array.isArray(data.items) ? data.items.map((it: any) => {
+          const ordered = parseFloat(it.orderedQuantity !== undefined ? it.orderedQuantity : it.quantity) || 0;
+          const rec = parseFloat(it.alreadyReceivedQuantity !== undefined ? it.alreadyReceivedQuantity : (it.alreadyReceived || 0)) || 0;
+          const rem = Math.max(0, it.remainingQuantity !== undefined ? it.remainingQuantity : (ordered - rec));
+          const receivingQty = it.receivingQuantity !== undefined ? it.receivingQuantity : (rem > 0 ? rem : 0);
+          return {
+            ingredientId: it.matchedIngredientId,
+            ingredientName: it.matchedIngredientName || it.shortName || it.description,
+            itemCode: it.itemCode || '',
+            unit: it.unit || 'kg',
+            quantityOrdered: ordered,
+            alreadyReceived: rec,
+            remaining: rem,
+            quantity: receivingQty,
+            costPerUnit: it.costPerUnit !== undefined ? it.costPerUnit : (it.unitRate || 0),
+            mrp: it.mrp,
+            discountPercent: it.discountPercent || 0,
+            taxRate: it.taxRate || 0,
+            taxAmount: it.taxAmount || 0,
+            lineTotal: it.lineTotal !== undefined ? it.lineTotal : ((parseFloat(receivingQty) || 0) * (parseFloat(it.costPerUnit || it.unitRate || 0))),
+            mismatchFlag: Boolean(it.mismatchFlag),
+            mismatchReason: it.mismatchReason || '',
+            expiryDate: it.expiryDate || ''
+          };
+        }) : [];
+        setReceiveForm(prev => ({
+          ...prev,
+          invoiceNumber: data.invoiceNumber || invNum,
+          invoiceDate: data.invoiceDate || prev.invoiceDate,
+          items: mappedItems
+        }));
+      } else {
+        setInvoiceVerificationStatus(data.status || 'INVALID');
+        setInvoiceVerificationMessage(data.message || 'Invoice verification failed. Please check the invoice number or upload the original document.');
+        setVerifiedInvoiceData(null);
+        setReceiveForm(prev => ({ ...prev, items: [] }));
+      }
+    } catch (err: any) {
+      setInvoiceVerificationStatus('INVALID');
+      setInvoiceVerificationMessage(err?.message || 'Network error verifying invoice.');
+      setVerifiedInvoiceData(null);
       setReceiveForm(prev => ({ ...prev, items: [] }));
     }
   };
@@ -194,6 +254,10 @@ export default function Purchases() {
       alert('Please select a Purchase Order to receive stock against.');
       return;
     }
+    if (invoiceVerificationStatus !== 'VERIFIED') {
+      alert('Please verify the vendor invoice before receiving stock. Unverified or mismatched invoices cannot be inwarded.');
+      return;
+    }
     if (!receiveForm.invoiceNumber.trim()) {
       alert("Please enter the vendor's invoice number.");
       return;
@@ -233,18 +297,6 @@ export default function Purchases() {
       return;
     }
 
-    // Validate billing & payment details
-    const totalAmount = validItems.reduce((sum, it) => sum + ((parseFloat(it.quantity) || 0) * (parseFloat(it.costPerUnit) || 0)), 0);
-    const paid = parseFloat(receiveForm.amountPaid as any) || 0;
-    if (paid < 0) {
-      alert('Amount paid cannot be negative.');
-      return;
-    }
-    if (paid > totalAmount) {
-      alert(`Amount paid (₹${paid.toFixed(2)}) cannot exceed the total purchase amount (₹${totalAmount.toFixed(2)}).`);
-      return;
-    }
-
     setIsReceiving(true);
     try {
       const res = await apiFetch(`https://erp-api.neurolinx.in/api/inventory/purchases/${selectedPOId}/receive`, {
@@ -254,10 +306,9 @@ export default function Purchases() {
           invoiceNumber: receiveForm.invoiceNumber.trim(),
           invoiceDate: receiveForm.invoiceDate,
           receiptDate: receiveForm.receiptDate,
-          amountPaid: paid,
-          paymentMethod: receiveForm.paymentMethod || 'UPI',
-          paymentReference: receiveForm.paymentReference ? receiveForm.paymentReference.trim() : null,
-          paymentDate: receiveForm.paymentDate || receiveForm.receiptDate,
+          invoiceTotal: verifiedInvoiceData?.invoiceTotal || totalInwardAmount,
+          taxableAmount: verifiedInvoiceData?.taxableAmount || totalInwardAmount,
+          taxAmount: verifiedInvoiceData?.taxAmount || 0,
           items: validItems
         })
       });
@@ -268,19 +319,21 @@ export default function Purchases() {
           `• GRN: ${data.receiptNumber || 'Created'}\n` +
           `• Vendor Invoice: #${receiveForm.invoiceNumber.trim()}\n` +
           `• Purchase Order: ${data.poNumber || `PO-${selectedPOId}`} [${data.status}]\n` +
-          `• Total Inward Amount: ₹${(data.totalAmount !== undefined ? data.totalAmount : totalAmount).toFixed(2)}\n` +
-          `• Amount Paid: ₹${(data.amountPaid !== undefined ? data.amountPaid : paid).toFixed(2)} (${data.paymentMethod || receiveForm.paymentMethod})\n` +
-          `• Remaining Balance: ₹${(data.remainingBalance !== undefined ? data.remainingBalance : 0).toFixed(2)} [${data.paymentStatus || 'Status'}]\n\n` +
-          `Raw Material stock levels and batch ledger have been updated.`
+          `• Total Inward Amount: ₹${(data.totalAmount !== undefined ? data.totalAmount : totalInwardAmount).toFixed(2)}\n` +
+          `• Verified Supplier Invoice Value: ₹${(verifiedInvoiceData?.invoiceTotal || data.totalAmount || totalInwardAmount).toFixed(2)}\n\n` +
+          `Raw Material stock levels and batch ledger have been updated in PostgreSQL.`
         );
         setSelectedPOId('');
         setSelectedVendorId('');
+        setInvoiceVerificationStatus('IDLE');
+        setInvoiceVerificationMessage('');
+        setVerifiedInvoiceData(null);
         setReceiveForm({
           invoiceNumber: '',
           invoiceDate: new Date().toISOString().split('T')[0],
           receiptDate: new Date().toISOString().split('T')[0],
           amountPaid: 0,
-          paymentMethod: 'UPI',
+          paymentMethod: 'CREDIT',
           paymentReference: '',
           paymentDate: new Date().toISOString().split('T')[0],
           items: []
@@ -340,7 +393,7 @@ export default function Purchases() {
     }
   };
 
-  // Phase 5: Handle file upload for invoice attachment
+  // Phase 5: Handle file upload for invoice attachment with automatic extraction
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, poId: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -358,11 +411,16 @@ export default function Purchases() {
             invoiceAttachmentName: file.name
           })
         });
+        const updatedPO = await res.json().catch(() => ({}));
         setIsUploadingInvoice(false);
         if (res.ok) {
-          alert('Vendor invoice/challan document attached successfully!');
+          alert('Vendor invoice/challan document attached and extracted successfully!');
           setInvoiceModalPO(null);
           fetchData();
+          if (selectedPOId === poId.toString() && updatedPO?.invoiceNumber) {
+            setReceiveForm(prev => ({ ...prev, invoiceNumber: updatedPO.invoiceNumber }));
+            handleVerifyInvoice(updatedPO.invoiceNumber);
+          }
         } else {
           alert('Failed to attach invoice document');
         }
@@ -393,6 +451,7 @@ export default function Purchases() {
   const isStep3Complete = Boolean(
     isStep1Complete &&
     isStep2Complete &&
+    invoiceVerificationStatus === 'VERIFIED' &&
     receiveForm.invoiceNumber.trim() &&
     receiveForm.invoiceDate &&
     receiveForm.receiptDate
@@ -408,15 +467,6 @@ export default function Purchases() {
     const maxRemaining = it.remaining !== undefined ? it.remaining : Math.max(0, (it.quantityOrdered || 0) - (it.alreadyReceived || 0));
     return (parseFloat(it.quantity) || 0) > maxRemaining;
   });
-  const canShowStep5 = Boolean(showItemsReceived && validReceivingItemsCount > 0 && !hasOverReceivingError);
-  const currentAmountPaid = parseFloat(receiveForm.amountPaid as any) || 0;
-  const isAmountPaidOver = currentAmountPaid > totalInwardAmount;
-  const remainingBalance = Math.max(0, totalInwardAmount - currentAmountPaid);
-  const paymentStatusBadge = currentAmountPaid <= 0
-    ? { label: 'UNPAID', bg: '#fee2e2', color: '#b91c1c' }
-    : currentAmountPaid >= totalInwardAmount && totalInwardAmount > 0
-      ? { label: 'PAID', bg: '#dcfce7', color: '#15803d' }
-      : { label: 'PARTIALLY PAID', bg: '#fef3c7', color: '#b45309' };
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1280px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
@@ -665,7 +715,10 @@ export default function Purchases() {
                   onChange={e => {
                     setSelectedVendorId(e.target.value);
                     setSelectedPOId('');
-                    setReceiveForm({ ...receiveForm, items: [] });
+                    setInvoiceVerificationStatus('IDLE');
+                    setInvoiceVerificationMessage('');
+                    setVerifiedInvoiceData(null);
+                    setReceiveForm({ ...receiveForm, invoiceNumber: '', items: [] });
                   }}
                   style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
                 >
@@ -703,32 +756,33 @@ export default function Purchases() {
                       {selectedPOObject.invoiceAttachmentUrl ? `Physical Invoice Attached: ${selectedPOObject.invoiceAttachmentName || 'Vendor Bill'}` : 'Physical Vendor Invoice Not Yet Attached'}
                     </div>
                     <span style={{ fontSize: '0.75rem', color: selectedPOObject.invoiceAttachmentUrl ? '#15803d' : '#b45309' }}>
-                      Cross-verify inward quantities against the vendor\'s official paper challan.
+                      Cross-verify inward quantities and pricing against the original vendor invoice document.
                     </span>
                   </div>
                 </div>
 
-                {selectedPOObject.invoiceAttachmentUrl ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPreviewDocUrl(selectedPOObject.invoiceAttachmentUrl);
-                      setPreviewDocName(selectedPOObject.invoiceAttachmentName || 'Delivery-Challan');
-                      setShowInvoiceViewer(true);
-                    }}
-                    style={{ padding: '0.5rem 1rem', backgroundColor: '#15803d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
-                  >
-                    Inspect Physical Challan
-                  </button>
-                ) : (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {selectedPOObject.invoiceAttachmentUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewDocUrl(selectedPOObject.invoiceAttachmentUrl);
+                        setPreviewDocName(selectedPOObject.invoiceAttachmentName || 'Delivery-Challan');
+                        setShowInvoiceViewer(true);
+                      }}
+                      style={{ padding: '0.5rem 1rem', backgroundColor: '#15803d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+                    >
+                      Inspect Bill
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setInvoiceModalPO(selectedPOObject)}
-                    style={{ padding: '0.5rem 1rem', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+                    style={{ padding: '0.5rem 1rem', backgroundColor: selectedPOObject.invoiceAttachmentUrl ? '#0284c7' : '#d97706', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
                   >
-                    + Upload Scanned Bill
+                    {selectedPOObject.invoiceAttachmentUrl ? 'Re-upload / Update Bill' : '+ Upload Scanned Bill'}
                   </button>
-                )}
+                </div>
               </div>
             )}
 
@@ -743,18 +797,56 @@ export default function Purchases() {
                     <span>PO: <strong style={{ color: '#0284c7' }}>{selectedPOObject?.poNumber || `PO-${selectedPOId}`}</strong></span>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Vendor Invoice # *</label>
-                    <input
-                      required
-                      type="text"
-                      placeholder="e.g. INV-9042"
-                      value={receiveForm.invoiceNumber}
-                      onChange={e => setReceiveForm({ ...receiveForm, invoiceNumber: e.target.value })}
-                      style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}
-                    />
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input
+                        required
+                        type="text"
+                        placeholder="e.g. 261036G002900941"
+                        value={receiveForm.invoiceNumber}
+                        onChange={e => {
+                          setReceiveForm({ ...receiveForm, invoiceNumber: e.target.value });
+                          if (invoiceVerificationStatus !== 'IDLE') {
+                            setInvoiceVerificationStatus('IDLE');
+                            setInvoiceVerificationMessage('');
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '0.6rem',
+                          borderRadius: '4px',
+                          border: invoiceVerificationStatus === 'VERIFIED'
+                            ? '2px solid #10b981'
+                            : (invoiceVerificationStatus === 'INVALID' || invoiceVerificationStatus === 'DUPLICATE' || invoiceVerificationStatus === 'MISMATCH' || invoiceVerificationStatus === 'VENDOR_MISMATCH')
+                              ? '2px solid #ef4444'
+                              : '1px solid #cbd5e1',
+                          backgroundColor: 'white'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleVerifyInvoice()}
+                        disabled={invoiceVerificationStatus === 'CHECKING' || !receiveForm.invoiceNumber.trim()}
+                        style={{
+                          padding: '0.6rem 1rem',
+                          backgroundColor: invoiceVerificationStatus === 'CHECKING' ? '#94a3b8' : '#0284c7',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: (invoiceVerificationStatus === 'CHECKING' || !receiveForm.invoiceNumber.trim()) ? 'not-allowed' : 'pointer',
+                          fontWeight: 600,
+                          fontSize: '0.8rem',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {invoiceVerificationStatus === 'CHECKING' ? 'Checking...' : 'Verify Invoice'}
+                      </button>
+                    </div>
                   </div>
+
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Invoice Date *</label>
                     <input
@@ -765,6 +857,7 @@ export default function Purchases() {
                       style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}
                     />
                   </div>
+
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Stock Receipt Date *</label>
                     <input
@@ -776,305 +869,257 @@ export default function Purchases() {
                     />
                   </div>
                 </div>
+
+                {/* Verification Status Banner */}
+                {invoiceVerificationStatus === 'CHECKING' && (
+                  <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '6px', color: '#1e40af', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Icons.Loader2 size={16} className="animate-spin" /> Verifying invoice against supplier records...
+                  </div>
+                )}
+
+                {invoiceVerificationStatus === 'VERIFIED' && (
+                  <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', color: '#166534', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                      <Icons.CheckCircle size={18} color="#15803d" /> Verified Supplier Invoice: #{verifiedInvoiceData?.invoiceNumber}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#166534' }}>
+                      Vendor: <b>{verifiedInvoiceData?.vendorName || selectedPOObject?.vendor?.name}</b> {verifiedInvoiceData?.vendorGstin ? `(GSTIN: ${verifiedInvoiceData.vendorGstin})` : ''} | Verified Invoice Total: <b>₹{(verifiedInvoiceData?.invoiceTotal !== undefined ? verifiedInvoiceData.invoiceTotal : (selectedPOObject?.totalAmount || 0)).toFixed(2)}</b>
+                    </div>
+                  </div>
+                )}
+
+                {(invoiceVerificationStatus === 'INVALID' || invoiceVerificationStatus === 'MISMATCH' || invoiceVerificationStatus === 'VENDOR_MISMATCH' || invoiceVerificationStatus === 'DUPLICATE') && (
+                  <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                      <Icons.AlertTriangle size={18} color="#dc2626" />
+                      {invoiceVerificationStatus === 'DUPLICATE' ? 'Duplicate Invoice Submission Blocked' : 'Invoice Validation Error'}
+                    </div>
+                    <div style={{ fontSize: '0.8rem' }}>
+                      {invoiceVerificationMessage || 'The entered invoice number could not be validated. Option 4 (Items Received) is locked to prevent unauthorized stock posting.'}
+                    </div>
+                  </div>
+                )}
+
+                {invoiceVerificationStatus === 'UNVERIFIED' && (
+                  <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#fffbeb', border: '1px solid #fde047', borderRadius: '6px', color: '#854d0e', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Icons.AlertCircle size={18} color="#d97706" />
+                      <div>
+                        <b>Original Invoice Document Not Attached:</b> {invoiceVerificationMessage}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setInvoiceModalPO(selectedPOObject)}
+                      style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}
+                    >
+                      + Upload Vendor Bill
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Guided Notice: Step 4 is hidden until Step 1, 2, 3 are completed */}
-            {selectedPOId && !isStep3Complete && (
+            {/* Guided Notice: Step 4 is hidden until Step 1, 2, 3 are validated */}
+            {selectedPOId && !showItemsReceived && (
               <div style={{ padding: '1.25rem', backgroundColor: '#eff6ff', border: '1px dashed #93c5fd', borderRadius: '8px', color: '#1e40af', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
                 <Icons.Lock size={20} color="#2563eb" />
                 <div>
-                  <strong>Option 4 (Items Received) is Hidden:</strong> Please enter the <strong>Vendor Invoice Number</strong> and verify the dates in Option 3 above to reveal and inward items.
+                  <strong>Option 4 (Items Received) is Locked:</strong> Enter the official supplier invoice number above and click <strong>Verify Invoice</strong> (or upload the vendor bill) to validate items, actual pricing, and inward quantities.
                 </div>
               </div>
             )}
 
-            {/* Step 4: Items Received List (Visible ONLY after Option 1, 2, and 3 are valid) */}
+            {/* Step 4: Items Received List (Visible ONLY after Option 1, 2, and 3 are validated) */}
             {showItemsReceived && (
-              <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ marginBottom: '1.5rem', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#0f172a', fontWeight: 600 }}>4. Items Received (Enter Inward Quantities)</h4>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                    Inwarding against Invoice: <strong style={{ color: '#0284c7' }}>#{receiveForm.invoiceNumber.trim()}</strong>
-                  </div>
-                </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f1f5f9', fontSize: '0.8rem', color: '#475569' }}>
-                      <th style={{ padding: '0.75rem' }}>Raw Material</th>
-                      <th style={{ padding: '0.75rem' }}>Ordered</th>
-                      <th style={{ padding: '0.75rem' }}>Previously Received</th>
-                      <th style={{ padding: '0.75rem' }}>Remaining</th>
-                      <th style={{ padding: '0.75rem' }}>Receiving Now *</th>
-                      <th style={{ padding: '0.75rem' }}>Unit Cost (₹) *</th>
-                      <th style={{ padding: '0.75rem' }}>Expiry Date</th>
-                      <th style={{ padding: '0.75rem' }}>Total (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {receiveForm.items.map((item, idx) => {
-                      const lineTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.costPerUnit) || 0);
-                      const isHighlighted = highlightedIngredientId === item.ingredientId;
-                      const maxRemaining = item.remaining !== undefined ? item.remaining : Math.max(0, (item.quantityOrdered || 0) - (item.alreadyReceived || 0));
-                      const isExceeding = parseFloat(item.quantity) > maxRemaining;
-
-                      return (
-                        <tr
-                          key={idx}
-                          style={{
-                            borderBottom: '1px solid #f1f5f9',
-                            backgroundColor: isExceeding ? '#fef2f2' : isHighlighted ? '#eff6ff' : 'white',
-                            transition: 'background-color 0.3s'
-                          }}
-                        >
-                          <td style={{ padding: '0.75rem', fontWeight: 600 }}>
-                            {item.ingredientName}
-                            {isHighlighted && <span style={{ marginLeft: '0.5rem', color: '#0284c7', fontSize: '0.75rem' }}>[Scanned]</span>}
-                          </td>
-                          <td style={{ padding: '0.75rem' }}>{item.quantityOrdered} {item.unit}</td>
-                          <td style={{ padding: '0.75rem', color: '#64748b' }}>{item.alreadyReceived} {item.unit}</td>
-                          <td style={{ padding: '0.75rem', fontWeight: 600, color: maxRemaining > 0 ? '#0284c7' : '#10b981' }}>
-                            {maxRemaining} {item.unit}
-                          </td>
-                          <td style={{ padding: '0.75rem' }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                <input
-                                  id={`receive-qty-input-${idx}`}
-                                  required
-                                  type="number"
-                                  step="0.001"
-                                  min="0"
-                                  value={item.quantity}
-                                  onChange={e => {
-                                    const updated = [...receiveForm.items];
-                                    updated[idx].quantity = e.target.value;
-                                    setReceiveForm({ ...receiveForm, items: updated });
-                                  }}
-                                  style={{
-                                    width: '90px',
-                                    padding: '0.4rem',
-                                    borderRadius: '4px',
-                                    border: isExceeding ? '2px solid #ef4444' : isHighlighted ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                                    fontWeight: 600,
-                                    backgroundColor: isExceeding ? '#fee2e2' : 'white'
-                                  }}
-                                />
-                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{item.unit}</span>
-                                <button
-                                  type="button"
-                                  title="Fill full remaining quantity"
-                                  onClick={() => {
-                                    const updated = [...receiveForm.items];
-                                    updated[idx].quantity = maxRemaining;
-                                    setReceiveForm({ ...receiveForm, items: updated });
-                                  }}
-                                  style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 600 }}
-                                >
-                                  All
-                                </button>
-                              </div>
-                              {isExceeding && (
-                                <div style={{ color: '#dc2626', fontSize: '0.7rem', fontWeight: 600, marginTop: '2px' }}>
-                                  Exceeds remaining ({maxRemaining} {item.unit})
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td style={{ padding: '0.75rem' }}>
-                            <input
-                              required
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={item.costPerUnit}
-                              onChange={e => {
-                                const updated = [...receiveForm.items];
-                                updated[idx].costPerUnit = e.target.value;
-                                setReceiveForm({ ...receiveForm, items: updated });
-                              }}
-                              style={{ width: '90px', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                            />
-                          </td>
-                          <td style={{ padding: '0.75rem' }}>
-                            <input
-                              type="date"
-                              value={item.expiryDate}
-                              onChange={e => {
-                                const updated = [...receiveForm.items];
-                                updated[idx].expiryDate = e.target.value;
-                                setReceiveForm({ ...receiveForm, items: updated });
-                              }}
-                              style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
-                            />
-                          </td>
-                          <td style={{ padding: '0.75rem', fontWeight: 600 }}>₹{lineTotal.toFixed(2)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 6px 6px' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                    Line items with inward quantities: <strong style={{ color: '#0f172a' }}>{validReceivingItemsCount} of {receiveForm.items.length}</strong>
-                  </span>
-                  <span style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
-                    Total Inward Purchase Cost: <strong style={{ color: '#059669' }}>₹{totalInwardAmount.toFixed(2)}</strong>
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Guided Notice: Step 5 is locked until items and valid inward quantities are set */}
-            {showItemsReceived && !canShowStep5 && (
-              <div style={{ padding: '1.25rem', backgroundColor: '#fefce8', border: '1px dashed #fde047', borderRadius: '8px', color: '#854d0e', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                <Icons.AlertCircle size={20} color="#d97706" />
-                <div>
-                  {hasOverReceivingError
-                    ? "Please correct receiving quantities exceeding remaining ordered quantities (highlighted in red) to proceed to Option 5 (Billing & Payment Details)."
-                    : "Please enter a receiving quantity (> 0) in Option 4 above to proceed to Option 5 (Billing & Payment Details)."}
-                </div>
-              </div>
-            )}
-
-            {/* Step 5: Billing & Payment Details (Visible ONLY after Option 4 is valid) */}
-            {canShowStep5 && (
-              <div style={{ backgroundColor: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Icons.CreditCard size={20} color="#0284c7" />
-                    <h4 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 600 }}>5. Billing & Payment Details</h4>
+                    <Icons.PackageCheck size={20} color="#059669" />
+                    <h4 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 600 }}>4. Verified Items Received (Enter Inward Quantities)</h4>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                      Payment Status: <span style={{ backgroundColor: paymentStatusBadge.bg, color: paymentStatusBadge.color, padding: '0.2rem 0.6rem', borderRadius: '9999px', fontWeight: 700, fontSize: '0.75rem' }}>{paymentStatusBadge.label}</span>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                    Inwarding against Verified Invoice: <strong style={{ color: '#0284c7' }}>#{receiveForm.invoiceNumber.trim()}</strong>
+                  </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f1f5f9', fontSize: '0.8rem', color: '#475569' }}>
+                        <th style={{ padding: '0.75rem' }}>Item & Code</th>
+                        <th style={{ padding: '0.75rem' }}>Invoice Qty</th>
+                        <th style={{ padding: '0.75rem' }}>PO Ordered</th>
+                        <th style={{ padding: '0.75rem' }}>Remaining</th>
+                        <th style={{ padding: '0.75rem' }}>Receiving Now *</th>
+                        <th style={{ padding: '0.75rem' }}>Invoice Rate (₹) *</th>
+                        <th style={{ padding: '0.75rem' }}>Tax / Disc</th>
+                        <th style={{ padding: '0.75rem' }}>Expiry Date</th>
+                        <th style={{ padding: '0.75rem' }}>Verified Total (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {receiveForm.items.map((item, idx) => {
+                        const lineTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.costPerUnit) || 0);
+                        const isHighlighted = highlightedIngredientId === item.ingredientId;
+                        const maxRemaining = item.remaining !== undefined ? item.remaining : Math.max(0, (item.quantityOrdered || 0) - (item.alreadyReceived || 0));
+                        const isExceeding = parseFloat(item.quantity) > maxRemaining;
+
+                        return (
+                          <tr
+                            key={idx}
+                            style={{
+                              borderBottom: '1px solid #f1f5f9',
+                              backgroundColor: isExceeding ? '#fef2f2' : item.mismatchFlag ? '#fffbeb' : isHighlighted ? '#eff6ff' : 'white',
+                              transition: 'background-color 0.3s'
+                            }}
+                          >
+                            <td style={{ padding: '0.75rem' }}>
+                              <div style={{ fontWeight: 600, color: '#0f172a' }}>{item.ingredientName}</div>
+                              {item.itemCode && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Code: {item.itemCode}</div>}
+                              {item.mismatchFlag && (
+                                <span style={{ display: 'inline-block', marginTop: '0.2rem', backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 600 }}>
+                                  Mismatch: Flagged for Review
+                                </span>
+                              )}
+                              {isHighlighted && <span style={{ marginLeft: '0.5rem', color: '#0284c7', fontSize: '0.75rem', fontWeight: 600 }}>[Scanned]</span>}
+                            </td>
+                            <td style={{ padding: '0.75rem', color: '#334155' }}>
+                              {item.quantityOrdered || item.quantity} {item.unit}
+                            </td>
+                            <td style={{ padding: '0.75rem', color: '#64748b' }}>
+                              {item.quantityOrdered} {item.unit}
+                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Prev Rec: {item.alreadyReceived || 0}</div>
+                            </td>
+                            <td style={{ padding: '0.75rem', fontWeight: 600, color: maxRemaining > 0 ? '#0284c7' : '#10b981' }}>
+                              {maxRemaining} {item.unit}
+                            </td>
+                            <td style={{ padding: '0.75rem' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <input
+                                    id={`receive-qty-input-${idx}`}
+                                    required
+                                    type="number"
+                                    step="0.001"
+                                    min="0"
+                                    value={item.quantity}
+                                    onChange={e => {
+                                      const updated = [...receiveForm.items];
+                                      updated[idx].quantity = e.target.value;
+                                      setReceiveForm({ ...receiveForm, items: updated });
+                                    }}
+                                    style={{
+                                      width: '90px',
+                                      padding: '0.4rem',
+                                      borderRadius: '4px',
+                                      border: isExceeding ? '2px solid #ef4444' : isHighlighted ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                                      fontWeight: 600,
+                                      backgroundColor: isExceeding ? '#fee2e2' : 'white'
+                                    }}
+                                  />
+                                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{item.unit}</span>
+                                  <button
+                                    type="button"
+                                    title="Fill full remaining quantity"
+                                    onClick={() => {
+                                      const updated = [...receiveForm.items];
+                                      updated[idx].quantity = maxRemaining;
+                                      setReceiveForm({ ...receiveForm, items: updated });
+                                    }}
+                                    style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 600 }}
+                                  >
+                                    All
+                                  </button>
+                                </div>
+                                {isExceeding && (
+                                  <div style={{ color: '#dc2626', fontSize: '0.7rem', fontWeight: 600, marginTop: '2px' }}>
+                                    Exceeds remaining ({maxRemaining} {item.unit})
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: '0.75rem' }}>
+                              <input
+                                required
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={item.costPerUnit}
+                                onChange={e => {
+                                  const updated = [...receiveForm.items];
+                                  updated[idx].costPerUnit = e.target.value;
+                                  setReceiveForm({ ...receiveForm, items: updated });
+                                }}
+                                style={{ width: '90px', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>
+                              {item.taxRate ? `${item.taxRate}% GST` : '0%'}
+                              {item.discountPercent > 0 && <span style={{ display: 'block', color: '#059669' }}>-{item.discountPercent}% Disc</span>}
+                            </td>
+                            <td style={{ padding: '0.75rem' }}>
+                              <input
+                                type="date"
+                                value={item.expiryDate}
+                                onChange={e => {
+                                  const updated = [...receiveForm.items];
+                                  updated[idx].expiryDate = e.target.value;
+                                  setReceiveForm({ ...receiveForm, items: updated });
+                                }}
+                                style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.75rem', fontWeight: 600 }}>₹{lineTotal.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Cost Reconciliation & Inward Summary */}
+                <div style={{ padding: '1rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 6px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                    <div>
+                      Items selected for receiving: <strong style={{ color: '#0f172a' }}>{validReceivingItemsCount} of {receiveForm.items.length}</strong>
                     </div>
-                  </div>
-                </div>
-
-                {/* Summary Metrics */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem', backgroundColor: 'white', padding: '1rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Total Purchase Amount</span>
-                    <strong style={{ fontSize: '1.25rem', color: '#0f172a' }}>₹{totalInwardAmount.toFixed(2)}</strong>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Amount Paid</span>
-                    <strong style={{ fontSize: '1.25rem', color: '#059669' }}>₹{currentAmountPaid.toFixed(2)}</strong>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Remaining Balance</span>
-                    <strong style={{ fontSize: '1.25rem', color: remainingBalance > 0 ? '#d97706' : '#10b981' }}>
-                      ₹{remainingBalance.toFixed(2)}
-                    </strong>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Payment Method</span>
-                    <strong style={{ fontSize: '1rem', color: '#0284c7' }}>{receiveForm.paymentMethod}</strong>
-                  </div>
-                </div>
-
-                {/* Form Fields */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Payment Method *</label>
-                    <select
-                      value={receiveForm.paymentMethod}
-                      onChange={e => setReceiveForm({ ...receiveForm, paymentMethod: e.target.value })}
-                      style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}
-                    >
-                      <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
-                      <option value="Cash">Cash</option>
-                      <option value="Card">Card (Debit / Credit)</option>
-                      <option value="Bank Transfer">Bank Transfer / NEFT / IMPS</option>
-                      <option value="Credit/Pay Later">Credit / Pay Later</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                      <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Amount Paid (₹) *</label>
-                      <div style={{ display: 'flex', gap: '0.3rem' }}>
-                        <button
-                          type="button"
-                          onClick={() => setReceiveForm({ ...receiveForm, amountPaid: parseFloat(totalInwardAmount.toFixed(2)) })}
-                          style={{ padding: '0.15rem 0.4rem', fontSize: '0.65rem', backgroundColor: '#dcfce7', color: '#15803d', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 600 }}
-                        >
-                          Full
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReceiveForm({ ...receiveForm, amountPaid: parseFloat((totalInwardAmount / 2).toFixed(2)) })}
-                          style={{ padding: '0.15rem 0.4rem', fontSize: '0.65rem', backgroundColor: '#fef3c7', color: '#b45309', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 600 }}
-                        >
-                          50%
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setReceiveForm({ ...receiveForm, amountPaid: 0 })}
-                          style={{ padding: '0.15rem 0.4rem', fontSize: '0.65rem', backgroundColor: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 600 }}
-                        >
-                          Zero / Credit
-                        </button>
+                    {verifiedInvoiceData?.invoiceTotal !== undefined && (
+                      <div style={{ marginTop: '0.25rem', fontSize: '0.8rem' }}>
+                        Supplier Invoice Value: <strong style={{ color: '#0f172a' }}>₹{Number(verifiedInvoiceData.invoiceTotal).toFixed(2)}</strong>
+                        {verifiedInvoiceData.taxableAmount && <span> (Taxable: ₹{Number(verifiedInvoiceData.taxableAmount).toFixed(2)} | GST: ₹{Number(verifiedInvoiceData.taxAmount || 0).toFixed(2)})</span>}
                       </div>
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max={totalInwardAmount}
-                      value={receiveForm.amountPaid}
-                      onChange={e => setReceiveForm({ ...receiveForm, amountPaid: parseFloat(e.target.value) || 0 })}
-                      style={{
-                        width: '100%',
-                        padding: '0.6rem',
-                        borderRadius: '4px',
-                        border: isAmountPaidOver ? '2px solid #ef4444' : '1px solid #cbd5e1',
-                        backgroundColor: isAmountPaidOver ? '#fee2e2' : 'white'
-                      }}
-                    />
-                    {isAmountPaidOver && (
-                      <span style={{ color: '#ef4444', fontSize: '0.7rem', fontWeight: 600, display: 'block', marginTop: '2px' }}>
-                        Amount paid cannot exceed total purchase amount (₹{totalInwardAmount.toFixed(2)})
-                      </span>
                     )}
                   </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Payment Date *</label>
-                    <input
-                      type="date"
-                      value={receiveForm.paymentDate}
-                      onChange={e => setReceiveForm({ ...receiveForm, paymentDate: e.target.value })}
-                      style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Transaction / Reference # (Optional)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. UPI Ref / UTR / Cheque / Card Auth #"
-                      value={receiveForm.paymentReference}
-                      onChange={e => setReceiveForm({ ...receiveForm, paymentReference: e.target.value })}
-                      style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}
-                    />
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
+                      Total Inward Stock Value: <strong style={{ color: '#059669' }}>₹{totalInwardAmount.toFixed(2)}</strong>
+                    </div>
+                    {verifiedInvoiceData?.invoiceTotal !== undefined && Math.abs(totalInwardAmount - Number(verifiedInvoiceData.invoiceTotal)) > 0.01 && (
+                      <div style={{ fontSize: '0.75rem', color: '#b45309', fontWeight: 600, marginTop: '2px' }}>
+                        Notice: Partial receipt recorded (₹{totalInwardAmount.toFixed(2)} of ₹{Number(verifiedInvoiceData.invoiceTotal).toFixed(2)} invoice value).
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Section 5 Action Buttons */}
+                {/* Action Buttons directly under Option 4 (Option 5 Removed) */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedPOId('');
                       setSelectedVendorId('');
+                      setInvoiceVerificationStatus('IDLE');
+                      setInvoiceVerificationMessage('');
+                      setVerifiedInvoiceData(null);
                       setReceiveForm({
                         invoiceNumber: '',
                         invoiceDate: new Date().toISOString().split('T')[0],
                         receiptDate: new Date().toISOString().split('T')[0],
                         amountPaid: 0,
-                        paymentMethod: 'UPI',
+                        paymentMethod: 'CREDIT',
                         paymentReference: '',
                         paymentDate: new Date().toISOString().split('T')[0],
                         items: []
@@ -1086,21 +1131,21 @@ export default function Purchases() {
                   </button>
                   <button
                     type="submit"
-                    disabled={isReceiving || isAmountPaidOver || validReceivingItemsCount === 0 || hasOverReceivingError}
+                    disabled={isReceiving || validReceivingItemsCount === 0 || hasOverReceivingError}
                     style={{
                       padding: '0.75rem 2rem',
-                      backgroundColor: (isReceiving || isAmountPaidOver || validReceivingItemsCount === 0 || hasOverReceivingError) ? '#94a3b8' : '#10b981',
+                      backgroundColor: (isReceiving || validReceivingItemsCount === 0 || hasOverReceivingError) ? '#94a3b8' : '#10b981',
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
-                      cursor: (isReceiving || isAmountPaidOver || validReceivingItemsCount === 0 || hasOverReceivingError) ? 'not-allowed' : 'pointer',
+                      cursor: (isReceiving || validReceivingItemsCount === 0 || hasOverReceivingError) ? 'not-allowed' : 'pointer',
                       fontWeight: 600,
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.5rem'
                     }}
                   >
-                    <Icons.CheckCircle size={18} /> {isReceiving ? 'Processing Inward & Payment...' : 'Confirm & Inward Stock'}
+                    <Icons.CheckCircle size={18} /> {isReceiving ? 'Confirming & Inwarding Stock...' : 'Confirm & Inward Stock'}
                   </button>
                 </div>
               </div>

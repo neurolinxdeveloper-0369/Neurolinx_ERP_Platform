@@ -280,6 +280,25 @@ public class InventoryService {
             List<Map<String, Object>> receivedItems,
             String username
     ) {
+        return receiveStock(po, invoiceNumber, invoiceDate, receiptDate, amountPaid, paymentMethod, paymentReference, paymentDate, null, null, null, receivedItems, username);
+    }
+
+    @Transactional
+    public Map<String, Object> receiveStock(
+            PurchaseOrder po,
+            String invoiceNumber,
+            LocalDate invoiceDate,
+            LocalDate receiptDate,
+            BigDecimal amountPaid,
+            String paymentMethod,
+            String paymentReference,
+            LocalDate paymentDate,
+            BigDecimal invoiceTotal,
+            BigDecimal taxableAmount,
+            BigDecimal taxAmount,
+            List<Map<String, Object>> receivedItems,
+            String username
+    ) {
         if (po == null) {
             throw new IllegalArgumentException("Purchase order is required");
         }
@@ -448,6 +467,31 @@ public class InventoryService {
             if (itemData.containsKey("expiryDate") && itemData.get("expiryDate") != null && !itemData.get("expiryDate").toString().isEmpty()) {
                 gri.setExpiryDate(LocalDate.parse(itemData.get("expiryDate").toString()));
             }
+            if (itemData.containsKey("itemCode") && itemData.get("itemCode") != null) {
+                gri.setItemCode(itemData.get("itemCode").toString());
+            }
+            if (itemData.containsKey("invoiceQuantity") && itemData.get("invoiceQuantity") != null) {
+                gri.setInvoiceQuantity(new BigDecimal(itemData.get("invoiceQuantity").toString()));
+            } else {
+                gri.setInvoiceQuantity(convertedQty);
+            }
+            if (itemData.containsKey("invoiceUnitCost") && itemData.get("invoiceUnitCost") != null) {
+                gri.setInvoiceUnitCost(new BigDecimal(itemData.get("invoiceUnitCost").toString()));
+            } else {
+                gri.setInvoiceUnitCost(unitCost);
+            }
+            if (itemData.containsKey("taxRate") && itemData.get("taxRate") != null) {
+                gri.setTaxRate(new BigDecimal(itemData.get("taxRate").toString()));
+            }
+            if (itemData.containsKey("taxAmount") && itemData.get("taxAmount") != null) {
+                gri.setTaxAmount(new BigDecimal(itemData.get("taxAmount").toString()));
+            }
+            if (itemData.containsKey("discountAmount") && itemData.get("discountAmount") != null) {
+                gri.setDiscountAmount(new BigDecimal(itemData.get("discountAmount").toString()));
+            }
+            if (itemData.containsKey("mismatchFlag") && itemData.get("mismatchFlag") != null) {
+                gri.setMismatchFlag(Boolean.parseBoolean(itemData.get("mismatchFlag").toString()));
+            }
             receiptItems.add(gri);
 
             totalInwardAmount = totalInwardAmount.add(lineTotal);
@@ -488,6 +532,9 @@ public class InventoryService {
 
         // Save Goods Receipt Header & Payment Info
         goodsReceipt.setTotalAmount(totalInwardAmount);
+        goodsReceipt.setInvoiceTotal(invoiceTotal != null ? invoiceTotal : totalInwardAmount);
+        goodsReceipt.setTaxableAmount(taxableAmount != null ? taxableAmount : totalInwardAmount);
+        goodsReceipt.setTaxAmount(taxAmount != null ? taxAmount : BigDecimal.ZERO);
         goodsReceipt.setAmountPaid(actualPaid);
         goodsReceipt.setRemainingBalance(remainingBal);
         goodsReceipt.setPaymentStatus(payStatus);

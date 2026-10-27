@@ -1,8 +1,11 @@
 package com.neurolinx.erp.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neurolinx.erp.model.*;
 import com.neurolinx.erp.repository.*;
 import com.neurolinx.erp.service.InventoryService;
+import com.neurolinx.erp.service.InvoiceParserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -11,9 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/inventory/purchases")
@@ -28,15 +29,23 @@ public class PurchaseController {
     @Autowired private CompanyRepository companyRepo;
     @Autowired private InventoryService inventoryService;
     @Autowired private GoodsReceiptRepository goodsReceiptRepository;
+    @Autowired private InvoiceParserService invoiceParserService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private Company getUserCompany() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        var userOpt = userRepo.findByEmail(email);
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            if (user.getCompany() != null) return user.getCompany();
-            if (user.getRole() != null && user.getRole().getCompany() != null) return user.getRole().getCompany();
-        }
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getName() != null) {
+                String email = auth.getName();
+                var userOpt = userRepo.findByEmail(email);
+                if (userOpt.isPresent()) {
+                    User user = userOpt.get();
+                    if (user.getCompany() != null) return user.getCompany();
+                    if (user.getRole() != null && user.getRole().getCompany() != null) return user.getRole().getCompany();
+                }
+            }
+        } catch (Exception ignored) {}
         return companyRepo.findAll().stream().findFirst().orElse(null);
     }
 
@@ -217,6 +226,16 @@ public class PurchaseController {
         List<Map<String, Object>> receivedItems = (List<Map<String, Object>>) payload.get("items");
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
+        BigDecimal invoiceTotal = payload.containsKey("invoiceTotal") && payload.get("invoiceTotal") != null
+                ? new BigDecimal(payload.get("invoiceTotal").toString())
+                : null;
+        BigDecimal taxableAmount = payload.containsKey("taxableAmount") && payload.get("taxableAmount") != null
+                ? new BigDecimal(payload.get("taxableAmount").toString())
+                : null;
+        BigDecimal taxAmount = payload.containsKey("taxAmount") && payload.get("taxAmount") != null
+                ? new BigDecimal(payload.get("taxAmount").toString())
+                : null;
+
         try {
             Map<String, Object> result = inventoryService.receiveStock(
                     po,
@@ -224,9 +243,12 @@ public class PurchaseController {
                     invoiceDate,
                     receiptDate,
                     amountPaid,
-                    payload.containsKey("paymentMethod") && payload.get("paymentMethod") != null ? payload.get("paymentMethod").toString() : "CASH",
+                    payload.containsKey("paymentMethod") && payload.get("paymentMethod") != null ? payload.get("paymentMethod").toString() : "CREDIT",
                     payload.containsKey("paymentReference") && payload.get("paymentReference") != null ? payload.get("paymentReference").toString() : null,
                     payload.containsKey("paymentDate") && payload.get("paymentDate") != null ? LocalDate.parse(payload.get("paymentDate").toString()) : LocalDate.now(),
+                    invoiceTotal,
+                    taxableAmount,
+                    taxAmount,
                     receivedItems,
                     username
             );
@@ -290,13 +312,199 @@ public class PurchaseController {
             if (company != null && po.getCompany() != null && !po.getCompany().getId().equals(company.getId())) {
                 return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
             }
-            if (payload.containsKey("invoiceAttachmentUrl")) {
-                po.setInvoiceAttachmentUrl(payload.get("invoiceAttachmentUrl") != null ? payload.get("invoiceAttachmentUrl").toString() : null);
+            String docUrl = payload.containsKey("invoiceAttachmentUrl") && payload.get("invoiceAttachmentUrl") != null ? payload.get("invoiceAttachmentUrl").toString() : null;
+            String docName = payload.containsKey("invoiceAttachmentName") && payload.get("invoiceAttachmentName") != null ? payload.get("invoiceAttachmentName").toString() : null;
+
+            if (docUrl != null) po.setInvoiceAttachmentUrl(docUrl);
+            if (docName != null) po.setInvoiceAttachmentName(docName);
+
+            if (payload.containsKey("invoiceData") && payload.get("invoiceData") != null) {
+                po.setInvoiceData(payload.get("invoiceData").toString());
+                try {
+                    Map<String, Object> parsed = objectMapper.readValue(payload.get("invoiceData").toString(), new TypeReference<Map<String, Object>>() {});
+                    if (parsed.containsKey("invoiceNumber")) po.setInvoiceNumber(parsed.get("invoiceNumber").toString());
+                    if (parsed.containsKey("invoiceDate")) po.setInvoiceDate(LocalDate.parse(parsed.get("invoiceDate").toString()));
+                } catch (Exception ignored) {}
+            } else if (docName != null || docUrl != null) {
+                Map<String, Object> extracted = invoiceParserService.extractInvoiceData(docName, docUrl);
+                List<Map<String, Object>> rawItems = (List<Map<String, Object>>) extracted.getOrDefault("items", Collections.emptyList());
+                List<Map<String, Object>> reconciled = invoiceParserService.reconcileWithPO(rawItems, po, company);
+                extracted.put("items", reconciled);
+                try {
+                    po.setInvoiceData(objectMapper.writeValueAsString(extracted));
+                    if (extracted.containsKey("invoiceNumber")) po.setInvoiceNumber(extracted.get("invoiceNumber").toString());
+                    if (extracted.containsKey("invoiceDate")) po.setInvoiceDate(LocalDate.parse(extracted.get("invoiceDate").toString()));
+                } catch (Exception ignored) {}
             }
-            if (payload.containsKey("invoiceAttachmentName")) {
-                po.setInvoiceAttachmentName(payload.get("invoiceAttachmentName") != null ? payload.get("invoiceAttachmentName").toString() : null);
-            }
+
             return ResponseEntity.ok(purchaseOrderRepository.save(po));
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{id}/extract-invoice")
+    public ResponseEntity<?> extractInvoice(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+
+        var poOpt = purchaseOrderRepository.findById(id);
+        if (poOpt.isEmpty()) return ResponseEntity.notFound().build();
+        PurchaseOrder po = poOpt.get();
+
+        String docName = payload.containsKey("documentName") && payload.get("documentName") != null ? payload.get("documentName").toString() : "";
+        String docContent = payload.containsKey("documentUrl") && payload.get("documentUrl") != null ? payload.get("documentUrl").toString() : "";
+
+        Map<String, Object> extracted = invoiceParserService.extractInvoiceData(docName, docContent);
+        List<Map<String, Object>> rawItems = (List<Map<String, Object>>) extracted.getOrDefault("items", Collections.emptyList());
+        List<Map<String, Object>> reconciled = invoiceParserService.reconcileWithPO(rawItems, po, company);
+        extracted.put("items", reconciled);
+
+        return ResponseEntity.ok(extracted);
+    }
+
+    @PostMapping("/{id}/verify-invoice")
+    public ResponseEntity<?> verifyInvoice(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+
+        var poOpt = purchaseOrderRepository.findById(id);
+        if (poOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        PurchaseOrder po = poOpt.get();
+        if (company != null && po.getCompany() != null && !po.getCompany().getId().equals(company.getId())) {
+            return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
+        }
+
+        if (!payload.containsKey("invoiceNumber") || payload.get("invoiceNumber") == null || payload.get("invoiceNumber").toString().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("verified", false, "status", "EMPTY", "message", "Invoice number is required for verification"));
+        }
+
+        String inputInvoice = payload.get("invoiceNumber").toString().trim();
+
+        // 1. Vendor Mismatch Check
+        if (payload.containsKey("vendorId") && payload.get("vendorId") != null) {
+            Long vendorId = Long.parseLong(payload.get("vendorId").toString());
+            if (po.getVendor() != null && !po.getVendor().getId().equals(vendorId)) {
+                return ResponseEntity.ok(Map.of(
+                        "verified", false,
+                        "status", "VENDOR_MISMATCH",
+                        "message", "Vendor Mismatch: Selected vendor does not match the vendor on Purchase Order #" + po.getPoNumber() + " (" + po.getVendor().getName() + ")."
+                ));
+            }
+        }
+
+        // 2. Duplicate Invoice Check
+        if (goodsReceiptRepository.existsByPurchaseOrderAndInvoiceNumberIgnoreCase(po, inputInvoice)) {
+            return ResponseEntity.ok(Map.of(
+                    "verified", false,
+                    "status", "DUPLICATE",
+                    "message", "Duplicate Invoice Detected: Invoice #" + inputInvoice + " has already been processed and inwarded into stock for Purchase Order #" + po.getPoNumber() + ". Duplicate stock posting is prohibited."
+            ));
+        }
+
+        // 3. Check against stored verified invoiceData if present
+        if (po.getInvoiceData() != null && !po.getInvoiceData().trim().isEmpty()) {
+            try {
+                Map<String, Object> invData = objectMapper.readValue(po.getInvoiceData(), new TypeReference<Map<String, Object>>() {});
+                String storedInvNum = invData.getOrDefault("invoiceNumber", "").toString().trim();
+
+                if (storedInvNum.equalsIgnoreCase(inputInvoice)) {
+                    List<Map<String, Object>> rawItems = (List<Map<String, Object>>) invData.getOrDefault("items", Collections.emptyList());
+                    List<Map<String, Object>> reconciled = invoiceParserService.reconcileWithPO(rawItems, po, company);
+
+                    Map<String, Object> response = new LinkedHashMap<>();
+                    response.put("verified", true);
+                    response.put("status", "VERIFIED");
+                    response.put("message", "Supplier Invoice #" + inputInvoice + " verified successfully against original uploaded document.");
+                    response.put("invoiceNumber", storedInvNum);
+                    response.put("invoiceDate", invData.getOrDefault("invoiceDate", po.getInvoiceDate() != null ? po.getInvoiceDate().toString() : LocalDate.now().toString()));
+                    response.put("vendorName", invData.getOrDefault("vendorName", po.getVendor() != null ? po.getVendor().getName() : "Vendor"));
+                    response.put("vendorGstin", invData.getOrDefault("vendorGstin", ""));
+                    response.put("taxableAmount", invData.getOrDefault("taxableAmount", BigDecimal.ZERO));
+                    response.put("taxAmount", invData.getOrDefault("taxAmount", BigDecimal.ZERO));
+                    response.put("invoiceTotal", invData.getOrDefault("invoiceTotal", po.getTotalAmount()));
+                    response.put("items", reconciled);
+                    return ResponseEntity.ok(response);
+                } else {
+                    return ResponseEntity.ok(Map.of(
+                            "verified", false,
+                            "status", "MISMATCH",
+                            "message", "Invoice Number Mismatch: Entered invoice #" + inputInvoice + " does not match the verified original supplier invoice #" + storedInvNum + " attached to this Purchase Order."
+                    ));
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 4. Check against PO's registered invoiceNumber
+        String registeredInv = po.getInvoiceNumber() != null ? po.getInvoiceNumber().trim() : "";
+        boolean isDefaultPoInv = registeredInv.startsWith("INV-PO-");
+
+        if (!isDefaultPoInv && !registeredInv.isEmpty()) {
+            if (registeredInv.equalsIgnoreCase(inputInvoice)) {
+                List<Map<String, Object>> poItemsList = buildItemsFromPO(po);
+                Map<String, Object> response = new LinkedHashMap<>();
+                response.put("verified", true);
+                response.put("status", "VERIFIED");
+                response.put("message", "Supplier Invoice #" + inputInvoice + " verified successfully against Purchase Order #" + po.getPoNumber());
+                response.put("invoiceNumber", registeredInv);
+                response.put("invoiceDate", po.getInvoiceDate() != null ? po.getInvoiceDate().toString() : LocalDate.now().toString());
+                response.put("vendorName", po.getVendor() != null ? po.getVendor().getName() : "");
+                response.put("taxableAmount", po.getTotalAmount());
+                response.put("taxAmount", BigDecimal.ZERO);
+                response.put("invoiceTotal", po.getTotalAmount());
+                response.put("items", poItemsList);
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.ok(Map.of(
+                        "verified", false,
+                        "status", "INVALID",
+                        "message", "Invalid Invoice Number: Invoice '" + inputInvoice + "' does not match registered supplier invoice #" + registeredInv + " for PO #" + po.getPoNumber() + "."
+                ));
+            }
+        }
+
+        // 5. If no invoice document or verified data is attached yet:
+        return ResponseEntity.ok(Map.of(
+                "verified", false,
+                "status", "UNVERIFIED",
+                "message", "Invoice Verification Failed: No verified supplier invoice document found for invoice '" + inputInvoice + "' on PO #" + po.getPoNumber() + ". Please upload the original vendor invoice PDF / scanned challan to verify real items and pricing."
+        ));
+    }
+
+    private List<Map<String, Object>> buildItemsFromPO(PurchaseOrder po) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        if (po.getItems() != null) {
+            for (PurchaseOrderItem poi : po.getItems()) {
+                if (poi.getIngredient() == null) continue;
+                Ingredient ing = poi.getIngredient();
+                BigDecimal ordered = poi.getQuantityOrdered() != null ? poi.getQuantityOrdered() : BigDecimal.ZERO;
+                BigDecimal received = poi.getQuantityReceived() != null ? poi.getQuantityReceived() : BigDecimal.ZERO;
+                BigDecimal remaining = ordered.subtract(received);
+                if (remaining.compareTo(BigDecimal.ZERO) < 0) remaining = BigDecimal.ZERO;
+
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("itemCode", "RM-" + ing.getId());
+                row.put("description", ing.getName());
+                row.put("shortName", ing.getName());
+                row.put("quantity", ordered);
+                row.put("unit", poi.getUnit() != null ? poi.getUnit() : ing.getUnit());
+                row.put("unitRate", poi.getUnitCost() != null ? poi.getUnitCost() : ing.getCostPerUnit());
+                row.put("discountPercent", BigDecimal.ZERO);
+                row.put("taxRate", BigDecimal.ZERO);
+                row.put("taxAmount", BigDecimal.ZERO);
+                row.put("lineTotal", (poi.getUnitCost() != null ? poi.getUnitCost() : BigDecimal.ZERO).multiply(ordered));
+                row.put("matchedIngredientId", ing.getId());
+                row.put("matchedIngredientName", ing.getName());
+                row.put("orderedQuantity", ordered);
+                row.put("alreadyReceivedQuantity", received);
+                row.put("remainingQuantity", remaining);
+                row.put("receivingQuantity", remaining);
+                row.put("costPerUnit", poi.getUnitCost() != null ? poi.getUnitCost() : ing.getCostPerUnit());
+                row.put("mismatchFlag", false);
+                items.add(row);
+            }
+        }
+        return items;
     }
 }

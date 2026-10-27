@@ -26,6 +26,12 @@ public class GoodsReceipt {
 
     private LocalDate receiptDate;
 
+    private BigDecimal invoiceTotal;
+
+    private BigDecimal taxableAmount;
+
+    private BigDecimal taxAmount;
+
     @Column(nullable = false)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
@@ -98,6 +104,15 @@ public class GoodsReceipt {
 
     public BigDecimal getTotalAmount() { return totalAmount != null ? totalAmount : BigDecimal.ZERO; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+
+    public BigDecimal getInvoiceTotal() { return invoiceTotal; }
+    public void setInvoiceTotal(BigDecimal invoiceTotal) { this.invoiceTotal = invoiceTotal; }
+
+    public BigDecimal getTaxableAmount() { return taxableAmount; }
+    public void setTaxableAmount(BigDecimal taxableAmount) { this.taxableAmount = taxableAmount; }
+
+    public BigDecimal getTaxAmount() { return taxAmount; }
+    public void setTaxAmount(BigDecimal taxAmount) { this.taxAmount = taxAmount; }
 
     public BigDecimal getAmountPaid() { return amountPaid != null ? amountPaid : BigDecimal.ZERO; }
     public void setAmountPaid(BigDecimal amountPaid) { this.amountPaid = amountPaid; }

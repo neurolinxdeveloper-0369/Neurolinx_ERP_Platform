@@ -40,6 +40,21 @@ public class GoodsReceiptItem {
     @Column(nullable = false)
     private BigDecimal totalCost = BigDecimal.ZERO;
 
+    @Column(length = 50)
+    private String itemCode;
+
+    private BigDecimal invoiceQuantity;
+
+    private BigDecimal invoiceUnitCost;
+
+    private BigDecimal taxRate;
+
+    private BigDecimal taxAmount;
+
+    private BigDecimal discountAmount;
+
+    private Boolean mismatchFlag = false;
+
     @Column(length = 20)
     private String unit;
 
@@ -76,6 +91,27 @@ public class GoodsReceiptItem {
 
     public String getUnit() { return unit != null ? unit : (ingredient != null ? ingredient.getUnit() : "kg"); }
     public void setUnit(String unit) { this.unit = unit; }
+
+    public String getItemCode() { return itemCode; }
+    public void setItemCode(String itemCode) { this.itemCode = itemCode; }
+
+    public BigDecimal getInvoiceQuantity() { return invoiceQuantity != null ? invoiceQuantity : quantityReceived; }
+    public void setInvoiceQuantity(BigDecimal invoiceQuantity) { this.invoiceQuantity = invoiceQuantity; }
+
+    public BigDecimal getInvoiceUnitCost() { return invoiceUnitCost != null ? invoiceUnitCost : unitCost; }
+    public void setInvoiceUnitCost(BigDecimal invoiceUnitCost) { this.invoiceUnitCost = invoiceUnitCost; }
+
+    public BigDecimal getTaxRate() { return taxRate != null ? taxRate : BigDecimal.ZERO; }
+    public void setTaxRate(BigDecimal taxRate) { this.taxRate = taxRate; }
+
+    public BigDecimal getTaxAmount() { return taxAmount != null ? taxAmount : BigDecimal.ZERO; }
+    public void setTaxAmount(BigDecimal taxAmount) { this.taxAmount = taxAmount; }
+
+    public BigDecimal getDiscountAmount() { return discountAmount != null ? discountAmount : BigDecimal.ZERO; }
+    public void setDiscountAmount(BigDecimal discountAmount) { this.discountAmount = discountAmount; }
+
+    public Boolean getMismatchFlag() { return mismatchFlag != null ? mismatchFlag : false; }
+    public void setMismatchFlag(Boolean mismatchFlag) { this.mismatchFlag = mismatchFlag; }
 
     public LocalDate getExpiryDate() { return expiryDate; }
     public void setExpiryDate(LocalDate expiryDate) { this.expiryDate = expiryDate; }
