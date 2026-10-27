@@ -22,6 +22,8 @@ public class InventoryService {
     @Autowired private PurchaseOrderRepository purchaseOrderRepository;
     @Autowired private PurchaseOrderItemRepository purchaseOrderItemRepository;
     @Autowired private CustomerOrderRepository orderRepository;
+    @Autowired private GoodsReceiptRepository goodsReceiptRepository;
+    @Autowired private GoodsReceiptItemRepository goodsReceiptItemRepository;
 
     /**
      * Safe unit conversion supporting:
@@ -253,20 +255,32 @@ public class InventoryService {
         if (invoiceNumber == null || invoiceNumber.trim().isEmpty()) {
             throw new IllegalArgumentException("Invoice number is required");
         }
+        String cleanInvoice = invoiceNumber.trim();
+
+        // Prevent accidental duplicate invoice submissions for the same Purchase Order
+        if (goodsReceiptRepository.existsByPurchaseOrderAndInvoiceNumberIgnoreCase(po, cleanInvoice)) {
+            throw new IllegalArgumentException("Invoice #" + cleanInvoice + " has already been processed for Purchase Order #" + po.getPoNumber() + ". Duplicate submission prevented.");
+        }
 
         if (receivedItems == null || receivedItems.isEmpty()) {
             throw new IllegalArgumentException("Please add at least one received item");
         }
 
-        po.setInvoiceNumber(invoiceNumber.trim());
-        if (invoiceDate != null) po.setInvoiceDate(invoiceDate);
-
-        if (amountPaid != null) {
-            po.setAmountPaid(po.getAmountPaid().add(amountPaid));
+        boolean hasPositiveQuantity = false;
+        for (Map<String, Object> itemData : receivedItems) {
+            if (itemData.containsKey("quantity") && itemData.get("quantity") != null) {
+                BigDecimal q = new BigDecimal(itemData.get("quantity").toString());
+                if (q.compareTo(BigDecimal.ZERO) > 0) {
+                    hasPositiveQuantity = true;
+                    break;
+                }
+            }
+        }
+        if (!hasPositiveQuantity) {
+            throw new IllegalArgumentException("Please enter a received quantity greater than 0 for at least one item.");
         }
 
-        BigDecimal totalReceivedBatchCost = BigDecimal.ZERO;
-
+        // Validate receiving quantities against remaining ordered quantities
         for (Map<String, Object> itemData : receivedItems) {
             Long ingId = Long.parseLong(itemData.get("ingredientId").toString());
             Ingredient ing = ingredientRepository.findById(ingId)
@@ -277,15 +291,68 @@ public class InventoryService {
                 continue;
             }
 
+            PurchaseOrderItem matchingPoi = null;
+            if (po.getItems() != null) {
+                for (PurchaseOrderItem poi : po.getItems()) {
+                    if (poi.getIngredient() != null && poi.getIngredient().getId().equals(ing.getId())) {
+                        matchingPoi = poi;
+                        break;
+                    }
+                }
+            }
+
+            if (matchingPoi == null) {
+                throw new IllegalArgumentException("Ingredient " + ing.getName() + " does not belong to Purchase Order #" + po.getPoNumber());
+            }
+
+            String itemUnit = itemData.containsKey("unit") && itemData.get("unit") != null
+                    ? itemData.get("unit").toString()
+                    : matchingPoi.getUnit();
+            BigDecimal convertedQty = convertUnit(qtyReceived, itemUnit, matchingPoi.getUnit());
+
+            BigDecimal alreadyReceived = matchingPoi.getQuantityReceived() != null ? matchingPoi.getQuantityReceived() : BigDecimal.ZERO;
+            BigDecimal remaining = matchingPoi.getQuantityOrdered().subtract(alreadyReceived);
+            if (remaining.compareTo(BigDecimal.ZERO) < 0) remaining = BigDecimal.ZERO;
+
+            if (convertedQty.compareTo(remaining) > 0) {
+                throw new IllegalArgumentException("Receiving quantity (" + qtyReceived + " " + itemUnit + ") for "
+                        + ing.getName() + " exceeds the remaining ordered quantity (" + remaining + " " + matchingPoi.getUnit() + ").");
+            }
+        }
+
+        // Initialize Goods Receipt Header
+        GoodsReceipt goodsReceipt = new GoodsReceipt();
+        goodsReceipt.setReceiptNumber("GRN-" + System.currentTimeMillis());
+        goodsReceipt.setInvoiceNumber(cleanInvoice);
+        goodsReceipt.setInvoiceDate(invoiceDate != null ? invoiceDate : LocalDate.now());
+        goodsReceipt.setReceiptDate(receiptDate != null ? receiptDate : LocalDate.now());
+        goodsReceipt.setPurchaseOrder(po);
+        goodsReceipt.setVendor(po.getVendor());
+        goodsReceipt.setCompany(po.getCompany());
+        goodsReceipt.setBranch(po.getBranch());
+        goodsReceipt.setReceivedBy(username != null ? username : "Inventory Manager");
+
+        BigDecimal totalInwardAmount = BigDecimal.ZERO;
+        List<GoodsReceiptItem> receiptItems = new ArrayList<>();
+
+        // Process line items
+        for (Map<String, Object> itemData : receivedItems) {
+            Long ingId = Long.parseLong(itemData.get("ingredientId").toString());
+            Ingredient ing = ingredientRepository.findById(ingId).orElse(null);
+            if (ing == null) continue;
+
+            BigDecimal qtyReceived = new BigDecimal(itemData.get("quantity").toString());
+            if (qtyReceived.compareTo(BigDecimal.ZERO) <= 0) continue;
+
             BigDecimal unitCost = itemData.containsKey("costPerUnit") && itemData.get("costPerUnit") != null
                     ? new BigDecimal(itemData.get("costPerUnit").toString())
-                    : ing.getCostPerUnit();
+                    : (ing.getCostPerUnit() != null ? ing.getCostPerUnit() : BigDecimal.ZERO);
 
             String itemUnit = itemData.containsKey("unit") && itemData.get("unit") != null
                     ? itemData.get("unit").toString()
                     : ing.getUnit();
 
-            // Convert to ingredient unit if needed
+            // Convert to ingredient standard unit if needed
             BigDecimal convertedQty = convertUnit(qtyReceived, itemUnit, ing.getUnit());
 
             // 1. Update ingredient stock level and cost per unit
@@ -311,18 +378,46 @@ public class InventoryService {
             }
             stockBatchRepository.save(batch);
 
-            // 3. Update quantityReceived on matching PurchaseOrderItem if exists
+            // 3. Update quantityReceived on matching PurchaseOrderItem
+            PurchaseOrderItem matchingPoi = null;
+            BigDecimal previouslyReceived = BigDecimal.ZERO;
+            BigDecimal orderedQty = convertedQty;
             if (po.getItems() != null) {
                 for (PurchaseOrderItem poi : po.getItems()) {
-                    if (poi.getIngredient().getId().equals(ing.getId())) {
-                        poi.setQuantityReceived(poi.getQuantityReceived().add(convertedQty));
+                    if (poi.getIngredient() != null && poi.getIngredient().getId().equals(ing.getId())) {
+                        matchingPoi = poi;
+                        previouslyReceived = poi.getQuantityReceived() != null ? poi.getQuantityReceived() : BigDecimal.ZERO;
+                        orderedQty = poi.getQuantityOrdered();
+                        poi.setQuantityReceived(previouslyReceived.add(convertedQty));
                         purchaseOrderItemRepository.save(poi);
                         break;
                     }
                 }
             }
 
-            // 4. Record in Auditable Stock Ledger
+            BigDecimal remainingAfter = orderedQty.subtract(previouslyReceived.add(convertedQty));
+            if (remainingAfter.compareTo(BigDecimal.ZERO) < 0) remainingAfter = BigDecimal.ZERO;
+
+            // 4. Create GoodsReceiptItem
+            GoodsReceiptItem gri = new GoodsReceiptItem();
+            gri.setGoodsReceipt(goodsReceipt);
+            gri.setIngredient(ing);
+            gri.setQuantityOrdered(orderedQty);
+            gri.setQuantityPreviouslyReceived(previouslyReceived);
+            gri.setQuantityReceived(convertedQty);
+            gri.setQuantityRemaining(remainingAfter);
+            gri.setUnitCost(unitCost);
+            BigDecimal lineTotal = unitCost.multiply(convertedQty);
+            gri.setTotalCost(lineTotal);
+            gri.setUnit(ing.getUnit());
+            if (itemData.containsKey("expiryDate") && itemData.get("expiryDate") != null && !itemData.get("expiryDate").toString().isEmpty()) {
+                gri.setExpiryDate(LocalDate.parse(itemData.get("expiryDate").toString()));
+            }
+            receiptItems.add(gri);
+
+            totalInwardAmount = totalInwardAmount.add(lineTotal);
+
+            // 5. Record auditable Stock Movement entry
             recordMovement(
                     po.getCompany(),
                     po.getBranch(),
@@ -332,14 +427,24 @@ public class InventoryService {
                     prevStock,
                     newStock,
                     unitCost,
-                    "PURCHASE_ORDER",
-                    invoiceNumber,
-                    "Received stock against PO #" + po.getPoNumber() + " (Invoice: " + invoiceNumber + ")",
+                    "GOODS_RECEIPT",
+                    cleanInvoice,
+                    "Inwarded stock via " + goodsReceipt.getReceiptNumber() + " against PO #" + po.getPoNumber() + " (Invoice: " + cleanInvoice + ", Vendor: " + (po.getVendor() != null ? po.getVendor().getName() : "N/A") + ")",
                     username != null ? username : "Inventory Manager"
             );
-
-            totalReceivedBatchCost = totalReceivedBatchCost.add(unitCost.multiply(convertedQty));
         }
+
+        // Save Goods Receipt
+        goodsReceipt.setTotalAmount(totalInwardAmount);
+        if (amountPaid != null && amountPaid.compareTo(BigDecimal.ZERO) > 0) {
+            goodsReceipt.setAmountPaid(amountPaid);
+            po.setAmountPaid(po.getAmountPaid().add(amountPaid));
+        }
+        goodsReceipt.setItems(receiptItems);
+
+        // Update PO Invoice Number & Date
+        po.setInvoiceNumber(cleanInvoice);
+        if (invoiceDate != null) po.setInvoiceDate(invoiceDate);
 
         // Determine PO status based on ordered vs received quantities
         boolean allFullyReceived = true;
@@ -347,37 +452,37 @@ public class InventoryService {
 
         if (po.getItems() != null && !po.getItems().isEmpty()) {
             for (PurchaseOrderItem poi : po.getItems()) {
-                if (poi.getQuantityReceived().compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal ordered = poi.getQuantityOrdered() != null ? poi.getQuantityOrdered() : BigDecimal.ZERO;
+                BigDecimal rec = poi.getQuantityReceived() != null ? poi.getQuantityReceived() : BigDecimal.ZERO;
+                if (rec.compareTo(BigDecimal.ZERO) > 0) {
                     anyReceived = true;
                 }
-                if (poi.getQuantityReceived().compareTo(poi.getQuantityOrdered()) < 0) {
+                if (rec.compareTo(ordered) < 0) {
                     allFullyReceived = false;
                 }
             }
-        } else {
-            anyReceived = true;
-            allFullyReceived = true;
         }
 
         if (allFullyReceived) {
             po.setStatus("Received");
+            goodsReceipt.setStatus("Completed");
         } else if (anyReceived) {
             po.setStatus("Partially Received");
-        }
-
-        if (po.getAmountPaid().compareTo(po.getTotalAmount()) >= 0 && po.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
-            // Already paid
-        } else if (po.getAmountPaid().compareTo(BigDecimal.ZERO) > 0) {
-            // Partially paid
+            goodsReceipt.setStatus("Partially Received");
         }
 
         purchaseOrderRepository.save(po);
+        goodsReceipt = goodsReceiptRepository.save(goodsReceipt);
 
         return Map.of(
-                "message", "Stock received and updated successfully",
+                "message", "Stock received and inwarded successfully against Invoice " + cleanInvoice,
+                "receiptId", goodsReceipt.getId(),
+                "receiptNumber", goodsReceipt.getReceiptNumber(),
+                "invoiceNumber", cleanInvoice,
                 "purchaseOrderId", po.getId(),
+                "poNumber", po.getPoNumber(),
                 "status", po.getStatus(),
-                "totalBatchCost", totalReceivedBatchCost
+                "totalAmount", totalInwardAmount
         );
     }
 }

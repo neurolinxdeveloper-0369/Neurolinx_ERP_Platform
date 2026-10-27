@@ -25,10 +25,23 @@ public class Ingredient {
     private BigDecimal reorderLevel = BigDecimal.ZERO;
 
     @Column(nullable = false)
+    private BigDecimal parLevel = BigDecimal.ZERO; // Target maximum / optimal par stock level
+
+    @Column(nullable = false)
     private BigDecimal costPerUnit = BigDecimal.ZERO;
 
     @Column(nullable = false)
     private String unit = "kg"; // e.g. "kg", "g", "liter", "ml", "pcs"
+
+    @Column(length = 100)
+    private String storageZone = "Dry Store"; // "Cold Storage", "Dry Store", "Bar / Beverage", "Prep Line"
+
+    @Column(length = 100)
+    private String barcode; // EAN / UPC / SKU Barcode
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "preferred_vendor_id", nullable = true)
+    private Vendor preferredVendor;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = true)
@@ -51,8 +64,16 @@ public class Ingredient {
     public void setStockLevel(BigDecimal stockLevel) { this.stockLevel = stockLevel; }
     public BigDecimal getReorderLevel() { return reorderLevel != null ? reorderLevel : BigDecimal.ZERO; }
     public void setReorderLevel(BigDecimal reorderLevel) { this.reorderLevel = reorderLevel; }
+    public BigDecimal getParLevel() { return parLevel != null ? parLevel : BigDecimal.ZERO; }
+    public void setParLevel(BigDecimal parLevel) { this.parLevel = parLevel; }
     public BigDecimal getCostPerUnit() { return costPerUnit != null ? costPerUnit : BigDecimal.ZERO; }
     public void setCostPerUnit(BigDecimal costPerUnit) { this.costPerUnit = costPerUnit; }
     public String getUnit() { return unit != null ? unit : "kg"; }
     public void setUnit(String unit) { this.unit = unit; }
+    public String getStorageZone() { return storageZone != null ? storageZone : "Dry Store"; }
+    public void setStorageZone(String storageZone) { this.storageZone = storageZone; }
+    public String getBarcode() { return barcode; }
+    public void setBarcode(String barcode) { this.barcode = barcode; }
+    public Vendor getPreferredVendor() { return preferredVendor; }
+    public void setPreferredVendor(Vendor preferredVendor) { this.preferredVendor = preferredVendor; }
 }

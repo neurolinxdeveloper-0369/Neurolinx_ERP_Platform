@@ -27,6 +27,7 @@ public class PurchaseController {
     @Autowired private UserRepository userRepo;
     @Autowired private CompanyRepository companyRepo;
     @Autowired private InventoryService inventoryService;
+    @Autowired private GoodsReceiptRepository goodsReceiptRepository;
 
     private Company getUserCompany() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -254,5 +255,45 @@ public class PurchaseController {
         Company company = getUserCompany();
         if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
         return ResponseEntity.ok(stockBatchRepository.findByCompany(company));
+    }
+
+    @GetMapping("/receipts")
+    public ResponseEntity<?> getGoodsReceipts(@RequestParam(required = false) Long vendorId, @RequestParam(required = false) Long poId) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+
+        if (poId != null) {
+            var poOpt = purchaseOrderRepository.findById(poId);
+            if (poOpt.isPresent()) {
+                return ResponseEntity.ok(goodsReceiptRepository.findByPurchaseOrderOrderByCreatedAtDesc(poOpt.get()));
+            }
+        }
+        if (vendorId != null) {
+            var vOpt = vendorRepository.findById(vendorId);
+            if (vOpt.isPresent()) {
+                return ResponseEntity.ok(goodsReceiptRepository.findByVendorOrderByCreatedAtDesc(vOpt.get()));
+            }
+        }
+        return ResponseEntity.ok(goodsReceiptRepository.findByCompanyOrderByCreatedAtDesc(company));
+    }
+
+    @PostMapping("/{id}/attach-invoice")
+    @Transactional
+    public ResponseEntity<?> attachInvoice(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+
+        return purchaseOrderRepository.findById(id).map(po -> {
+            if (company != null && po.getCompany() != null && !po.getCompany().getId().equals(company.getId())) {
+                return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
+            }
+            if (payload.containsKey("invoiceAttachmentUrl")) {
+                po.setInvoiceAttachmentUrl(payload.get("invoiceAttachmentUrl") != null ? payload.get("invoiceAttachmentUrl").toString() : null);
+            }
+            if (payload.containsKey("invoiceAttachmentName")) {
+                po.setInvoiceAttachmentName(payload.get("invoiceAttachmentName") != null ? payload.get("invoiceAttachmentName").toString() : null);
+            }
+            return ResponseEntity.ok(purchaseOrderRepository.save(po));
+        }).orElse(ResponseEntity.notFound().build());
     }
 }

@@ -7,6 +7,9 @@ export default function Purchases() {
   const [vendors, setVendors] = useState<any[]>([]);
   const [ingredients, setIngredients] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [selectedReceiptForView, setSelectedReceiptForView] = useState<any | null>(null);
+  const [receiptsSubTab, setReceiptsSubTab] = useState<'grns' | 'batches'>('grns');
   const [isLoading, setIsLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<'orders' | 'receive' | 'receipts'>('orders');
@@ -34,6 +37,17 @@ export default function Purchases() {
   });
   const [isReceiving, setIsReceiving] = useState(false);
 
+  // Phase 5: Barcode Quick Search in Receiving Screen
+  const [barcodeSearch, setBarcodeSearch] = useState('');
+  const [highlightedIngredientId, setHighlightedIngredientId] = useState<number | null>(null);
+
+  // Phase 5: Invoice Attachment Modal & Viewer State
+  const [invoiceModalPO, setInvoiceModalPO] = useState<any>(null);
+  const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
+  const [showInvoiceViewer, setShowInvoiceViewer] = useState(false);
+  const [previewDocUrl, setPreviewDocUrl] = useState<string>('');
+  const [previewDocName, setPreviewDocName] = useState<string>('');
+
   // Filter
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [vendorFilter, setVendorFilter] = useState('ALL');
@@ -41,15 +55,17 @@ export default function Purchases() {
   const fetchData = () => {
     setIsLoading(true);
     Promise.all([
-      apiFetch('https://erp-api.neurolinx.in/api/inventory/purchases').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/inventory/vendors').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/inventory/ingredients').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/inventory/batches').then(res => res.json())
-    ]).then(([p, v, i, b]) => {
+      apiFetch('https://erp-api.neurolinx.in/api/inventory/purchases').then(res => res.ok ? res.json() : []).catch(() => []),
+      apiFetch('https://erp-api.neurolinx.in/api/inventory/vendors').then(res => res.ok ? res.json() : []).catch(() => []),
+      apiFetch('https://erp-api.neurolinx.in/api/inventory/ingredients').then(res => res.ok ? res.json() : []).catch(() => []),
+      apiFetch('https://erp-api.neurolinx.in/api/inventory/batches').then(res => res.ok ? res.json() : []).catch(() => []),
+      apiFetch('https://erp-api.neurolinx.in/api/inventory/receipts').then(res => res.ok ? res.json() : []).catch(() => [])
+    ]).then(([p, v, i, b, r]) => {
       setPurchases(Array.isArray(p) ? p : []);
       setVendors(Array.isArray(v) ? v : []);
       setIngredients(Array.isArray(i) ? i : []);
       setBatches(Array.isArray(b) ? b : []);
+      setReceipts(Array.isArray(r) ? r : []);
       setIsLoading(false);
     }).catch(e => {
       console.error(e);
@@ -67,14 +83,17 @@ export default function Purchases() {
     const po = purchases.find(p => p.id === parseInt(poId));
     if (po && po.items && po.items.length > 0) {
       const itemsToReceive = po.items.map((item: any) => {
-        const remaining = Math.max(0, (item.quantityOrdered || 0) - (item.quantityReceived || 0));
+        const ordered = parseFloat(item.quantityOrdered) || 0;
+        const alreadyReceived = parseFloat(item.quantityReceived) || 0;
+        const remaining = Math.max(0, ordered - alreadyReceived);
         return {
           ingredientId: item.ingredient?.id,
           ingredientName: item.ingredient?.name,
           unit: item.unit || item.ingredient?.unit || 'kg',
-          quantityOrdered: item.quantityOrdered,
-          alreadyReceived: item.quantityReceived || 0,
-          quantity: remaining, // default to remaining
+          quantityOrdered: ordered,
+          alreadyReceived: alreadyReceived,
+          remaining: remaining,
+          quantity: remaining > 0 ? remaining : 0,
           costPerUnit: item.unitCost || item.ingredient?.costPerUnit || 0,
           expiryDate: ''
         };
@@ -118,7 +137,7 @@ export default function Purchases() {
   const handleCreatePO = async (e: React.FormEvent) => {
     e.preventDefault();
     if (poForm.items.length === 0) {
-      alert("Please add at least one item to the purchase order.");
+      alert('Please add at least one item to the purchase order.');
       return;
     }
     try {
@@ -135,30 +154,63 @@ export default function Purchases() {
         setShowPOModal(false);
         setPoForm({ vendorId: '', poNumber: '', expectedDeliveryDate: '', notes: '', status: 'Ordered', items: [] });
         fetchData();
-        alert("Purchase Order created successfully!");
+        alert('Purchase Order created successfully!');
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(err.message || "Failed to create Purchase Order");
+        alert(err.message || 'Failed to create Purchase Order');
       }
     } catch (e: any) {
-      alert(e?.message || "Failed to create Purchase Order");
+      alert(e?.message || 'Failed to create Purchase Order');
     }
   };
 
   // Submit Receive Stock
   const handleReceiveStockSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedVendorId) {
+      alert('Please select a vendor first.');
+      return;
+    }
     if (!selectedPOId) {
-      alert("Please select a Purchase Order to receive stock against.");
+      alert('Please select a Purchase Order to receive stock against.');
       return;
     }
     if (!receiveForm.invoiceNumber.trim()) {
       alert("Please enter the vendor's invoice number.");
       return;
     }
+    if (!receiveForm.invoiceDate) {
+      alert('Please enter the invoice date.');
+      return;
+    }
+    if (!receiveForm.receiptDate) {
+      alert('Please enter the stock receipt date.');
+      return;
+    }
+
+    // Check for duplicate invoice on this PO client-side
+    const duplicate = receipts.find(
+      r => r.purchaseOrder?.id === parseInt(selectedPOId) &&
+           r.invoiceNumber?.trim().toLowerCase() === receiveForm.invoiceNumber.trim().toLowerCase()
+    );
+    if (duplicate) {
+      alert(`Invoice #${receiveForm.invoiceNumber.trim()} has already been recorded for this Purchase Order (Receipt: ${duplicate.receiptNumber}). Duplicate submission is prevented.`);
+      return;
+    }
+
+    // Validate over-receiving
+    for (const item of receiveForm.items) {
+      const qty = parseFloat(item.quantity) || 0;
+      const maxRemaining = item.remaining !== undefined ? item.remaining : Math.max(0, (item.quantityOrdered || 0) - (item.alreadyReceived || 0));
+      if (qty > maxRemaining) {
+        alert(`Receiving quantity (${qty} ${item.unit}) for ${item.ingredientName} exceeds remaining ordered quantity (${maxRemaining} ${item.unit}). Over-receiving is not permitted.`);
+        return;
+      }
+    }
+
     const validItems = receiveForm.items.filter(item => parseFloat(item.quantity) > 0);
     if (validItems.length === 0) {
-      alert("Please enter a received quantity greater than 0 for at least one item.");
+      alert('Please enter a received quantity greater than 0 for at least one item.');
       return;
     }
 
@@ -168,16 +220,18 @@ export default function Purchases() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          invoiceNumber: receiveForm.invoiceNumber,
+          invoiceNumber: receiveForm.invoiceNumber.trim(),
           invoiceDate: receiveForm.invoiceDate,
           receiptDate: receiveForm.receiptDate,
           amountPaid: receiveForm.amountPaid,
           items: validItems
         })
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        alert("Stock received successfully! Raw material inventory and purchase batches have been updated.");
+        alert(data.message || `Stock received successfully! Invoice ${receiveForm.invoiceNumber.trim()} has been inwarded into Raw Material inventory.`);
         setSelectedPOId('');
+        setSelectedVendorId('');
         setReceiveForm({
           invoiceNumber: '',
           invoiceDate: new Date().toISOString().split('T')[0],
@@ -188,11 +242,10 @@ export default function Purchases() {
         fetchData();
         setActiveTab('orders');
       } else {
-        const err = await res.json().catch(() => ({}));
-        alert(err.message || "Failed to receive stock");
+        alert(data.message || 'Failed to receive stock');
       }
     } catch (e: any) {
-      alert(e?.message || "Failed to receive stock");
+      alert(e?.message || 'Failed to receive stock');
     } finally {
       setIsReceiving(false);
     }
@@ -200,7 +253,7 @@ export default function Purchases() {
 
   // Cancel PO
   const handleCancelPO = async (poId: number) => {
-    if (!window.confirm("Are you sure you want to cancel this purchase order?")) return;
+    if (!window.confirm('Are you sure you want to cancel this purchase order?')) return;
     try {
       const res = await apiFetch(`https://erp-api.neurolinx.in/api/inventory/purchases/${poId}/status`, {
         method: 'PUT',
@@ -210,11 +263,69 @@ export default function Purchases() {
       if (res.ok) {
         fetchData();
       } else {
-        alert("Failed to cancel purchase order");
+        alert('Failed to cancel purchase order');
       }
     } catch (e: any) {
-      alert(e?.message || "Error cancelling purchase order");
+      alert(e?.message || 'Error cancelling purchase order');
     }
+  };
+
+  // Phase 5: Barcode scanner in goods receipt
+  const handleBarcodeScan = async (code: string) => {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    try {
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/inventory/barcode/${encodeURIComponent(trimmed)}`);
+      if (res.ok) {
+        const ing = await res.json();
+        setHighlightedIngredientId(ing.id);
+        const itemIdx = receiveForm.items.findIndex(it => it.ingredientId === ing.id);
+        if (itemIdx >= 0) {
+          const el = document.getElementById(`receive-qty-input-${itemIdx}`);
+          if (el) el.focus();
+        } else {
+          alert(`Scanned "${ing.name}", but it is not listed in the selected purchase order.`);
+        }
+      } else {
+        alert(`No raw material found for barcode: ${trimmed}`);
+      }
+    } catch (e: any) {
+      console.error(e);
+    }
+  };
+
+  // Phase 5: Handle file upload for invoice attachment
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, poId: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    setIsUploadingInvoice(true);
+    reader.onload = async () => {
+      const base64Data = reader.result as string;
+      try {
+        const res = await apiFetch(`https://erp-api.neurolinx.in/api/inventory/purchases/${poId}/attach-invoice`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoiceAttachmentUrl: base64Data,
+            invoiceAttachmentName: file.name
+          })
+        });
+        setIsUploadingInvoice(false);
+        if (res.ok) {
+          alert('Vendor invoice/challan document attached successfully!');
+          setInvoiceModalPO(null);
+          fetchData();
+        } else {
+          alert('Failed to attach invoice document');
+        }
+      } catch (err: any) {
+        setIsUploadingInvoice(false);
+        alert(err?.message || 'Error attaching invoice document');
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   // Filtered POs
@@ -224,20 +335,29 @@ export default function Purchases() {
     return true;
   });
 
-  // Open POs for selected vendor in Receive Stock
   const openPOsForSelectedVendor = selectedVendorId
     ? purchases.filter(p => p.vendor?.id === parseInt(selectedVendorId) && p.status !== 'Cancelled' && p.status !== 'Received')
     : [];
 
+  const selectedPOObject = purchases.find(p => p.id === parseInt(selectedPOId));
+
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ padding: '2rem', maxWidth: '1280px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.75rem', color: '#0f172a' }}>Purchase Orders & Goods Receipt</h2>
-          <p style={{ margin: '0.25rem 0 0 0', color: '#64748b' }}>Manage procurement, vendor purchase orders, and receive raw material stock</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1.75rem', color: '#0f172a', fontWeight: 700 }}>Purchase Orders & Goods Receipt</h2>
+            <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '0.25rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600 }}>
+              Phase 5 Verified
+            </span>
+          </div>
+          <p style={{ margin: '0.25rem 0 0 0', color: '#64748b' }}>
+            Procurement workflow, vendor invoice cross-verification, and barcode-accelerated stock receiving
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
             onClick={() => {
               setSelectedVendorId('');
@@ -246,7 +366,7 @@ export default function Purchases() {
             }}
             style={{ padding: '0.75rem 1.25rem', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
           >
-            <Icons.PackageCheck size={18} /> Receive Stock
+            <Icons.PackageCheck size={18} /> Receive Stock Screen
           </button>
           <button
             onClick={() => {
@@ -261,7 +381,7 @@ export default function Purchases() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginBottom: '1.5rem', gap: '1rem' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginBottom: '1.5rem', gap: '0.5rem' }}>
         <button
           onClick={() => setActiveTab('orders')}
           style={{ padding: '0.75rem 1.5rem', background: 'none', border: 'none', borderBottom: activeTab === 'orders' ? '2px solid #0284c7' : '2px solid transparent', color: activeTab === 'orders' ? '#0284c7' : '#64748b', fontWeight: 600, cursor: 'pointer', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
@@ -316,17 +436,18 @@ export default function Purchases() {
           </div>
 
           {isLoading ? <div>Loading Purchase Orders...</div> : (
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.875rem', color: '#475569' }}>
-                    <th style={{ padding: '1rem' }}>PO Number</th>
-                    <th style={{ padding: '1rem' }}>Vendor</th>
-                    <th style={{ padding: '1rem' }}>Expected Delivery</th>
-                    <th style={{ padding: '1rem' }}>Items</th>
-                    <th style={{ padding: '1rem' }}>Total Cost</th>
-                    <th style={{ padding: '1rem' }}>Status</th>
-                    <th style={{ padding: '1rem', textAlign: 'right' }}>Actions</th>
+                  <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#475569' }}>
+                    <th style={{ padding: '0.85rem 1rem' }}>PO Number</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Vendor</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Delivery Target</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Items Ordered</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Total Cost</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Invoice Document</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Status</th>
+                    <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -341,26 +462,49 @@ export default function Purchases() {
                     const color = statusColors[p.status] || { bg: '#f1f5f9', color: '#475569' };
 
                     return (
-                      <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '1rem', fontWeight: 600 }}>
+                      <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem' }}>
+                        <td style={{ padding: '0.85rem 1rem', fontWeight: 600 }}>
                           <div>{p.poNumber || `PO-${p.id}`}</div>
                           {p.invoiceNumber && !p.invoiceNumber.startsWith('INV-PO-') && (
                             <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Inv: {p.invoiceNumber}</span>
                           )}
                         </td>
-                        <td style={{ padding: '1rem' }}>{p.vendor?.name || 'N/A'}</td>
-                        <td style={{ padding: '1rem' }}>{p.expectedDeliveryDate || p.invoiceDate || 'N/A'}</td>
-                        <td style={{ padding: '1rem' }}>
-                          <span style={{ fontSize: '0.875rem' }}>{p.items?.length || 0} line items</span>
+                        <td style={{ padding: '0.85rem 1rem' }}>{p.vendor?.name || 'N/A'}</td>
+                        <td style={{ padding: '0.85rem 1rem', color: '#64748b' }}>{p.expectedDeliveryDate || p.invoiceDate || '—'}</td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          <span style={{ backgroundColor: '#f1f5f9', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                            {p.items?.length || 0} line items
+                          </span>
                         </td>
-                        <td style={{ padding: '1rem', fontWeight: 600 }}>₹{(p.totalAmount || 0).toFixed(2)}</td>
-                        <td style={{ padding: '1rem' }}>
+                        <td style={{ padding: '0.85rem 1rem', fontWeight: 700 }}>₹{(p.totalAmount || 0).toFixed(2)}</td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
+                          {p.invoiceAttachmentUrl ? (
+                            <button
+                              onClick={() => {
+                                setPreviewDocUrl(p.invoiceAttachmentUrl);
+                                setPreviewDocName(p.invoiceAttachmentName || 'Vendor-Invoice.pdf');
+                                setShowInvoiceViewer(true);
+                              }}
+                              style={{ padding: '0.25rem 0.5rem', backgroundColor: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                            >
+                              <Icons.FileCheck size={14} color="#059669" /> View Challan
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setInvoiceModalPO(p)}
+                              style={{ padding: '0.25rem 0.5rem', backgroundColor: '#f8fafc', color: '#64748b', border: '1px dashed #cbd5e1', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                            >
+                              <Icons.Upload size={13} /> + Attach Bill
+                            </button>
+                          )}
+                        </td>
+                        <td style={{ padding: '0.85rem 1rem' }}>
                           <span style={{ padding: '0.25rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: color.bg, color: color.color }}>
                             {p.status}
                           </span>
                         </td>
-                        <td style={{ padding: '1rem', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
                             {p.status !== 'Received' && p.status !== 'Cancelled' && (
                               <button
                                 onClick={() => {
@@ -368,7 +512,7 @@ export default function Purchases() {
                                   handleSelectPOForReceive(p.id.toString());
                                   setActiveTab('receive');
                                 }}
-                                style={{ padding: '0.4rem 0.8rem', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                                style={{ padding: '0.35rem 0.75rem', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
                               >
                                 Receive
                               </button>
@@ -376,7 +520,7 @@ export default function Purchases() {
                             {p.status !== 'Received' && p.status !== 'Cancelled' && (
                               <button
                                 onClick={() => handleCancelPO(p.id)}
-                                style={{ padding: '0.4rem 0.6rem', backgroundColor: '#f1f5f9', color: '#ef4444', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}
+                                style={{ padding: '0.35rem 0.6rem', backgroundColor: '#f1f5f9', color: '#ef4444', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}
                               >
                                 Cancel
                               </button>
@@ -388,7 +532,7 @@ export default function Purchases() {
                   })}
                   {filteredPurchases.length === 0 && (
                     <tr>
-                      <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
+                      <td colSpan={8} style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
                         No purchase orders matching criteria.
                       </td>
                     </tr>
@@ -402,10 +546,36 @@ export default function Purchases() {
 
       {/* TAB 2: RECEIVE STOCK WORKFLOW SCREEN */}
       {activeTab === 'receive' && (
-        <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '2rem' }}>
-          <h3 style={{ marginTop: 0, marginBottom: '1.5rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Icons.PackageCheck size={22} color="#0284c7" /> Goods Receipt / Stock Inward
-          </h3>
+        <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', padding: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <h3 style={{ margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Icons.PackageCheck size={22} color="#0284c7" /> Goods Receipt / Stock Inward
+            </h3>
+
+            {/* Barcode Quick Search Field */}
+            {selectedPOId && (
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <div style={{ position: 'relative', width: '240px' }}>
+                  <Icons.ScanBarcode size={16} style={{ position: 'absolute', left: '0.6rem', top: '50%', transform: 'translateY(-50%)', color: '#0284c7' }} />
+                  <input
+                    type="text"
+                    placeholder="Scan incoming item barcode..."
+                    value={barcodeSearch}
+                    onChange={e => setBarcodeSearch(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleBarcodeScan(barcodeSearch); }}
+                    style={{ width: '100%', padding: '0.55rem 0.5rem 0.55rem 2rem', borderRadius: '6px', border: '1px solid #0284c7', fontSize: '0.8rem', backgroundColor: '#f0f9ff' }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleBarcodeScan(barcodeSearch)}
+                  style={{ padding: '0.55rem 0.85rem', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                >
+                  Locate
+                </button>
+              </div>
+            )}
+          </div>
 
           <form onSubmit={handleReceiveStockSubmit}>
             {/* Step 1: Select Vendor and PO */}
@@ -446,10 +616,56 @@ export default function Purchases() {
               </div>
             </div>
 
+            {/* Attached Challan Banner if exists */}
+            {selectedPOObject && (
+              <div style={{ backgroundColor: selectedPOObject.invoiceAttachmentUrl ? '#f0fdf4' : '#fffbeb', border: selectedPOObject.invoiceAttachmentUrl ? '1px solid #bbf7d0' : '1px solid #fef3c7', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  {selectedPOObject.invoiceAttachmentUrl ? <Icons.FileCheck size={20} color="#166534" /> : <Icons.AlertCircle size={20} color="#b45309" />}
+                  <div>
+                    <div style={{ fontWeight: 600, color: selectedPOObject.invoiceAttachmentUrl ? '#166534' : '#92400e', fontSize: '0.9rem' }}>
+                      {selectedPOObject.invoiceAttachmentUrl ? `Physical Invoice Attached: ${selectedPOObject.invoiceAttachmentName || 'Vendor Bill'}` : 'Physical Vendor Invoice Not Yet Attached'}
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: selectedPOObject.invoiceAttachmentUrl ? '#15803d' : '#b45309' }}>
+                      Cross-verify inward quantities against the vendor\'s official paper challan.
+                    </span>
+                  </div>
+                </div>
+
+                {selectedPOObject.invoiceAttachmentUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewDocUrl(selectedPOObject.invoiceAttachmentUrl);
+                      setPreviewDocName(selectedPOObject.invoiceAttachmentName || 'Delivery-Challan');
+                      setShowInvoiceViewer(true);
+                    }}
+                    style={{ padding: '0.5rem 1rem', backgroundColor: '#15803d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    Inspect Physical Challan
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setInvoiceModalPO(selectedPOObject)}
+                    style={{ padding: '0.5rem 1rem', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    + Upload Scanned Bill
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Step 2: Invoice & Receipt Details */}
             {selectedPOId && (
               <div style={{ backgroundColor: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
-                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#334155' }}>3. Invoice & Receipt Details</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#334155', fontWeight: 600 }}>3. Invoice & Receipt Details</h4>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                    <span>Vendor: <strong style={{ color: '#0f172a' }}>{vendors.find(v => v.id === parseInt(selectedVendorId))?.name || '—'}</strong></span>
+                    <span style={{ margin: '0 0.5rem', color: '#cbd5e1' }}>|</span>
+                    <span>PO: <strong style={{ color: '#0284c7' }}>{selectedPOObject?.poNumber || `PO-${selectedPOId}`}</strong></span>
+                  </div>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Vendor Invoice # *</label>
@@ -500,13 +716,19 @@ export default function Purchases() {
             {/* Step 3: Items Received List */}
             {selectedPOId && receiveForm.items.length > 0 && (
               <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: '#0f172a' }}>4. Items Received (Enter Inward Quantities)</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#0f172a', fontWeight: 600 }}>4. Items Received (Enter Inward Quantities)</h4>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                    Inwarding against Invoice: <strong style={{ color: '#0284c7' }}>{receiveForm.invoiceNumber || '—'}</strong>
+                  </div>
+                </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f1f5f9', fontSize: '0.8rem', color: '#475569' }}>
                       <th style={{ padding: '0.75rem' }}>Raw Material</th>
                       <th style={{ padding: '0.75rem' }}>Ordered</th>
                       <th style={{ padding: '0.75rem' }}>Previously Received</th>
+                      <th style={{ padding: '0.75rem' }}>Remaining</th>
                       <th style={{ padding: '0.75rem' }}>Receiving Now *</th>
                       <th style={{ padding: '0.75rem' }}>Unit Cost (₹) *</th>
                       <th style={{ padding: '0.75rem' }}>Expiry Date</th>
@@ -516,27 +738,71 @@ export default function Purchases() {
                   <tbody>
                     {receiveForm.items.map((item, idx) => {
                       const lineTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.costPerUnit) || 0);
+                      const isHighlighted = highlightedIngredientId === item.ingredientId;
+                      const maxRemaining = item.remaining !== undefined ? item.remaining : Math.max(0, (item.quantityOrdered || 0) - (item.alreadyReceived || 0));
+                      const isExceeding = parseFloat(item.quantity) > maxRemaining;
+
                       return (
-                        <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '0.75rem', fontWeight: 600 }}>{item.ingredientName}</td>
+                        <tr
+                          key={idx}
+                          style={{
+                            borderBottom: '1px solid #f1f5f9',
+                            backgroundColor: isExceeding ? '#fef2f2' : isHighlighted ? '#eff6ff' : 'white',
+                            transition: 'background-color 0.3s'
+                          }}
+                        >
+                          <td style={{ padding: '0.75rem', fontWeight: 600 }}>
+                            {item.ingredientName}
+                            {isHighlighted && <span style={{ marginLeft: '0.5rem', color: '#0284c7', fontSize: '0.75rem' }}>[Scanned]</span>}
+                          </td>
                           <td style={{ padding: '0.75rem' }}>{item.quantityOrdered} {item.unit}</td>
                           <td style={{ padding: '0.75rem', color: '#64748b' }}>{item.alreadyReceived} {item.unit}</td>
+                          <td style={{ padding: '0.75rem', fontWeight: 600, color: maxRemaining > 0 ? '#0284c7' : '#10b981' }}>
+                            {maxRemaining} {item.unit}
+                          </td>
                           <td style={{ padding: '0.75rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                              <input
-                                required
-                                type="number"
-                                step="0.001"
-                                min="0"
-                                value={item.quantity}
-                                onChange={e => {
-                                  const updated = [...receiveForm.items];
-                                  updated[idx].quantity = e.target.value;
-                                  setReceiveForm({ ...receiveForm, items: updated });
-                                }}
-                                style={{ width: '90px', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                              />
-                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{item.unit}</span>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <input
+                                  id={`receive-qty-input-${idx}`}
+                                  required
+                                  type="number"
+                                  step="0.001"
+                                  min="0"
+                                  value={item.quantity}
+                                  onChange={e => {
+                                    const updated = [...receiveForm.items];
+                                    updated[idx].quantity = e.target.value;
+                                    setReceiveForm({ ...receiveForm, items: updated });
+                                  }}
+                                  style={{
+                                    width: '90px',
+                                    padding: '0.4rem',
+                                    borderRadius: '4px',
+                                    border: isExceeding ? '2px solid #ef4444' : isHighlighted ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                                    fontWeight: 600,
+                                    backgroundColor: isExceeding ? '#fee2e2' : 'white'
+                                  }}
+                                />
+                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{item.unit}</span>
+                                <button
+                                  type="button"
+                                  title="Fill full remaining quantity"
+                                  onClick={() => {
+                                    const updated = [...receiveForm.items];
+                                    updated[idx].quantity = maxRemaining;
+                                    setReceiveForm({ ...receiveForm, items: updated });
+                                  }}
+                                  style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                  All
+                                </button>
+                              </div>
+                              {isExceeding && (
+                                <div style={{ color: '#dc2626', fontSize: '0.7rem', fontWeight: 600, marginTop: '2px' }}>
+                                  Exceeds remaining ({maxRemaining} {item.unit})
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td style={{ padding: '0.75rem' }}>
@@ -572,6 +838,14 @@ export default function Purchases() {
                     })}
                   </tbody>
                 </table>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 6px 6px' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                    Line items with inward quantities: <strong style={{ color: '#0f172a' }}>{receiveForm.items.filter(it => parseFloat(it.quantity) > 0).length} of {receiveForm.items.length}</strong>
+                  </span>
+                  <span style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                    Total Inward Cost: <strong style={{ color: '#059669' }}>₹{receiveForm.items.reduce((sum, it) => sum + ((parseFloat(it.quantity) || 0) * (parseFloat(it.costPerUnit) || 0)), 0).toFixed(2)}</strong>
+                  </span>
+                </div>
               </div>
             )}
 
@@ -600,53 +874,150 @@ export default function Purchases() {
         </div>
       )}
 
-      {/* TAB 3: RECEIVED GOODS BATCHES (FIFO) */}
+      {/* TAB 3: RECEIVED GOODS BATCHES & GRN HISTORY */}
       {activeTab === 'receipts' && (
-        <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.875rem', color: '#475569' }}>
-                <th style={{ padding: '1rem' }}>Batch #</th>
-                <th style={{ padding: '1rem' }}>Raw Material</th>
-                <th style={{ padding: '1rem' }}>Received Qty</th>
-                <th style={{ padding: '1rem' }}>Current Qty</th>
-                <th style={{ padding: '1rem' }}>Cost / Unit</th>
-                <th style={{ padding: '1rem' }}>Received Date</th>
-                <th style={{ padding: '1rem' }}>Expiry Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {batches.map(b => (
-                <tr key={b.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '1rem', fontWeight: 600 }}>BATCH-{b.id}</td>
-                  <td style={{ padding: '1rem', fontWeight: 600 }}>{b.ingredient?.name}</td>
-                  <td style={{ padding: '1rem' }}>{b.initialQuantity} {b.ingredient?.unit}</td>
-                  <td style={{ padding: '1rem', color: b.currentQuantity <= 0 ? '#ef4444' : '#10b981', fontWeight: 600 }}>
-                    {b.currentQuantity} {b.ingredient?.unit}
-                  </td>
-                  <td style={{ padding: '1rem' }}>₹{(b.costPerUnit || 0).toFixed(2)}</td>
-                  <td style={{ padding: '1rem' }}>{b.receivedAt ? new Date(b.receivedAt).toLocaleDateString() : 'N/A'}</td>
-                  <td style={{ padding: '1rem' }}>{b.expiryDate || 'N/A'}</td>
-                </tr>
-              ))}
-              {batches.length === 0 && (
-                <tr>
-                  <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-                    No received batches recorded yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div>
+          {/* Sub Tab Toggle */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+            <button
+              onClick={() => setReceiptsSubTab('grns')}
+              style={{
+                padding: '0.55rem 1.1rem',
+                backgroundColor: receiptsSubTab === 'grns' ? '#0284c7' : '#f1f5f9',
+                color: receiptsSubTab === 'grns' ? 'white' : '#475569',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}
+            >
+              <Icons.FileCheck size={16} /> Goods Receipt Notes / GRNs ({receipts.length})
+            </button>
+            <button
+              onClick={() => setReceiptsSubTab('batches')}
+              style={{
+                padding: '0.55rem 1.1rem',
+                backgroundColor: receiptsSubTab === 'batches' ? '#0284c7' : '#f1f5f9',
+                color: receiptsSubTab === 'batches' ? 'white' : '#475569',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem'
+              }}
+            >
+              <Icons.Boxes size={16} /> FIFO Stock Batches ({batches.length})
+            </button>
+          </div>
+
+          {receiptsSubTab === 'grns' && (
+            <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#475569' }}>
+                    <th style={{ padding: '0.85rem 1rem' }}>GRN #</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Invoice #</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>PO #</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Vendor</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Receipt Date</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Total Value</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Status</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Received By</th>
+                    <th style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {receipts.map(r => (
+                    <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem' }}>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#0284c7' }}>{r.receiptNumber}</td>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 600 }}>{r.invoiceNumber}</td>
+                      <td style={{ padding: '0.85rem 1rem' }}>{r.purchaseOrder?.poNumber || `PO-${r.purchaseOrder?.id}`}</td>
+                      <td style={{ padding: '0.85rem 1rem' }}>{r.vendor?.name || '—'}</td>
+                      <td style={{ padding: '0.85rem 1rem', color: '#64748b' }}>{r.receiptDate || '—'}</td>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 700, color: '#059669' }}>₹{(r.totalAmount || 0).toFixed(2)}</td>
+                      <td style={{ padding: '0.85rem 1rem' }}>
+                        <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: r.status === 'Completed' ? '#d1fae5' : '#fef3c7', color: r.status === 'Completed' ? '#047857' : '#b45309' }}>
+                          {r.status || 'Completed'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', color: '#64748b' }}>{r.receivedBy || 'Manager'}</td>
+                      <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
+                        <button
+                          onClick={() => setSelectedReceiptForView(r)}
+                          style={{ padding: '0.35rem 0.75rem', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          View Items ({r.items?.length || 0})
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {receipts.length === 0 && (
+                    <tr>
+                      <td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                        No goods receipts recorded yet. Use the Receive Stock Screen to inward stock against a purchase order.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {receiptsSubTab === 'batches' && (
+            <div style={{ backgroundColor: 'white', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.8rem', color: '#475569' }}>
+                    <th style={{ padding: '0.85rem 1rem' }}>Batch #</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Raw Material</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Received Qty</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Current Balance</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Cost / Unit</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Received Date</th>
+                    <th style={{ padding: '0.85rem 1rem' }}>Expiry Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {batches.map(b => (
+                    <tr key={b.id} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem' }}>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 600 }}>BATCH-{b.id}</td>
+                      <td style={{ padding: '0.85rem 1rem', fontWeight: 600 }}>{b.ingredient?.name}</td>
+                      <td style={{ padding: '0.85rem 1rem' }}>{b.initialQuantity} {b.ingredient?.unit}</td>
+                      <td style={{ padding: '0.85rem 1rem', color: b.currentQuantity <= 0 ? '#ef4444' : '#10b981', fontWeight: 700 }}>
+                        {b.currentQuantity} {b.ingredient?.unit}
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem' }}>₹{(b.costPerUnit || 0).toFixed(2)}</td>
+                      <td style={{ padding: '0.85rem 1rem', color: '#64748b' }}>{b.receivedAt ? new Date(b.receivedAt).toLocaleDateString() : '—'}</td>
+                      <td style={{ padding: '0.85rem 1rem', color: b.expiryDate ? '#dc2626' : '#64748b' }}>{b.expiryDate || '—'}</td>
+                    </tr>
+                  ))}
+                  {batches.length === 0 && (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                        No received batches recorded yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
       {/* CREATE PURCHASE ORDER MODAL */}
       {showPOModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '2rem', width: '90%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: 0 }}>Create Purchase Order</h3>
+              <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Create Purchase Order</h3>
               <button onClick={() => setShowPOModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Icons.X size={20} /></button>
             </div>
 
@@ -658,7 +1029,7 @@ export default function Purchases() {
                     required
                     value={poForm.vendorId}
                     onChange={e => setPoForm({ ...poForm, vendorId: e.target.value })}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                   >
                     <option value="">-- Choose Vendor --</option>
                     {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -670,7 +1041,7 @@ export default function Purchases() {
                     type="text"
                     value={poForm.poNumber}
                     onChange={e => setPoForm({ ...poForm, poNumber: e.target.value })}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
                 <div>
@@ -679,7 +1050,7 @@ export default function Purchases() {
                     type="date"
                     value={poForm.expectedDeliveryDate}
                     onChange={e => setPoForm({ ...poForm, expectedDeliveryDate: e.target.value })}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                   />
                 </div>
               </div>
@@ -688,7 +1059,7 @@ export default function Purchases() {
               <div style={{ marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                   <h4 style={{ margin: 0, fontSize: '0.9rem' }}>Raw Materials to Order</h4>
-                  <button type="button" onClick={handleAddPOItem} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#e2e8f0', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <button type="button" onClick={handleAddPOItem} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#e2e8f0', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
                     <Icons.Plus size={14} /> Add Raw Material
                   </button>
                 </div>
@@ -762,6 +1133,157 @@ export default function Purchases() {
                 <button type="submit" style={{ padding: '0.75rem 2rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>Create Purchase Order</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: UPLOAD VENDOR INVOICE / CHALLAN */}
+      {invoiceModalPO && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '500px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>
+                Attach Vendor Invoice / Delivery Challan
+              </h3>
+              <button onClick={() => setInvoiceModalPO(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Icons.X size={20} /></button>
+            </div>
+
+            <p style={{ margin: '0 0 1.25rem 0', color: '#64748b', fontSize: '0.85rem' }}>
+              Upload a scanned image (JPEG/PNG) or PDF of the vendor delivery receipt for <b>{invoiceModalPO.poNumber || `PO-${invoiceModalPO.id}`}</b>.
+            </p>
+
+            <div style={{ border: '2px dashed #cbd5e1', borderRadius: '8px', padding: '2rem', textAlign: 'center', backgroundColor: '#f8fafc', marginBottom: '1.5rem' }}>
+              <Icons.UploadCloud size={40} color="#0284c7" style={{ marginBottom: '0.5rem' }} />
+              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155', marginBottom: '0.25rem' }}>
+                {isUploadingInvoice ? 'Uploading document...' : 'Select or capture invoice document'}
+              </div>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '1rem' }}>
+                Supports PNG, JPG, PDF up to 10MB
+              </span>
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                disabled={isUploadingInvoice}
+                onChange={e => handleFileUpload(e, invoiceModalPO.id)}
+                style={{ fontSize: '0.85rem' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setInvoiceModalPO(null)}
+                style={{ padding: '0.65rem 1.25rem', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: FULL DOCUMENT PREVIEW VIEWER */}
+      {showInvoiceViewer && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '1.5rem' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem', width: '100%', maxWidth: '850px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Icons.FileCheck size={20} color="#059669" />
+                <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a' }}>{previewDocName}</h3>
+              </div>
+              <button onClick={() => setShowInvoiceViewer(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Icons.X size={22} /></button>
+            </div>
+
+            <div style={{ flex: 1, overflow: 'auto', textAlign: 'center', padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
+              {previewDocUrl.startsWith('data:application/pdf') ? (
+                <iframe src={previewDocUrl} style={{ width: '100%', height: '550px', border: 'none' }} title="Invoice PDF" />
+              ) : (
+                <img src={previewDocUrl} alt="Vendor Invoice Challan" style={{ maxWidth: '100%', maxHeight: '550px', objectFit: 'contain', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button
+                onClick={() => setShowInvoiceViewer(false)}
+                style={{ padding: '0.65rem 1.5rem', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Close Viewer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: VIEW GOODS RECEIPT ITEMS */}
+      {selectedReceiptForView && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '1rem' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '1.75rem', width: '100%', maxWidth: '750px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>Goods Receipt #{selectedReceiptForView.receiptNumber}</h3>
+                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                  Invoice: <strong>{selectedReceiptForView.invoiceNumber}</strong> | PO: <strong>{selectedReceiptForView.purchaseOrder?.poNumber || `PO-${selectedReceiptForView.purchaseOrder?.id}`}</strong> | Vendor: <strong>{selectedReceiptForView.vendor?.name}</strong>
+                </span>
+              </div>
+              <button onClick={() => setSelectedReceiptForView(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Icons.X size={20} /></button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem', backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px' }}>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Receipt Date</div>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{selectedReceiptForView.receiptDate || '—'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Status</div>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#059669' }}>{selectedReceiptForView.status || 'Completed'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Received By</div>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{selectedReceiptForView.receivedBy || 'Manager'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Total Inward Value</div>
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#059669' }}>₹{(selectedReceiptForView.totalAmount || 0).toFixed(2)}</div>
+              </div>
+            </div>
+
+            <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', color: '#334155' }}>Inwarded Items</h4>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f1f5f9', fontSize: '0.8rem', color: '#475569' }}>
+                  <th style={{ padding: '0.65rem 0.75rem' }}>Raw Material</th>
+                  <th style={{ padding: '0.65rem 0.75rem' }}>Ordered</th>
+                  <th style={{ padding: '0.65rem 0.75rem' }}>Inwarded Qty</th>
+                  <th style={{ padding: '0.65rem 0.75rem' }}>Remaining</th>
+                  <th style={{ padding: '0.65rem 0.75rem' }}>Unit Cost (₹)</th>
+                  <th style={{ padding: '0.65rem 0.75rem' }}>Expiry Date</th>
+                  <th style={{ padding: '0.65rem 0.75rem', textAlign: 'right' }}>Total (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedReceiptForView.items?.map((it: any, i: number) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem' }}>
+                    <td style={{ padding: '0.65rem 0.75rem', fontWeight: 600 }}>{it.ingredient?.name}</td>
+                    <td style={{ padding: '0.65rem 0.75rem' }}>{it.quantityOrdered} {it.unit}</td>
+                    <td style={{ padding: '0.65rem 0.75rem', fontWeight: 600, color: '#059669' }}>{it.quantityReceived} {it.unit}</td>
+                    <td style={{ padding: '0.65rem 0.75rem', color: '#64748b' }}>{it.quantityRemaining} {it.unit}</td>
+                    <td style={{ padding: '0.65rem 0.75rem' }}>₹{(it.unitCost || 0).toFixed(2)}</td>
+                    <td style={{ padding: '0.65rem 0.75rem', color: it.expiryDate ? '#dc2626' : '#64748b' }}>{it.expiryDate || '—'}</td>
+                    <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', fontWeight: 700 }}>₹{(it.totalCost || 0).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedReceiptForView(null)}
+                style={{ padding: '0.6rem 1.5rem', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

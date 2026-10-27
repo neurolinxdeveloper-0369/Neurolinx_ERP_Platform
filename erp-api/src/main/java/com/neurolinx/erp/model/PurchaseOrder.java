@@ -51,6 +51,12 @@ public class PurchaseOrder {
     @Column(length = 500)
     private String notes;
 
+    @Column(columnDefinition = "TEXT")
+    private String invoiceAttachmentUrl; // Base64 data URI or file link for scanned invoice / PDF
+
+    @Column(length = 255)
+    private String invoiceAttachmentName;
+
     @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<PurchaseOrderItem> items = new ArrayList<>();
 
@@ -83,6 +89,10 @@ public class PurchaseOrder {
     public void setExpectedDeliveryDate(LocalDate expectedDeliveryDate) { this.expectedDeliveryDate = expectedDeliveryDate; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public String getInvoiceAttachmentUrl() { return invoiceAttachmentUrl; }
+    public void setInvoiceAttachmentUrl(String invoiceAttachmentUrl) { this.invoiceAttachmentUrl = invoiceAttachmentUrl; }
+    public String getInvoiceAttachmentName() { return invoiceAttachmentName; }
+    public void setInvoiceAttachmentName(String invoiceAttachmentName) { this.invoiceAttachmentName = invoiceAttachmentName; }
     public List<PurchaseOrderItem> getItems() { return items != null ? items : new ArrayList<>(); }
     public void setItems(List<PurchaseOrderItem> items) { this.items = items; }
     public LocalDateTime getCreatedAt() { return createdAt; }

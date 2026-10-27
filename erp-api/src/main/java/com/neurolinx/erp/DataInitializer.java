@@ -29,9 +29,15 @@ public class DataInitializer {
                 jdbcTemplate.execute("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS company_id BIGINT");
                 jdbcTemplate.execute("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS branch_id BIGINT");
                 jdbcTemplate.execute("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS reorder_level NUMERIC(38,2) DEFAULT 0");
+                jdbcTemplate.execute("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS par_level NUMERIC(38,2) DEFAULT 0");
+                jdbcTemplate.execute("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS storage_zone VARCHAR(100) DEFAULT 'Dry Store'");
+                jdbcTemplate.execute("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS barcode VARCHAR(100)");
+                jdbcTemplate.execute("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS preferred_vendor_id BIGINT");
                 jdbcTemplate.execute("ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS cost_per_unit NUMERIC(38,2) DEFAULT 0");
                 jdbcTemplate.execute("ALTER TABLE ingredients ALTER COLUMN stock_level SET DEFAULT 0");
                 jdbcTemplate.execute("UPDATE ingredients SET reorder_level = 0 WHERE reorder_level IS NULL");
+                jdbcTemplate.execute("UPDATE ingredients SET par_level = 0 WHERE par_level IS NULL");
+                jdbcTemplate.execute("UPDATE ingredients SET storage_zone = 'Dry Store' WHERE storage_zone IS NULL");
                 jdbcTemplate.execute("UPDATE ingredients SET cost_per_unit = 0 WHERE cost_per_unit IS NULL");
                 jdbcTemplate.execute("UPDATE ingredients SET stock_level = 0 WHERE stock_level IS NULL");
             } catch (Exception e) {
@@ -46,6 +52,8 @@ public class DataInitializer {
                 jdbcTemplate.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS expected_delivery_date DATE");
                 jdbcTemplate.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS notes VARCHAR(500)");
                 jdbcTemplate.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS branch_id BIGINT");
+                jdbcTemplate.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS invoice_attachment_url TEXT");
+                jdbcTemplate.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS invoice_attachment_name VARCHAR(255)");
                 jdbcTemplate.execute("UPDATE purchase_orders SET amount_paid = 0 WHERE amount_paid IS NULL");
                 jdbcTemplate.execute("UPDATE purchase_orders SET status = 'Ordered' WHERE status IS NULL");
             } catch (Exception e) {
