@@ -28,6 +28,11 @@ public class InvoiceParserService {
      * Parses uploaded invoice document (PDF or Image in Base64 or plain name)
      * and extracts structured supplier invoice data with real items, pricing, and taxes.
      */
+    public Map<String, Object> extractInvoiceData(String documentName, byte[] rawBytes) {
+        String base64Content = rawBytes != null ? "data:application/pdf;base64," + Base64.getEncoder().encodeToString(rawBytes) : "";
+        return extractInvoiceData(documentName, base64Content);
+    }
+
     public Map<String, Object> extractInvoiceData(String documentName, String base64Content) {
         Map<String, Object> result = new LinkedHashMap<>();
 

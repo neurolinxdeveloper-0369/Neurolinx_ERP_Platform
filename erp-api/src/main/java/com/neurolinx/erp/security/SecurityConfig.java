@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
+                .requestMatchers("/api/inventory/purchases/invoices/**").permitAll()
                 .requestMatchers("/api/menus/debug-privileges/**").permitAll()
                 .requestMatchers("/api/webhooks/aggregators/**", "/api/aggregators/webhook/**").permitAll()
                 .requestMatchers("/error").permitAll()

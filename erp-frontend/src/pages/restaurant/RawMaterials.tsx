@@ -142,16 +142,15 @@ export default function RawMaterials() {
     e.preventDefault();
     const url = isEditing ? `https://erp-api.neurolinx.in/api/inventory/ingredients/${form.id}` : 'https://erp-api.neurolinx.in/api/inventory/ingredients';
     const method = isEditing ? 'PUT' : 'POST';
-    const autoBarcode = form.barcode?.trim() || `RAW-${Math.floor(100000 + Math.random() * 900000)}`;
     const payload = {
       name: form.name.trim(),
       unit: form.unit,
-      stockLevel: isEditing ? (parseFloat(form.stockLevel.toString()) || 0) : 0,
-      reorderLevel: isEditing ? (parseFloat(form.reorderLevel.toString()) || 0) : 0,
-      parLevel: isEditing ? (parseFloat(form.parLevel.toString()) || 0) : 0,
-      costPerUnit: isEditing ? (parseFloat(form.costPerUnit.toString()) || 0) : 0,
+      stockLevel: parseFloat(form.stockLevel.toString()) || 0,
+      reorderLevel: parseFloat(form.reorderLevel.toString()) || 0,
+      parLevel: parseFloat(form.parLevel.toString()) || 0,
+      costPerUnit: parseFloat(form.costPerUnit.toString()) || 0,
       storageZone: form.storageZone || 'Dry Storage',
-      barcode: autoBarcode,
+      barcode: form.barcode?.trim() || `RAW-${Math.floor(100000 + Math.random() * 900000)}`,
       preferredVendorId: form.preferredVendorId ? parseInt(form.preferredVendorId) : null
     };
 
@@ -1372,116 +1371,90 @@ export default function RawMaterials() {
                 </div>
               </div>
 
-              {/* When Adding a New Raw Material: Allow entering ONLY Name, Unit of Measure, Storage Zone, Preferred Vendor */}
-              {!isEditing ? (
-                <>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Preferred Vendor</label>
-                    <select
-                      value={form.preferredVendorId}
-                      onChange={e => setForm({ ...form, preferredVendorId: e.target.value })}
-                      style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                    >
-                      <option value="">-- None / General Supplier --</option>
-                      {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                    </select>
-                  </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Current Stock *</label>
+                  <input
+                    required
+                    type="number"
+                    step="0.01"
+                    value={form.stockLevel}
+                    onChange={e => setForm({ ...form, stockLevel: parseFloat(e.target.value) || 0 })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
 
-                  <div style={{ padding: '0.85rem 1rem', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', fontSize: '0.8rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <Icons.CheckCircle size={20} color="#16a34a" />
-                    <div>
-                      <strong>Auto-Initialized Stock & Valuation:</strong> Initial stock is initialized to <strong>0</strong>. Stock quantity, valuation, and cost per unit will be populated automatically when stock is verified and confirmed through Goods Receipts. An item SKU code will be automatically assigned.
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Current Stock *</label>
-                      <input
-                        required
-                        type="number"
-                        step="0.01"
-                        value={form.stockLevel}
-                        onChange={e => setForm({ ...form, stockLevel: parseFloat(e.target.value) || 0 })}
-                        style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                      />
-                    </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Reorder Level</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.reorderLevel}
+                    onChange={e => setForm({ ...form, reorderLevel: parseFloat(e.target.value) || 0 })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Reorder Level</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={form.reorderLevel}
-                        onChange={e => setForm({ ...form, reorderLevel: parseFloat(e.target.value) || 0 })}
-                        style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                      />
-                    </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Par Level (Target)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Optimal target"
+                    value={form.parLevel}
+                    onChange={e => setForm({ ...form, parLevel: parseFloat(e.target.value) || 0 })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+              </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Par Level (Target)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="Optimal target"
-                        value={form.parLevel}
-                        onChange={e => setForm({ ...form, parLevel: parseFloat(e.target.value) || 0 })}
-                        style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                      />
-                    </div>
-                  </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Unit Cost (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.costPerUnit}
+                    onChange={e => setForm({ ...form, costPerUnit: parseFloat(e.target.value) || 0 })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Unit Cost (₹)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={form.costPerUnit}
-                        onChange={e => setForm({ ...form, costPerUnit: parseFloat(e.target.value) || 0 })}
-                        style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                      />
-                    </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Preferred Vendor</label>
+                  <select
+                    value={form.preferredVendorId}
+                    onChange={e => setForm({ ...form, preferredVendorId: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  >
+                    <option value="">-- None / General Supplier --</option>
+                    {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  </select>
+                </div>
+              </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem' }}>Preferred Vendor</label>
-                      <select
-                        value={form.preferredVendorId}
-                        onChange={e => setForm({ ...form, preferredVendorId: e.target.value })}
-                        style={{ width: '100%', padding: '0.65rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                      >
-                        <option value="">-- None / General Supplier --</option>
-                        {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Barcode / SKU Code</label>
-                      <button
-                        type="button"
-                        onClick={generateBarcode}
-                        style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
-                      >
-                        + Auto-Generate SKU
-                      </button>
-                    </div>
-                    <div style={{ position: 'relative' }}>
-                      <Icons.Barcode size={18} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-                      <input
-                        type="text"
-                        placeholder="e.g. RAW-894102 or vendor EAN"
-                        value={form.barcode}
-                        onChange={e => setForm({ ...form, barcode: e.target.value })}
-                        style={{ width: '100%', padding: '0.65rem 0.65rem 0.65rem 2.25rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontFamily: 'monospace' }}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Barcode / SKU Code</label>
+                  <button
+                    type="button"
+                    onClick={generateBarcode}
+                    style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    + Auto-Generate SKU
+                  </button>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <Icons.Barcode size={18} style={{ position: 'absolute', left: '0.65rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                  <input
+                    type="text"
+                    placeholder="e.g. RAW-894102 or vendor EAN"
+                    value={form.barcode}
+                    onChange={e => setForm({ ...form, barcode: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem 0.65rem 0.65rem 2.25rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontFamily: 'monospace' }}
+                  />
+                </div>
+              </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
                 <button

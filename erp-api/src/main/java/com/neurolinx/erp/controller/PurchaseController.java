@@ -7,6 +7,18 @@ import com.neurolinx.erp.repository.*;
 import com.neurolinx.erp.service.InventoryService;
 import com.neurolinx.erp.service.InvoiceParserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +44,9 @@ public class PurchaseController {
     @Autowired private InvoiceParserService invoiceParserService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Value("${erp.upload.invoice-dir:uploads/invoices}")
+    private String invoiceUploadDir;
 
     private Company getUserCompany() {
         try {
@@ -300,6 +315,113 @@ public class PurchaseController {
             }
         }
         return ResponseEntity.ok(goodsReceiptRepository.findByCompanyOrderByCreatedAtDesc(company));
+    }
+
+        @PostMapping(value = "/{id}/upload-invoice", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Transactional
+    public ResponseEntity<?> uploadInvoice(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        Company company = getUserCompany();
+        if (company == null) return ResponseEntity.status(403).body(Map.of("message", "Company not found"));
+
+        var poOpt = purchaseOrderRepository.findById(id);
+        if (poOpt.isEmpty()) return ResponseEntity.notFound().build();
+        PurchaseOrder po = poOpt.get();
+
+        if (company != null && po.getCompany() != null && !po.getCompany().getId().equals(company.getId())) {
+            return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
+        }
+
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "File is required and cannot be empty"));
+        }
+
+        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename() != null ? file.getOriginalFilename() : "invoice.pdf");
+        if (originalFilename.contains("..")) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid file name"));
+        }
+
+        String lowerName = originalFilename.toLowerCase();
+        if (!lowerName.endsWith(".pdf") && !lowerName.endsWith(".jpg") && !lowerName.endsWith(".jpeg") && !lowerName.endsWith(".png")) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Only PDF, JPG, and PNG invoice documents are supported"));
+        }
+
+        try {
+            Path uploadPath = Paths.get(invoiceUploadDir != null ? invoiceUploadDir : "uploads/invoices").toAbsolutePath().normalize();
+            Files.createDirectories(uploadPath);
+
+            String safeBase = originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_");
+            String uniqueFilename = "po_" + id + "_" + UUID.randomUUID().toString().substring(0, 8) + "_" + safeBase;
+            Path targetPath = uploadPath.resolve(uniqueFilename).normalize();
+
+            if (!targetPath.startsWith(uploadPath)) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Invalid file path"));
+            }
+
+            try (InputStream is = file.getInputStream()) {
+                Files.copy(is, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            String relativeUrl = "/api/inventory/purchases/invoices/" + uniqueFilename;
+            po.setInvoiceAttachmentUrl(relativeUrl);
+            po.setInvoiceAttachmentName(originalFilename);
+
+            byte[] fileBytes = file.getBytes();
+            Map<String, Object> extracted = invoiceParserService.extractInvoiceData(originalFilename, fileBytes);
+            if (extracted != null && !extracted.isEmpty()) {
+                List<Map<String, Object>> rawItems = (List<Map<String, Object>>) extracted.getOrDefault("items", Collections.emptyList());
+                List<Map<String, Object>> reconciled = invoiceParserService.reconcileWithPO(rawItems, po, company);
+                extracted.put("items", reconciled);
+                try {
+                    po.setInvoiceData(objectMapper.writeValueAsString(extracted));
+                    if (extracted.containsKey("invoiceNumber") && extracted.get("invoiceNumber") != null) {
+                        po.setInvoiceNumber(extracted.get("invoiceNumber").toString());
+                    }
+                    if (extracted.containsKey("invoiceDate") && extracted.get("invoiceDate") != null) {
+                        po.setInvoiceDate(LocalDate.parse(extracted.get("invoiceDate").toString()));
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            PurchaseOrder saved = purchaseOrderRepository.save(po);
+            Map<String, Object> resp = new LinkedHashMap<>();
+            resp.put("success", true);
+            resp.put("poId", saved.getId());
+            resp.put("invoiceAttachmentUrl", saved.getInvoiceAttachmentUrl());
+            resp.put("invoiceAttachmentName", saved.getInvoiceAttachmentName());
+            resp.put("invoiceNumber", saved.getInvoiceNumber() != null ? saved.getInvoiceNumber() : "");
+            resp.put("invoiceDate", saved.getInvoiceDate() != null ? saved.getInvoiceDate().toString() : "");
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("message", "Failed to store invoice file: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/invoices/{filename:.+}")
+    public ResponseEntity<Resource> getInvoiceDocument(@PathVariable String filename) {
+        try {
+            if (filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
+                return ResponseEntity.badRequest().build();
+            }
+            Path uploadPath = Paths.get(invoiceUploadDir != null ? invoiceUploadDir : "uploads/invoices").toAbsolutePath().normalize();
+            Path filePath = uploadPath.resolve(filename).normalize();
+            if (!filePath.startsWith(uploadPath) || !Files.exists(filePath)) {
+                return ResponseEntity.notFound().build();
+            }
+            Resource resource = new UrlResource(filePath.toUri());
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                if (filename.toLowerCase().endsWith(".pdf")) contentType = "application/pdf";
+                else if (filename.toLowerCase().endsWith(".png")) contentType = "image/png";
+                else contentType = "image/jpeg";
+            }
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                    .body(resource);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PostMapping("/{id}/attach-invoice")

@@ -40,18 +40,10 @@ export default function Purchases() {
   });
   const [isReceiving, setIsReceiving] = useState(false);
 
-  // Invoice Verification & Source of Truth State
-  const [invoiceVerificationStatus, setInvoiceVerificationStatus] = useState<
-    'IDLE' | 'CHECKING' | 'VERIFIED' | 'INVALID' | 'DUPLICATE' | 'UNVERIFIED' | 'VENDOR_MISMATCH' | 'MISMATCH'
-  >('IDLE');
-  const [invoiceVerificationMessage, setInvoiceVerificationMessage] = useState('');
-  const [verifiedInvoiceData, setVerifiedInvoiceData] = useState<any>(null);
 
-  // Phase 5: Barcode Quick Search in Receiving Screen
+
+  // Barcode Quick Search in Receiving Screen
   const [barcodeSearch, setBarcodeSearch] = useState('');
-  const [highlightedIngredientId, setHighlightedIngredientId] = useState<number | null>(null);
-
-  // Phase 5: Invoice Attachment Modal & Viewer State
   const [invoiceModalPO, setInvoiceModalPO] = useState<any>(null);
   const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
   const [showInvoiceViewer, setShowInvoiceViewer] = useState(false);
@@ -87,12 +79,9 @@ export default function Purchases() {
     fetchData();
   }, []);
 
-  // When PO is selected in Receive Stock screen, reset verification and enforce invoice verification before items display
+  // When PO is selected in Receive Stock screen, load PO items
   const handleSelectPOForReceive = (poId: string) => {
     setSelectedPOId(poId);
-    setInvoiceVerificationStatus('IDLE');
-    setInvoiceVerificationMessage('');
-    setVerifiedInvoiceData(null);
     if (!poId) {
       setReceiveForm(prev => ({
         ...prev,
@@ -102,175 +91,33 @@ export default function Purchases() {
       return;
     }
     const po = purchases.find(p => p.id === parseInt(poId));
+    if (!po) return;
+
+    const poItems = (po.items || []).map((item: any) => {
+      const prevRec = item.receivedQuantity || 0;
+      const remaining = Math.max(0, (item.quantity || 0) - prevRec);
+      return {
+        ingredient: item.ingredient,
+        orderedQuantity: item.quantity,
+        receivedQuantity: prevRec,
+        remainingQuantity: remaining,
+        quantity: remaining,
+        costPerUnit: item.costPerUnit || 0,
+        expiryDate: ''
+      };
+    });
+
     setReceiveForm(prev => ({
       ...prev,
-      invoiceNumber: '', // Strictly empty until user enters it or document is verified
-      invoiceDate: po?.invoiceDate ? po.invoiceDate : prev.invoiceDate,
-      items: [] // Items strictly hidden until invoice is validated!
+      invoiceNumber: '', // Strictly empty until user enters it
+      invoiceDate: po.invoiceDate ? po.invoiceDate : new Date().toISOString().split('T')[0],
+      receiptDate: new Date().toISOString().split('T')[0],
+      amountPaid: 0,
+      items: poItems
     }));
   };
 
-  // Verify original supplier invoice against backend records, PO, and vendor
-  const handleVerifyInvoice = async (forcedInvoiceNumber?: string) => {
-    const invNum = (forcedInvoiceNumber !== undefined ? forcedInvoiceNumber : receiveForm.invoiceNumber).trim();
-    if (!selectedPOId) {
-      alert('Please select a Purchase Order first.');
-      return;
-    }
-    if (!invNum) {
-      setInvoiceVerificationStatus('INVALID');
-      setInvoiceVerificationMessage('Please enter a Vendor Invoice Number to verify.');
-      setReceiveForm(prev => ({ ...prev, items: [] }));
-      return;
-    }
-
-    setInvoiceVerificationStatus('CHECKING');
-    setInvoiceVerificationMessage('Verifying invoice details against supplier records and Purchase Order...');
-
-    try {
-      const res = await apiFetch(`https://erp-api.neurolinx.in/api/inventory/purchases/${selectedPOId}/verify-invoice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          invoiceNumber: invNum,
-          vendorId: selectedVendorId ? parseInt(selectedVendorId) : null
-        })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (data.verified) {
-        setInvoiceVerificationStatus('VERIFIED');
-        setInvoiceVerificationMessage(data.message || 'Invoice successfully verified against original supplier records.');
-        setVerifiedInvoiceData(data);
-        const mappedItems = Array.isArray(data.items) ? data.items.map((it: any) => {
-          const invQty = parseFloat(it.invoiceQuantity !== undefined ? it.invoiceQuantity : it.quantity) || 1;
-          const mult = parseFloat(it.multiplier) || 1;
-          const inwardQty = it.inwardQuantity !== undefined ? parseFloat(it.inwardQuantity) : (invQty * mult);
-          const ordered = it.orderedQuantity !== undefined ? parseFloat(it.orderedQuantity) : inwardQty;
-          const rec = it.alreadyReceivedQuantity !== undefined ? parseFloat(it.alreadyReceivedQuantity) : (it.alreadyReceived || 0);
-          const rem = Math.max(0, it.remainingQuantity !== undefined ? parseFloat(it.remainingQuantity) : (ordered - rec));
-          const receivingQty = it.receivingQuantity !== undefined ? parseFloat(it.receivingQuantity) : inwardQty;
-          const lineTotal = it.lineTotal !== undefined ? parseFloat(it.lineTotal) : ((parseFloat(it.unitRate || 0)) * invQty);
-          const effectiveUnitCost = inwardQty > 0 ? (lineTotal / inwardQty) : (it.costPerUnit || it.unitRate || 0);
-
-          return {
-            ingredientId: it.matchedIngredientId,
-            ingredientName: it.matchedIngredientName || it.shortName || it.description,
-            itemCode: it.itemCode || '',
-            description: it.description || it.shortName || 'Item',
-            invoiceQuantity: invQty,
-            invoiceUnit: it.invoiceUnit || it.unit || 'pc',
-            packSize: it.packSize,
-            packUnit: it.packUnit,
-            packDisplay: it.packDisplay || `1 ${it.invoiceUnit || it.unit || 'unit'} = ${mult} ${it.baseUnit || 'kg'}`,
-            multiplier: mult,
-            baseUnit: it.baseUnit || it.unit || 'kg',
-            unit: it.baseUnit || it.unit || 'kg',
-            inwardQuantity: inwardQty,
-            quantityOrdered: ordered,
-            alreadyReceived: rec,
-            remaining: rem,
-            quantity: receivingQty,
-            costPerUnit: effectiveUnitCost,
-            unitRate: parseFloat(it.unitRate) || 0,
-            mrp: it.mrp,
-            discountPercent: it.discountPercent || 0,
-            discountAmount: it.discountAmount || 0,
-            taxRate: it.taxRate || 0,
-            taxAmount: it.taxAmount || 0,
-            lineTotal: lineTotal,
-            mismatchFlag: Boolean(it.mismatchFlag),
-            mismatchReason: it.mismatchReason || '',
-            expiryDate: it.expiryDate || ''
-          };
-        }) : [];
-        setReceiveForm(prev => ({
-          ...prev,
-          invoiceNumber: data.invoiceNumber || invNum,
-          invoiceDate: data.invoiceDate || prev.invoiceDate,
-          items: mappedItems
-        }));
-      } else {
-        setInvoiceVerificationStatus(data.status || 'INVALID');
-        setInvoiceVerificationMessage(data.message || 'Invoice verification failed. Please enter a valid supplier invoice number or attach the invoice document.');
-        setVerifiedInvoiceData(null);
-        setReceiveForm(prev => ({ ...prev, items: [] }));
-      }
-    } catch (err: any) {
-      setInvoiceVerificationStatus('INVALID');
-      setInvoiceVerificationMessage(err?.message || 'Network error verifying invoice.');
-      setVerifiedInvoiceData(null);
-      setReceiveForm(prev => ({ ...prev, items: [] }));
-    }
-  };
-
-  // Allow user to review and correct raw material mappings for verified invoice items
-  const handleItemMappingChange = (idx: number, newIngredientId: string) => {
-    const updated = [...receiveForm.items];
-    const targetItem = updated[idx];
-    if (!newIngredientId) {
-      targetItem.ingredientId = null;
-      targetItem.ingredientName = '';
-      targetItem.mismatchFlag = true;
-      targetItem.mismatchReason = 'Unmapped: Please select an existing raw material from the inventory catalog.';
-      setReceiveForm({ ...receiveForm, items: updated });
-      return;
-    }
-
-    const newIng = ingredients.find(i => i.id === parseInt(newIngredientId));
-    if (!newIng) return;
-
-    targetItem.ingredientId = newIng.id;
-    targetItem.ingredientName = newIng.name;
-    targetItem.baseUnit = newIng.unit || 'kg';
-    targetItem.unit = newIng.unit || 'kg';
-    targetItem.mismatchFlag = false;
-    targetItem.mismatchReason = '';
-
-    // Recompute multiplier based on pack size and new base unit
-    const iu = (targetItem.invoiceUnit || 'pc').toLowerCase();
-    const bu = (newIng.unit || 'kg').toLowerCase();
-    const pu = (targetItem.packUnit || '').toLowerCase();
-    const ps = parseFloat(targetItem.packSize) || 0;
-
-    let mult = 1;
-    if (bu === 'pcs' || bu === 'units' || bu === 'pc') {
-      mult = 1;
-    } else if (ps > 0 && pu) {
-      if (pu === bu) mult = ps;
-      else if (pu === 'g' && bu === 'kg') mult = ps / 1000;
-      else if (pu === 'kg' && bu === 'g') mult = ps * 1000;
-      else if (pu === 'ml' && bu === 'l') mult = ps / 1000;
-      else if (pu === 'l' && bu === 'ml') mult = ps * 1000;
-    } else if (iu === bu) {
-      mult = 1;
-    } else if (iu === 'g' && bu === 'kg') mult = 0.001;
-    else if (iu === 'kg' && bu === 'g') mult = 1000;
-    else if (iu === 'ml' && bu === 'l') mult = 0.001;
-    else if (iu === 'l' && bu === 'ml') mult = 1000;
-
-    targetItem.multiplier = mult;
-    targetItem.packDisplay = `1 ${targetItem.invoiceUnit || 'unit'} = ${mult} ${newIng.unit}`;
-    const invQty = parseFloat(targetItem.invoiceQuantity) || 1;
-    targetItem.inwardQuantity = invQty * mult;
-    targetItem.quantity = targetItem.inwardQuantity;
-    targetItem.costPerUnit = targetItem.inwardQuantity > 0 ? (targetItem.lineTotal / targetItem.inwardQuantity) : 0;
-
-    // Check PO status
-    const poItem = selectedPOObject?.items?.find((p: any) => p.ingredient?.id === newIng.id);
-    if (poItem) {
-      targetItem.quantityOrdered = poItem.quantityOrdered;
-      targetItem.alreadyReceived = poItem.quantityReceived || 0;
-      targetItem.remaining = Math.max(0, poItem.quantityOrdered - (poItem.quantityReceived || 0));
-    } else {
-      targetItem.quantityOrdered = targetItem.inwardQuantity;
-      targetItem.alreadyReceived = 0;
-      targetItem.remaining = targetItem.inwardQuantity;
-    }
-
-    setReceiveForm({ ...receiveForm, items: updated });
-  };
-
-  // Add Item to PO Form
+// Add Item to PO Form
   const handleAddPOItem = () => {
     setPoForm({
       ...poForm,
@@ -337,10 +184,6 @@ export default function Purchases() {
       alert('Please select a Purchase Order to receive stock against.');
       return;
     }
-    if (invoiceVerificationStatus !== 'VERIFIED') {
-      alert('Please verify the vendor invoice before receiving stock. Unverified or mismatched invoices cannot be inwarded.');
-      return;
-    }
     if (!receiveForm.invoiceNumber.trim()) {
       alert("Please enter the vendor's invoice number.");
       return;
@@ -389,10 +232,19 @@ export default function Purchases() {
           invoiceNumber: receiveForm.invoiceNumber.trim(),
           invoiceDate: receiveForm.invoiceDate,
           receiptDate: receiveForm.receiptDate,
-          invoiceTotal: verifiedInvoiceData?.invoiceTotal || totalInwardAmount,
-          taxableAmount: verifiedInvoiceData?.taxableAmount || totalInwardAmount,
-          taxAmount: verifiedInvoiceData?.taxAmount || 0,
-          items: validItems
+          amountPaid: parseFloat(receiveForm.amountPaid?.toString()) || 0,
+          paymentMethod: receiveForm.paymentMethod || 'CREDIT',
+          paymentReference: receiveForm.paymentReference || '',
+          paymentDate: receiveForm.paymentDate || receiveForm.receiptDate,
+          invoiceTotal: totalInwardAmount,
+          taxableAmount: totalInwardAmount,
+          taxAmount: 0,
+          items: validItems.map(item => ({
+            ingredientId: item.ingredient?.id || item.ingredientId,
+            quantity: parseFloat(item.quantity) || 0,
+            costPerUnit: parseFloat(item.costPerUnit) || 0,
+            expiryDate: item.expiryDate || null
+          }))
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -402,16 +254,12 @@ export default function Purchases() {
           `• GRN: ${data.receiptNumber || 'Created'}\n` +
           `• Vendor Invoice: #${receiveForm.invoiceNumber.trim()}\n` +
           `• Purchase Order: ${data.poNumber || `PO-${selectedPOId}`} [${data.status}]\n` +
-          `• Total Inward Amount: ₹${(data.totalAmount !== undefined ? data.totalAmount : totalInwardAmount).toFixed(2)}\n` +
-          `• Verified Supplier Invoice Value: ₹${(verifiedInvoiceData?.invoiceTotal || data.totalAmount || totalInwardAmount).toFixed(2)}\n\n` +
+          `• Total Inward Amount: ₹${(data.totalAmount !== undefined ? data.totalAmount : totalInwardAmount).toFixed(2)}\n\n` +
           `Raw Material stock levels and batch ledger have been updated in PostgreSQL.`
         );
         setSelectedPOId('');
         setSelectedVendorId('');
-        setInvoiceVerificationStatus('IDLE');
-        setInvoiceVerificationMessage('');
-        setVerifiedInvoiceData(null);
-        setReceiveForm({
+                    setReceiveForm({
           invoiceNumber: '',
           invoiceDate: new Date().toISOString().split('T')[0],
           receiptDate: new Date().toISOString().split('T')[0],
@@ -460,8 +308,7 @@ export default function Purchases() {
       const res = await apiFetch(`https://erp-api.neurolinx.in/api/inventory/barcode/${encodeURIComponent(trimmed)}`);
       if (res.ok) {
         const ing = await res.json();
-        setHighlightedIngredientId(ing.id);
-        const itemIdx = receiveForm.items.findIndex(it => it.ingredientId === ing.id);
+        const itemIdx = receiveForm.items.findIndex(it => (it.ingredient?.id || it.ingredientId) === ing.id);
         if (itemIdx >= 0) {
           const el = document.getElementById(`receive-qty-input-${itemIdx}`);
           if (el) el.focus();
@@ -476,43 +323,49 @@ export default function Purchases() {
     }
   };
 
-  // Phase 5: Handle file upload for invoice attachment with automatic extraction
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, poId: number) => {
+  // Handle file upload for invoice attachment with multipart upload
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, poId: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
+    const allowed = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const lowerName = file.name.toLowerCase();
+    if (!allowed.some(ext => lowerName.endsWith(ext))) {
+      alert('Invalid file format. Please upload a PDF, JPG, or PNG document.');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      alert('File size exceeds the 15MB limit. Please upload a smaller file.');
+      return;
+    }
+
     setIsUploadingInvoice(true);
-    reader.onload = async () => {
-      const base64Data = reader.result as string;
-      try {
-        const res = await apiFetch(`https://erp-api.neurolinx.in/api/inventory/purchases/${poId}/attach-invoice`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            invoiceAttachmentUrl: base64Data,
-            invoiceAttachmentName: file.name
-          })
-        });
-        const updatedPO = await res.json().catch(() => ({}));
-        setIsUploadingInvoice(false);
-        if (res.ok) {
-          alert('Vendor invoice/challan document attached and extracted successfully!');
-          setInvoiceModalPO(null);
-          fetchData();
-          if (selectedPOId === poId.toString() && updatedPO?.invoiceNumber) {
-            setReceiveForm(prev => ({ ...prev, invoiceNumber: updatedPO.invoiceNumber }));
-            handleVerifyInvoice(updatedPO.invoiceNumber);
-          }
-        } else {
-          alert('Failed to attach invoice document');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await apiFetch(`https://erp-api.neurolinx.in/api/inventory/purchases/${poId}/upload-invoice`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const updatedPO = await res.json().catch(() => ({}));
+      setIsUploadingInvoice(false);
+
+      if (res.ok) {
+        alert('Vendor invoice document attached successfully!');
+        setInvoiceModalPO(null);
+        fetchData();
+        if (selectedPOId === poId.toString() && updatedPO?.invoiceNumber) {
+          setReceiveForm(prev => ({ ...prev, invoiceNumber: updatedPO.invoiceNumber }));
         }
-      } catch (err: any) {
-        setIsUploadingInvoice(false);
-        alert(err?.message || 'Error attaching invoice document');
+      } else {
+        alert(updatedPO?.message || `Failed to attach invoice document (Status: ${res.status})`);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      setIsUploadingInvoice(false);
+      alert(err?.message || 'Error attaching invoice document');
+    }
   };
 
   // Filtered POs
@@ -531,19 +384,10 @@ export default function Purchases() {
   // Receive Stock Step Progression
   const isStep1Complete = Boolean(selectedVendorId);
   const isStep2Complete = Boolean(selectedPOId);
-  const isStep3Complete = Boolean(
-    isStep1Complete &&
-    isStep2Complete &&
-    invoiceVerificationStatus === 'VERIFIED' &&
-    receiveForm.invoiceNumber.trim() &&
-    receiveForm.invoiceDate &&
-    receiveForm.receiptDate
-  );
   const showItemsReceived = Boolean(
     isStep1Complete &&
     isStep2Complete &&
-    isStep3Complete &&
-    invoiceVerificationStatus === 'VERIFIED' &&
+    receiveForm.invoiceNumber.trim().length > 0 &&
     Array.isArray(receiveForm.items) &&
     receiveForm.items.length > 0
   );
@@ -553,10 +397,6 @@ export default function Purchases() {
     0
   );
   const validReceivingItemsCount = receiveForm.items.filter(it => parseFloat(it.quantity) > 0).length;
-  const hasOverReceivingError = receiveForm.items.some(it => {
-    const maxRemaining = it.remaining !== undefined ? it.remaining : Math.max(0, (it.quantityOrdered || 0) - (it.alreadyReceived || 0));
-    return (parseFloat(it.quantity) || 0) > maxRemaining;
-  });
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1280px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
@@ -805,10 +645,7 @@ export default function Purchases() {
                   onChange={e => {
                     setSelectedVendorId(e.target.value);
                     setSelectedPOId('');
-                    setInvoiceVerificationStatus('IDLE');
-                    setInvoiceVerificationMessage('');
-                    setVerifiedInvoiceData(null);
-                    setReceiveForm({ ...receiveForm, invoiceNumber: '', items: [] });
+                                                                    setReceiveForm({ ...receiveForm, invoiceNumber: '', items: [] });
                   }}
                   style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
                 >
@@ -854,7 +691,7 @@ export default function Purchases() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {selectedPOObject.invoiceAttachmentUrl ? <Icons.FileCheck size={18} color="#166534" /> : <Icons.AlertCircle size={18} color="#b45309" />}
                       <span style={{ fontWeight: 600, color: selectedPOObject.invoiceAttachmentUrl ? '#166534' : '#92400e', fontSize: '0.85rem' }}>
-                        {selectedPOObject.invoiceAttachmentUrl ? `Attached Document: ${selectedPOObject.invoiceAttachmentName || 'Supplier Invoice'}` : 'Original Supplier Invoice Document Not Yet Attached (Optional)'}
+                        {selectedPOObject.invoiceAttachmentUrl ? `Attached Document: ${selectedPOObject.invoiceAttachmentName || 'Supplier Invoice'}` : 'Original Supplier Invoice Document Not Yet Attached'}
                       </span>
                     </div>
 
@@ -877,7 +714,7 @@ export default function Purchases() {
                         onClick={() => setInvoiceModalPO(selectedPOObject)}
                         style={{ padding: '0.35rem 0.75rem', backgroundColor: selectedPOObject.invoiceAttachmentUrl ? '#0284c7' : '#d97706', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}
                       >
-                        {selectedPOObject.invoiceAttachmentUrl ? 'Replace Document' : '+ Upload Document (Optional)'}
+                        {selectedPOObject.invoiceAttachmentUrl ? 'Replace Document' : '+ Upload Document'}
                       </button>
                     </div>
                   </div>
@@ -886,84 +723,14 @@ export default function Purchases() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Vendor Invoice # *</label>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <input
-                        required
-                        type="text"
-                        placeholder="e.g. 261036G002900941"
-                        value={receiveForm.invoiceNumber}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setReceiveForm(prev => ({
-                            ...prev,
-                            invoiceNumber: val,
-                            items: [] // strictly clear items on invoice number edit
-                          }));
-                          setInvoiceVerificationStatus('IDLE');
-                          setInvoiceVerificationMessage('');
-                          setVerifiedInvoiceData(null);
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '0.6rem',
-                          borderRadius: '4px',
-                          border: invoiceVerificationStatus === 'VERIFIED'
-                            ? '2px solid #10b981'
-                            : (invoiceVerificationStatus === 'INVALID' || invoiceVerificationStatus === 'DUPLICATE' || invoiceVerificationStatus === 'MISMATCH' || invoiceVerificationStatus === 'VENDOR_MISMATCH')
-                              ? '2px solid #ef4444'
-                              : '1px solid #cbd5e1',
-                          backgroundColor: 'white'
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleVerifyInvoice()}
-                        disabled={invoiceVerificationStatus === 'CHECKING' || !receiveForm.invoiceNumber.trim()}
-                        style={{
-                          padding: '0.6rem 1rem',
-                          backgroundColor: invoiceVerificationStatus === 'CHECKING' ? '#94a3b8' : '#0284c7',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: (invoiceVerificationStatus === 'CHECKING' || !receiveForm.invoiceNumber.trim()) ? 'not-allowed' : 'pointer',
-                          fontWeight: 600,
-                          fontSize: '0.8rem',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {invoiceVerificationStatus === 'CHECKING' ? 'Checking...' : 'Verify Invoice'}
-                      </button>
-                      <label
-                        style={{
-                          padding: '0.6rem 0.85rem',
-                          backgroundColor: '#f8fafc',
-                          color: '#0369a1',
-                          border: '1px solid #bae6fd',
-                          borderRadius: '4px',
-                          cursor: isUploadingInvoice ? 'not-allowed' : 'pointer',
-                          fontWeight: 600,
-                          fontSize: '0.8rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          whiteSpace: 'nowrap'
-                        }}
-                        title="Upload supplier invoice (PDF/Image) for automatic extraction & verification"
-                      >
-                        <Icons.FileText size={16} color="#0284c7" />
-                        {isUploadingInvoice ? 'Extracting...' : '📎 Attach Invoice (Optional)'}
-                        <input
-                          type="file"
-                          accept=".pdf,image/*"
-                          style={{ display: 'none' }}
-                          disabled={isUploadingInvoice || !selectedPOId}
-                          onChange={e => {
-                            if (selectedPOObject) handleFileUpload(e, selectedPOObject.id);
-                            else alert('Please select a Purchase Order first.');
-                          }}
-                        />
-                      </label>
-                    </div>
+                    <input
+                      required
+                      type="text"
+                      placeholder="e.g. INV-9042"
+                      value={receiveForm.invoiceNumber}
+                      onChange={e => setReceiveForm({ ...receiveForm, invoiceNumber: e.target.value })}
+                      style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}
+                    />
                   </div>
 
                   <div>
@@ -987,272 +754,118 @@ export default function Purchases() {
                       style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}
                     />
                   </div>
-                </div>
 
-                {/* Verification Status Banner */}
-                {invoiceVerificationStatus === 'CHECKING' && (
-                  <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#eff6ff', border: '1px solid #93c5fd', borderRadius: '6px', color: '#1e40af', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Icons.Loader2 size={16} className="animate-spin" /> Verifying invoice against supplier records...
-                  </div>
-                )}
-
-                {invoiceVerificationStatus === 'VERIFIED' && (
-                  <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', color: '#166534', fontSize: '0.85rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-                      <Icons.CheckCircle size={18} color="#15803d" /> Verified Supplier Invoice: #{verifiedInvoiceData?.invoiceNumber}
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: '#166534' }}>
-                      Vendor: <b>{verifiedInvoiceData?.vendorName || selectedPOObject?.vendor?.name}</b> {verifiedInvoiceData?.vendorGstin ? `(GSTIN: ${verifiedInvoiceData.vendorGstin})` : ''} | Verified Invoice Total: <b>₹{(verifiedInvoiceData?.invoiceTotal !== undefined ? verifiedInvoiceData.invoiceTotal : (selectedPOObject?.totalAmount || 0)).toFixed(2)}</b>
-                    </div>
-                  </div>
-                )}
-
-                {(invoiceVerificationStatus === 'INVALID' || invoiceVerificationStatus === 'MISMATCH' || invoiceVerificationStatus === 'VENDOR_MISMATCH' || invoiceVerificationStatus === 'DUPLICATE') && (
-                  <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', color: '#991b1b', fontSize: '0.85rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-                      <Icons.AlertTriangle size={18} color="#dc2626" />
-                      {invoiceVerificationStatus === 'DUPLICATE' ? 'Duplicate Invoice Submission Blocked' : 'Invoice Validation Error'}
-                    </div>
-                    <div style={{ fontSize: '0.8rem' }}>
-                      {invoiceVerificationMessage || 'The entered invoice number could not be validated. Option 4 (Items Received) is locked to prevent unauthorized stock posting.'}
-                    </div>
-                  </div>
-                )}
-
-                {invoiceVerificationStatus === 'UNVERIFIED' && (
-                  <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', backgroundColor: '#fffbeb', border: '1px solid #fde047', borderRadius: '6px', color: '#854d0e', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <Icons.AlertCircle size={18} color="#d97706" />
-                      <div>
-                        <b>Original Invoice Document Not Attached:</b> {invoiceVerificationMessage}
-                      </div>
-                    </div>
-                    <label
-                      style={{
-                        padding: '0.45rem 0.9rem',
-                        backgroundColor: '#d97706',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: 600,
-                        fontSize: '0.75rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.35rem'
-                      }}
-                    >
-                      <Icons.Upload size={14} /> Upload Supplier Invoice
-                      <input
-                        type="file"
-                        accept=".pdf,image/*"
-                        style={{ display: 'none' }}
-                        onChange={e => {
-                          if (selectedPOObject) handleFileUpload(e, selectedPOObject.id);
-                        }}
-                      />
-                    </label>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Guided Notice: Step 4 is hidden until Step 1, 2, 3 are validated */}
-            {selectedPOId && !showItemsReceived && (
-              <div style={{ padding: '1.25rem', backgroundColor: '#eff6ff', border: '1px dashed #93c5fd', borderRadius: '8px', color: '#1e40af', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                <Icons.Lock size={20} color="#2563eb" style={{ flexShrink: 0 }} />
-                <div>
                   <div>
-                    <strong>Option 4 (Items Received) is Locked:</strong> Enter the official supplier invoice number above and click <strong>Verify Invoice</strong> (or attach the invoice file) to validate genuine line items, pack sizes, and prices.
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: '#2563eb', marginTop: '0.35rem' }}>
-                    💡 <strong>Document attachment is NOT required:</strong> Simply enter the vendor's invoice number and click "Verify Invoice" to load the line items directly.
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Amount Paid (Optional)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="0"
+                      value={receiveForm.amountPaid}
+                      onChange={e => setReceiveForm({ ...receiveForm, amountPaid: parseFloat(e.target.value) || 0 })}
+                      style={{ width: '100%', padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1', backgroundColor: 'white' }}
+                    />
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Step 4: Items Received List (Visible ONLY after Option 1, 2, and 3 are validated) */}
+            {/* Step 4: Items Received List (Visible ONLY after Vendor, PO, and Invoice Number are provided) */}
             {showItemsReceived && (
               <div style={{ marginBottom: '1.5rem', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Icons.PackageCheck size={20} color="#059669" />
-                    <h4 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 600 }}>4. Verified Items Received & Raw Material Mapping Review</h4>
-                  </div>
+                  <h4 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 600 }}>4. Items Received (Enter Inward Quantities)</h4>
                   <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                    Inwarding against Verified Invoice: <strong style={{ color: '#0284c7' }}>#{receiveForm.invoiceNumber.trim()}</strong>
+                    Invoice: <strong style={{ color: '#0284c7' }}>#{receiveForm.invoiceNumber.trim()}</strong>
                   </div>
                 </div>
 
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
                     <thead>
-                      <tr style={{ backgroundColor: '#f1f5f9', fontSize: '0.8rem', color: '#475569' }}>
-                        <th style={{ padding: '0.75rem' }}>Invoice Item & Pack</th>
-                        <th style={{ padding: '0.75rem', minWidth: '220px' }}>Mapped Raw Material (Review & Map)</th>
-                        <th style={{ padding: '0.75rem' }}>Pack Conversion</th>
-                        <th style={{ padding: '0.75rem' }}>PO Ordered</th>
-                        <th style={{ padding: '0.75rem' }}>Inward Qty (Base Unit) *</th>
-                        <th style={{ padding: '0.75rem' }}>Invoice Rate (₹)</th>
-                        <th style={{ padding: '0.75rem' }}>Tax / Disc</th>
+                      <tr style={{ backgroundColor: '#f8fafc', fontSize: '0.8rem', color: '#475569' }}>
+                        <th style={{ padding: '0.75rem' }}>Raw Material</th>
+                        <th style={{ padding: '0.75rem' }}>Ordered</th>
+                        <th style={{ padding: '0.75rem' }}>Previously Received</th>
+                        <th style={{ padding: '0.75rem' }}>Receiving Now *</th>
+                        <th style={{ padding: '0.75rem' }}>Unit Cost (?) *</th>
                         <th style={{ padding: '0.75rem' }}>Expiry Date</th>
-                        <th style={{ padding: '0.75rem' }}>Line Inward Total (₹)</th>
+                        <th style={{ padding: '0.75rem' }}>Total (?)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {receiveForm.items.map((item, idx) => {
-                        const inwardQty = parseFloat(item.inwardQuantity) || parseFloat(item.quantity) || 1;
                         const recQty = parseFloat(item.quantity) || 0;
-                        const lineInwardValue = inwardQty > 0 ? (item.lineTotal * (recQty / inwardQty)) : 0;
-                        const isHighlighted = highlightedIngredientId === item.ingredientId;
-                        const maxRemaining = item.remaining !== undefined ? item.remaining : Math.max(0, (item.quantityOrdered || 0) - (item.alreadyReceived || 0));
-                        const isExceeding = parseFloat(item.quantity) > maxRemaining;
-                        const isUnmapped = !item.ingredientId || item.mismatchFlag;
+                        const unitCost = parseFloat(item.costPerUnit) || 0;
+                        const lineTotal = recQty * unitCost;
 
                         return (
-                          <tr
-                            key={idx}
-                            style={{
-                              borderBottom: '1px solid #f1f5f9',
-                              backgroundColor: isUnmapped ? '#fffbeb' : isExceeding ? '#fef2f2' : isHighlighted ? '#eff6ff' : 'white',
-                              transition: 'background-color 0.3s'
-                            }}
-                          >
-                            <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
-                              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{item.description || item.ingredientName}</div>
-                              {item.itemCode && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>HSN: {item.itemCode}</div>}
-                              <div style={{ fontSize: '0.75rem', color: '#0369a1', marginTop: '2px' }}>
-                                Invoice Qty: <strong>{item.invoiceQuantity} {item.invoiceUnit}</strong>
-                              </div>
-                              {isUnmapped && (
-                                <span style={{ display: 'inline-block', marginTop: '0.35rem', backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.7rem', padding: '0.15rem 0.45rem', borderRadius: '4px', fontWeight: 600 }}>
-                                  ⚠️ Unmapped: Flagged for Review
-                                </span>
-                              )}
-                              {isHighlighted && <span style={{ marginLeft: '0.5rem', color: '#0284c7', fontSize: '0.75rem', fontWeight: 600 }}>[Scanned]</span>}
+                          <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '0.75rem' }}>
+                              <div style={{ fontWeight: 600, color: '#0f172a' }}>{item.ingredient?.name || item.ingredientName || 'Raw Material'}</div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Unit: {item.ingredient?.unit || item.unit || 'kg'}</span>
                             </td>
-
-                            <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
-                              <select
-                                value={item.ingredientId || ''}
-                                onChange={e => handleItemMappingChange(idx, e.target.value)}
-                                style={{
-                                  width: '100%',
-                                  padding: '0.45rem',
-                                  fontSize: '0.8rem',
-                                  borderRadius: '4px',
-                                  border: isUnmapped ? '2px solid #f59e0b' : '1px solid #cbd5e1',
-                                  backgroundColor: isUnmapped ? '#fffbeb' : 'white',
-                                  fontWeight: 500
-                                }}
-                              >
-                                <option value="">-- Select / Correct Material Mapping --</option>
-                                {ingredients.map(ing => (
-                                  <option key={ing.id} value={ing.id}>
-                                    {ing.name} ({ing.unit})
-                                  </option>
-                                ))}
-                              </select>
-                              {item.ingredientId ? (
-                                <div style={{ fontSize: '0.7rem', color: '#16a34a', marginTop: '3px', fontWeight: 600 }}>
-                                  ✓ Mapped: {item.ingredientName} (Base: {item.baseUnit})
-                                </div>
-                              ) : (
-                                <div style={{ fontSize: '0.7rem', color: '#d97706', marginTop: '3px', fontWeight: 600 }}>
-                                  Select an existing material to map
-                                </div>
-                              )}
+                            <td style={{ padding: '0.75rem', color: '#64748b' }}>
+                              {item.orderedQuantity || item.quantityOrdered || 0} {item.ingredient?.unit || item.unit || 'kg'}
                             </td>
-
-                            <td style={{ padding: '0.75rem', verticalAlign: 'top', fontSize: '0.8rem', color: '#475569' }}>
-                              <div style={{ fontWeight: 600 }}>{item.packDisplay || `1 ${item.invoiceUnit} = 1 ${item.unit}`}</div>
-                              <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Multiplier: x{item.multiplier}</div>
+                            <td style={{ padding: '0.75rem', color: '#64748b' }}>
+                              {item.receivedQuantity || item.alreadyReceived || 0} {item.ingredient?.unit || item.unit || 'kg'}
                             </td>
-
-                            <td style={{ padding: '0.75rem', verticalAlign: 'top', color: '#64748b', fontSize: '0.8rem' }}>
-                              <div>{item.quantityOrdered} {item.unit}</div>
-                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Prev: {item.alreadyReceived || 0}</div>
-                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: maxRemaining > 0 ? '#0284c7' : '#10b981', marginTop: '2px' }}>
-                                Rem: {maxRemaining} {item.unit}
+                            <td style={{ padding: '0.75rem' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <input
+                                  id={`receive-qty-input-${idx}`}
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.quantity}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setReceiveForm(prev => {
+                                      const nextItems = [...prev.items];
+                                      nextItems[idx] = { ...nextItems[idx], quantity: val };
+                                      return { ...prev, items: nextItems };
+                                    });
+                                  }}
+                                  style={{ width: '90px', padding: '0.45rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                                />
+                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{item.ingredient?.unit || item.unit || 'kg'}</span>
                               </div>
                             </td>
-
-                            <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                  <input
-                                    id={`receive-qty-input-${idx}`}
-                                    required
-                                    type="number"
-                                    step="0.001"
-                                    min="0"
-                                    value={item.quantity}
-                                    onChange={e => {
-                                      const updated = [...receiveForm.items];
-                                      updated[idx].quantity = e.target.value;
-                                      setReceiveForm({ ...receiveForm, items: updated });
-                                    }}
-                                    style={{
-                                      width: '95px',
-                                      padding: '0.4rem',
-                                      borderRadius: '4px',
-                                      border: isExceeding ? '2px solid #ef4444' : isHighlighted ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                                      fontWeight: 600,
-                                      backgroundColor: isExceeding ? '#fee2e2' : 'white'
-                                    }}
-                                  />
-                                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{item.unit}</span>
-                                  <button
-                                    type="button"
-                                    title="Fill full inward quantity"
-                                    onClick={() => {
-                                      const updated = [...receiveForm.items];
-                                      updated[idx].quantity = item.inwardQuantity !== undefined ? item.inwardQuantity : maxRemaining;
-                                      setReceiveForm({ ...receiveForm, items: updated });
-                                    }}
-                                    style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 600 }}
-                                  >
-                                    All
-                                  </button>
-                                </div>
-                                {isExceeding && (
-                                  <div style={{ color: '#dc2626', fontSize: '0.7rem', fontWeight: 600, marginTop: '2px' }}>
-                                    Exceeds remaining ({maxRemaining} {item.unit})
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-
-                            <td style={{ padding: '0.75rem', verticalAlign: 'top', fontSize: '0.85rem' }}>
-                              <div style={{ fontWeight: 600, color: '#0f172a' }}>₹{(parseFloat(item.unitRate) || parseFloat(item.costPerUnit) || 0).toFixed(2)}</div>
-                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>per {item.invoiceUnit || 'unit'}</div>
-                            </td>
-
-                            <td style={{ padding: '0.75rem', verticalAlign: 'top', fontSize: '0.75rem', color: '#64748b' }}>
-                              <div>{item.taxRate ? `${item.taxRate}% GST` : '0%'}</div>
-                              {item.discountPercent > 0 && <span style={{ display: 'block', color: '#059669', fontWeight: 600 }}>-{item.discountPercent}% Disc</span>}
-                              {item.taxAmount > 0 && <span style={{ display: 'block', color: '#64748b' }}>Tax: ₹{Number(item.taxAmount).toFixed(2)}</span>}
-                            </td>
-
-                            <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
+                            <td style={{ padding: '0.75rem' }}>
                               <input
-                                type="date"
-                                value={item.expiryDate}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={item.costPerUnit}
                                 onChange={e => {
-                                  const updated = [...receiveForm.items];
-                                  updated[idx].expiryDate = e.target.value;
-                                  setReceiveForm({ ...receiveForm, items: updated });
+                                  const val = e.target.value;
+                                  setReceiveForm(prev => {
+                                    const nextItems = [...prev.items];
+                                    nextItems[idx] = { ...nextItems[idx], costPerUnit: val };
+                                    return { ...prev, items: nextItems };
+                                  });
                                 }}
-                                style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                                style={{ width: '90px', padding: '0.45rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
                               />
                             </td>
-
-                            <td style={{ padding: '0.75rem', verticalAlign: 'top', fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>
-                              ₹{lineInwardValue.toFixed(2)}
-                              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 400 }}>
-                                Rate: ₹{(recQty > 0 ? (lineInwardValue / recQty) : 0).toFixed(2)}/{item.unit}
-                              </div>
+                            <td style={{ padding: '0.75rem' }}>
+                              <input
+                                type="date"
+                                value={item.expiryDate || ''}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setReceiveForm(prev => {
+                                    const nextItems = [...prev.items];
+                                    nextItems[idx] = { ...nextItems[idx], expiryDate: val };
+                                    return { ...prev, items: nextItems };
+                                  });
+                                }}
+                                style={{ padding: '0.45rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.75rem', fontWeight: 700, color: '#0f172a' }}>
+                              ?{lineTotal.toFixed(2)}
                             </td>
                           </tr>
                         );
@@ -1261,86 +874,14 @@ export default function Purchases() {
                   </table>
                 </div>
 
-                {/* Accurate Invoice Total and Stock Value Reconciliation Card */}
-                <div style={{ marginTop: '1.25rem', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '1.25rem' }}>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Icons.Receipt size={18} color="#0284c7" />
-                    <span>3. Financial Reconciliation & Tax Breakdown</span>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #e2e8f0' }}>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Invoice Subtotal (Gross)</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
-                        ₹{Number(verifiedInvoiceData?.subtotal || verifiedInvoiceData?.invoiceTotal || 0).toFixed(2)}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Discounts</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#059669' }}>
-                        -₹{Number(verifiedInvoiceData?.discountAmount || 0).toFixed(2)}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Taxable Amount</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
-                        ₹{Number(verifiedInvoiceData?.taxableAmount || 0).toFixed(2)}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Applicable GST</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
-                        ₹{Number(verifiedInvoiceData?.taxAmount || 0).toFixed(2)}
-                      </div>
-                    </div>
-                    <div style={{ backgroundColor: '#f1f5f9', padding: '0.5rem 0.75rem', borderRadius: '6px' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600 }}>Supplier Invoice Total</div>
-                      <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0284c7' }}>
-                        ₹{Number(verifiedInvoiceData?.invoiceTotal || 0).toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                    <div>
-                      <div style={{ fontSize: '0.85rem', color: '#475569' }}>
-                        Items selected for receiving: <strong>{validReceivingItemsCount} of {receiveForm.items.length}</strong>
-                      </div>
-                      {verifiedInvoiceData?.invoiceTotal !== undefined && Math.abs(totalInwardAmount - Number(verifiedInvoiceData.invoiceTotal)) <= 0.05 ? (
-                        <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: '#15803d', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <Icons.CheckCircle size={16} color="#16a34a" />
-                          <span>Complete Delivery: Total inward stock value (₹{totalInwardAmount.toFixed(2)}) fully reconciles with the supplier invoice total.</span>
-                        </div>
-                      ) : (
-                        <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: '#b45309', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <Icons.AlertCircle size={16} color="#d97706" />
-                          <span>
-                            Partial Delivery Recorded: Inwarding ₹{totalInwardAmount.toFixed(2)} of ₹{Number(verifiedInvoiceData?.invoiceTotal || 0).toFixed(2)} invoice value. Difference: ₹{(Number(verifiedInvoiceData?.invoiceTotal || 0) - totalInwardAmount).toFixed(2)} pending inwarding.
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Inward Stock Value</div>
-                      <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#059669' }}>
-                        ₹{totalInwardAmount.toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Action Buttons directly under Option 4 (Option 5 Removed) */}
+                {/* Action Buttons directly under Option 4 */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedPOId('');
                       setSelectedVendorId('');
-                      setInvoiceVerificationStatus('IDLE');
-                      setInvoiceVerificationMessage('');
-                      setVerifiedInvoiceData(null);
-                      setReceiveForm({
+                                                                            setReceiveForm({
                         invoiceNumber: '',
                         invoiceDate: new Date().toISOString().split('T')[0],
                         receiptDate: new Date().toISOString().split('T')[0],
@@ -1357,14 +898,14 @@ export default function Purchases() {
                   </button>
                   <button
                     type="submit"
-                    disabled={isReceiving || validReceivingItemsCount === 0 || hasOverReceivingError}
+                    disabled={isReceiving || validReceivingItemsCount === 0}
                     style={{
                       padding: '0.75rem 2rem',
-                      backgroundColor: (isReceiving || validReceivingItemsCount === 0 || hasOverReceivingError) ? '#94a3b8' : '#10b981',
+                      backgroundColor: (isReceiving || validReceivingItemsCount === 0) ? '#94a3b8' : '#10b981',
                       color: 'white',
                       border: 'none',
                       borderRadius: '6px',
-                      cursor: (isReceiving || validReceivingItemsCount === 0 || hasOverReceivingError) ? 'not-allowed' : 'pointer',
+                      cursor: (isReceiving || validReceivingItemsCount === 0) ? 'not-allowed' : 'pointer',
                       fontWeight: 600,
                       display: 'flex',
                       alignItems: 'center',
@@ -1541,7 +1082,7 @@ export default function Purchases() {
       {/* CREATE PURCHASE ORDER MODAL */}
       {showPOModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto', overflowX: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Create Purchase Order</h3>
               <button onClick={() => setShowPOModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><Icons.X size={20} /></button>
@@ -1584,22 +1125,69 @@ export default function Purchases() {
               {/* Items */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <h4 style={{ margin: 0, fontSize: '0.9rem' }}>Raw Materials to Order</h4>
-                  <button type="button" onClick={handleAddPOItem} style={{ padding: '0.4rem 0.8rem', backgroundColor: '#e2e8f0', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>Raw Materials to Order</h4>
+                  <button
+                    type="button"
+                    onClick={handleAddPOItem}
+                    style={{
+                      padding: '0.4rem 0.8rem',
+                      backgroundColor: '#f1f5f9',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      fontWeight: 600,
+                      color: '#0f172a'
+                    }}
+                  >
                     <Icons.Plus size={14} /> Add Raw Material
                   </button>
                 </div>
 
+                {poForm.items.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 85px 70px 105px 36px', gap: '0.5rem', marginBottom: '0.4rem', padding: '0 0.25rem', fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>
+                    <div>Raw Material *</div>
+                    <div>Quantity *</div>
+                    <div>Unit</div>
+                    <div>Cost/Unit (₹) *</div>
+                    <div></div>
+                  </div>
+                )}
+
                 {poForm.items.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(0, 1fr) 85px 70px 105px 36px',
+                      gap: '0.5rem',
+                      alignItems: 'center',
+                      marginBottom: '0.6rem'
+                    }}
+                  >
                     <select
                       required
                       value={item.ingredientId}
                       onChange={e => handlePOItemChange(idx, 'ingredientId', e.target.value)}
-                      style={{ flex: 3, padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                      style={{
+                        width: '100%',
+                        minWidth: 0,
+                        padding: '0.55rem',
+                        borderRadius: '4px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.85rem',
+                        backgroundColor: 'white'
+                      }}
                     >
                       <option value="">Select Raw Material</option>
-                      {ingredients.map(ing => <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>)}
+                      {ingredients.map(ing => (
+                        <option key={ing.id} value={ing.id} title={ing.name}>
+                          {ing.name.length > 36 ? ing.name.substring(0, 36) + '...' : ing.name} ({ing.unit})
+                        </option>
+                      ))}
                     </select>
 
                     <input
@@ -1610,15 +1198,32 @@ export default function Purchases() {
                       placeholder="Qty"
                       value={item.quantity}
                       onChange={e => handlePOItemChange(idx, 'quantity', e.target.value)}
-                      style={{ flex: 1.5, padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                      style={{
+                        width: '100%',
+                        minWidth: 0,
+                        padding: '0.55rem',
+                        borderRadius: '4px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.85rem'
+                      }}
                     />
 
                     <input
                       type="text"
                       placeholder="Unit"
                       value={item.unit}
-                      onChange={e => handlePOItemChange(idx, 'unit', e.target.value)}
-                      style={{ flex: 1, padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                      readOnly
+                      style={{
+                        width: '100%',
+                        minWidth: 0,
+                        padding: '0.55rem',
+                        borderRadius: '4px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '0.85rem',
+                        backgroundColor: '#f8fafc',
+                        color: '#64748b',
+                        textAlign: 'center'
+                      }}
                     />
 
                     <input
@@ -1626,19 +1231,40 @@ export default function Purchases() {
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder="Cost/Unit"
+                      placeholder="Cost"
                       value={item.costPerUnit}
                       onChange={e => handlePOItemChange(idx, 'costPerUnit', e.target.value)}
-                      style={{ flex: 1.5, padding: '0.6rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                      style={{
+                        width: '100%',
+                        minWidth: 0,
+                        padding: '0.55rem',
+                        borderRadius: '4px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.85rem'
+                      }}
                     />
 
-                    <button type="button" onClick={() => handleRemovePOItem(idx)} style={{ color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer' }}>
-                      <Icons.Trash2 size={18} />
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePOItem(idx)}
+                      style={{
+                        color: '#ef4444',
+                        border: 'none',
+                        background: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0.4rem'
+                      }}
+                      title="Remove Item"
+                    >
+                      <Icons.Trash2 size={16} />
                     </button>
                   </div>
                 ))}
                 {poForm.items.length === 0 && (
-                  <div style={{ color: '#64748b', fontSize: '0.85rem', padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '6px', textAlign: 'center' }}>
+                  <div style={{ color: '#64748b', fontSize: '0.85rem', padding: '1.25rem', backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '6px', textAlign: 'center' }}>
                     Click "+ Add Raw Material" to add items to this order.
                   </div>
                 )}
@@ -1721,10 +1347,18 @@ export default function Purchases() {
             </div>
 
             <div style={{ flex: 1, overflow: 'auto', textAlign: 'center', padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
-              {previewDocUrl.startsWith('data:application/pdf') ? (
-                <iframe src={previewDocUrl} style={{ width: '100%', height: '550px', border: 'none' }} title="Invoice PDF" />
+              {(previewDocUrl.startsWith('data:application/pdf') || previewDocUrl.toLowerCase().includes('.pdf') || (previewDocName && previewDocName.toLowerCase().endsWith('.pdf'))) ? (
+                <iframe
+                  src={previewDocUrl.startsWith('http') || previewDocUrl.startsWith('data:') ? previewDocUrl : `https://erp-api.neurolinx.in${previewDocUrl}`}
+                  style={{ width: '100%', height: '550px', border: 'none' }}
+                  title="Invoice PDF"
+                />
               ) : (
-                <img src={previewDocUrl} alt="Vendor Invoice Challan" style={{ maxWidth: '100%', maxHeight: '550px', objectFit: 'contain', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+                <img
+                  src={previewDocUrl.startsWith('http') || previewDocUrl.startsWith('data:') ? previewDocUrl : `https://erp-api.neurolinx.in${previewDocUrl}`}
+                  alt="Vendor Invoice Challan"
+                  style={{ maxWidth: '100%', maxHeight: '550px', objectFit: 'contain', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                />
               )}
             </div>
 

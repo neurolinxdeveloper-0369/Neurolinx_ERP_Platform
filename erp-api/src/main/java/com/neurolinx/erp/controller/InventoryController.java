@@ -134,10 +134,16 @@ public class InventoryController {
         ing.setName(payload.get("name").toString());
         ing.setUnit(payload.get("unit") != null ? payload.get("unit").toString() : "kg");
 
-        // Initial stock quantity and cost are strictly initialized to zero on creation
-        // Stock and valuation populate exclusively from confirmed goods receipts
-        ing.setStockLevel(BigDecimal.ZERO);
-        ing.setCostPerUnit(BigDecimal.ZERO);
+        if (payload.get("stockLevel") != null && !payload.get("stockLevel").toString().isEmpty()) {
+            ing.setStockLevel(new BigDecimal(payload.get("stockLevel").toString()));
+        } else {
+            ing.setStockLevel(BigDecimal.ZERO);
+        }
+        if (payload.get("costPerUnit") != null && !payload.get("costPerUnit").toString().isEmpty()) {
+            ing.setCostPerUnit(new BigDecimal(payload.get("costPerUnit").toString()));
+        } else {
+            ing.setCostPerUnit(BigDecimal.ZERO);
+        }
 
         if (payload.get("reorderLevel") != null && !payload.get("reorderLevel").toString().isEmpty()) {
             ing.setReorderLevel(new BigDecimal(payload.get("reorderLevel").toString()));
@@ -170,6 +176,26 @@ public class InventoryController {
         }
 
         Ingredient saved = ingredientRepository.save(ing);
+
+        // Record initial stock movement if starting stock > 0
+        if (saved.getStockLevel().compareTo(BigDecimal.ZERO) > 0) {
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            inventoryService.recordMovement(
+                    company,
+                    null,
+                    saved,
+                    "INITIAL_STOCK",
+                    saved.getStockLevel(),
+                    BigDecimal.ZERO,
+                    saved.getStockLevel(),
+                    saved.getCostPerUnit(),
+                    "MANUAL_ENTRY",
+                    "INIT-" + saved.getId(),
+                    "Initial stock recorded on ingredient creation",
+                    username
+            );
+        }
+
         return ResponseEntity.ok(saved);
     }
 
