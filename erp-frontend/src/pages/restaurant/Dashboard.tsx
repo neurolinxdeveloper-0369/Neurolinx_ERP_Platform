@@ -107,8 +107,6 @@ export default function Dashboard() {
   });
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<string>('');
 
   // Quick Place Order Modal State
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -329,8 +327,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  const fetchStats = async (isManualRefresh = false) => {
-    if (isManualRefresh) setIsRefreshing(true);
+  const fetchStats = async (_isManual?: boolean) => {
     try {
       // Parallel fetch from API endpoints
       const [statsRes, recentRes, tablesRes] = await Promise.allSettled([
@@ -356,7 +353,6 @@ export default function Dashboard() {
       // Compute aggregated live metrics
       const aggregated = computeDashboardMetrics(serverStats, serverOrders, serverTables);
       setStats(aggregated);
-      setLastUpdated(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (err) {
       console.warn('Dashboard stats refresh error:', err);
       // Fallback compute directly from local store
@@ -364,7 +360,6 @@ export default function Dashboard() {
       setStats(localOnly);
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
     }
   };
 
@@ -555,7 +550,7 @@ export default function Dashboard() {
       setTimeout(() => setOrderToast(null), 4000);
       setShowOrderModal(false);
       setCart([]);
-      fetchStats(false);
+      fetchStats();
     } catch (err) {
       console.error('Order submission error:', err);
       setOrderToast({ message: 'Error placing order.', type: 'error' });
@@ -631,75 +626,6 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {/* Live Sync Status Indicator */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', backgroundColor: 'white', padding: '0.5rem 1rem', borderRadius: '999px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-            <span style={{ position: 'relative', display: 'flex', height: '10px', width: '10px' }}>
-              <span style={{ position: 'absolute', display: 'inline-flex', height: '100%', width: '100%', borderRadius: '50%', backgroundColor: '#10b981', opacity: 0.75, animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite' }}></span>
-              <span style={{ position: 'relative', display: 'inline-flex', borderRadius: '50%', height: '10px', width: '10px', backgroundColor: '#10b981' }}></span>
-            </span>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}>Live Sync</span>
-            {lastUpdated && <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>({lastUpdated})</span>}
-          </div>
-
-          {/* Refresh Button */}
-          <button
-            onClick={() => fetchStats(true)}
-            disabled={isRefreshing}
-            title="Refresh metrics"
-            style={{
-              backgroundColor: 'white',
-              border: '1px solid #e2e8f0',
-              color: '#475569',
-              padding: '0.625rem 0.875rem',
-              borderRadius: '10px',
-              cursor: isRefreshing ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-            onMouseOut={e => e.currentTarget.style.backgroundColor = 'white'}
-          >
-            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} style={{ transition: 'transform 0.3s' }} />
-            <span>Refresh</span>
-          </button>
-
-          {/* Place Orders Primary CTA */}
-          <button
-            onClick={openQuickOrderModal}
-            style={{
-              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-              border: 'none',
-              color: 'white',
-              padding: '0.625rem 1.25rem',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              fontSize: '0.875rem',
-              fontWeight: 700,
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-              transition: 'transform 0.15s, box-shadow 0.15s'
-            }}
-            onMouseOver={e => {
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(37, 99, 235, 0.4)';
-            }}
-            onMouseOut={e => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.3)';
-            }}
-          >
-            <Plus size={18} strokeWidth={2.5} />
-            <span>Place Order</span>
-          </button>
-        </div>
       </div>
 
       {/* 4 Primary KPI Cards */}
