@@ -24,6 +24,7 @@ public class InventoryService {
     @Autowired private CustomerOrderRepository orderRepository;
     @Autowired private GoodsReceiptRepository goodsReceiptRepository;
     @Autowired private GoodsReceiptItemRepository goodsReceiptItemRepository;
+    @Autowired private VendorRepository vendorRepository;
 
     /**
      * Safe unit conversion supporting:
@@ -248,6 +249,37 @@ public class InventoryService {
             List<Map<String, Object>> receivedItems,
             String username
     ) {
+        return receiveStock(po, invoiceNumber, invoiceDate, receiptDate, amountPaid, "CASH", null, receivedItems, username);
+    }
+
+    @Transactional
+    public Map<String, Object> receiveStock(
+            PurchaseOrder po,
+            String invoiceNumber,
+            LocalDate invoiceDate,
+            LocalDate receiptDate,
+            BigDecimal amountPaid,
+            String paymentMethod,
+            String paymentReference,
+            List<Map<String, Object>> receivedItems,
+            String username
+    ) {
+        return receiveStock(po, invoiceNumber, invoiceDate, receiptDate, amountPaid, paymentMethod, paymentReference, LocalDate.now(), receivedItems, username);
+    }
+
+    @Transactional
+    public Map<String, Object> receiveStock(
+            PurchaseOrder po,
+            String invoiceNumber,
+            LocalDate invoiceDate,
+            LocalDate receiptDate,
+            BigDecimal amountPaid,
+            String paymentMethod,
+            String paymentReference,
+            LocalDate paymentDate,
+            List<Map<String, Object>> receivedItems,
+            String username
+    ) {
         if (po == null) {
             throw new IllegalArgumentException("Purchase order is required");
         }
@@ -331,6 +363,9 @@ public class InventoryService {
         goodsReceipt.setCompany(po.getCompany());
         goodsReceipt.setBranch(po.getBranch());
         goodsReceipt.setReceivedBy(username != null ? username : "Inventory Manager");
+        goodsReceipt.setPaymentMethod(paymentMethod != null ? paymentMethod : "CASH");
+        goodsReceipt.setPaymentReference(paymentReference);
+        po.setPaymentMethod(paymentMethod != null ? paymentMethod : "CASH");
 
         BigDecimal totalInwardAmount = BigDecimal.ZERO;
         List<GoodsReceiptItem> receiptItems = new ArrayList<>();
@@ -434,13 +469,44 @@ public class InventoryService {
             );
         }
 
-        // Save Goods Receipt
-        goodsReceipt.setTotalAmount(totalInwardAmount);
-        if (amountPaid != null && amountPaid.compareTo(BigDecimal.ZERO) > 0) {
-            goodsReceipt.setAmountPaid(amountPaid);
-            po.setAmountPaid(po.getAmountPaid().add(amountPaid));
+        // Validate & Calculate Payment Details
+        BigDecimal actualPaid = amountPaid != null && amountPaid.compareTo(BigDecimal.ZERO) > 0 ? amountPaid : BigDecimal.ZERO;
+        if (actualPaid.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Amount paid cannot be negative");
         }
+        if (actualPaid.compareTo(totalInwardAmount) > 0) {
+            throw new IllegalArgumentException("Amount paid (₹" + actualPaid + ") cannot exceed total inward purchase amount (₹" + totalInwardAmount + ")");
+        }
+
+        BigDecimal remainingBal = totalInwardAmount.subtract(actualPaid);
+        if (remainingBal.compareTo(BigDecimal.ZERO) < 0) remainingBal = BigDecimal.ZERO;
+
+        String payStatus = "Unpaid";
+        if (actualPaid.compareTo(BigDecimal.ZERO) > 0) {
+            payStatus = actualPaid.compareTo(totalInwardAmount) >= 0 ? "Paid" : "Partially Paid";
+        }
+
+        // Save Goods Receipt Header & Payment Info
+        goodsReceipt.setTotalAmount(totalInwardAmount);
+        goodsReceipt.setAmountPaid(actualPaid);
+        goodsReceipt.setRemainingBalance(remainingBal);
+        goodsReceipt.setPaymentStatus(payStatus);
+        goodsReceipt.setPaymentMethod(paymentMethod != null ? paymentMethod : "CASH");
+        goodsReceipt.setPaymentReference(paymentReference);
+        goodsReceipt.setPaymentDate(paymentDate != null ? paymentDate : LocalDate.now());
         goodsReceipt.setItems(receiptItems);
+
+        // Update PO payment and method
+        po.setAmountPaid(po.getAmountPaid().add(actualPaid));
+        po.setPaymentMethod(goodsReceipt.getPaymentMethod());
+
+        // Update vendor outstanding balance if there is an unpaid remaining balance
+        Vendor vendor = po.getVendor();
+        if (vendor != null && remainingBal.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal prevVendorBal = vendor.getBalance() != null ? vendor.getBalance() : BigDecimal.ZERO;
+            vendor.setBalance(prevVendorBal.add(remainingBal));
+            vendorRepository.save(vendor);
+        }
 
         // Update PO Invoice Number & Date
         po.setInvoiceNumber(cleanInvoice);
@@ -474,15 +540,19 @@ public class InventoryService {
         purchaseOrderRepository.save(po);
         goodsReceipt = goodsReceiptRepository.save(goodsReceipt);
 
-        return Map.of(
-                "message", "Stock received and inwarded successfully against Invoice " + cleanInvoice,
-                "receiptId", goodsReceipt.getId(),
-                "receiptNumber", goodsReceipt.getReceiptNumber(),
-                "invoiceNumber", cleanInvoice,
-                "purchaseOrderId", po.getId(),
-                "poNumber", po.getPoNumber(),
-                "status", po.getStatus(),
-                "totalAmount", totalInwardAmount
-        );
+        Map<String, Object> responseMap = new LinkedHashMap<>();
+        responseMap.put("message", "Stock received and inwarded successfully against Invoice " + cleanInvoice);
+        responseMap.put("receiptId", goodsReceipt.getId());
+        responseMap.put("receiptNumber", goodsReceipt.getReceiptNumber());
+        responseMap.put("invoiceNumber", cleanInvoice);
+        responseMap.put("purchaseOrderId", po.getId());
+        responseMap.put("poNumber", po.getPoNumber());
+        responseMap.put("status", po.getStatus());
+        responseMap.put("totalAmount", totalInwardAmount);
+        responseMap.put("amountPaid", actualPaid);
+        responseMap.put("remainingBalance", remainingBal);
+        responseMap.put("paymentStatus", payStatus);
+        responseMap.put("paymentMethod", goodsReceipt.getPaymentMethod());
+        return responseMap;
     }
 }

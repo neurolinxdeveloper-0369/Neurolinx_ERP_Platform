@@ -32,6 +32,20 @@ public class GoodsReceipt {
     @Column(nullable = false)
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
+    @Column(nullable = false)
+    private BigDecimal remainingBalance = BigDecimal.ZERO;
+
+    @Column(length = 50)
+    private String paymentStatus = "Unpaid"; // Paid, Partially Paid, Unpaid
+
+    @Column(length = 50)
+    private String paymentMethod = "CASH"; // UPI, CASH, CARD, NET_BANKING, BANK_TRANSFER, CREDIT
+
+    @Column(length = 100)
+    private String paymentReference;
+
+    private LocalDate paymentDate;
+
     @Column(length = 50)
     private String status = "Completed"; // Completed, Partially Received
 
@@ -87,6 +101,21 @@ public class GoodsReceipt {
 
     public BigDecimal getAmountPaid() { return amountPaid != null ? amountPaid : BigDecimal.ZERO; }
     public void setAmountPaid(BigDecimal amountPaid) { this.amountPaid = amountPaid; }
+
+    public BigDecimal getRemainingBalance() { return remainingBalance != null ? remainingBalance : BigDecimal.ZERO; }
+    public void setRemainingBalance(BigDecimal remainingBalance) { this.remainingBalance = remainingBalance; }
+
+    public String getPaymentStatus() { return paymentStatus != null ? paymentStatus : "Unpaid"; }
+    public void setPaymentStatus(String paymentStatus) { this.paymentStatus = paymentStatus; }
+
+    public String getPaymentMethod() { return paymentMethod != null ? paymentMethod : "CASH"; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+
+    public String getPaymentReference() { return paymentReference; }
+    public void setPaymentReference(String paymentReference) { this.paymentReference = paymentReference; }
+
+    public LocalDate getPaymentDate() { return paymentDate; }
+    public void setPaymentDate(LocalDate paymentDate) { this.paymentDate = paymentDate; }
 
     public String getStatus() { return status != null ? status : "Completed"; }
     public void setStatus(String status) { this.status = status; }

@@ -29,6 +29,7 @@ public class InventoryServiceReceiveStockTest {
     @Mock private PurchaseOrderItemRepository purchaseOrderItemRepository;
     @Mock private GoodsReceiptRepository goodsReceiptRepository;
     @Mock private GoodsReceiptItemRepository goodsReceiptItemRepository;
+    @Mock private VendorRepository vendorRepository;
 
     @InjectMocks
     private InventoryService inventoryService;
@@ -235,5 +236,128 @@ public class InventoryServiceReceiveStockTest {
         // Stock increases from 58.0 to 70.0 (+12.0 kg)
         assertEquals(new BigDecimal("70.0"), riceIngredient.getStockLevel());
         verify(ingredientRepository).save(riceIngredient);
+    }
+
+    @Test
+    @DisplayName("Payment: Full payment marks GoodsReceipt Paid with 0 remaining balance")
+    void testReceiveStock_Payment_FullPaid() {
+        when(goodsReceiptRepository.existsByPurchaseOrderAndInvoiceNumberIgnoreCase(testPO, "INV-PAY-01"))
+                .thenReturn(false);
+        when(ingredientRepository.findById(101L)).thenReturn(Optional.of(riceIngredient));
+        when(goodsReceiptRepository.save(any(GoodsReceipt.class))).thenAnswer(invocation -> {
+            GoodsReceipt gr = invocation.getArgument(0);
+            gr.setId(503L);
+            return gr;
+        });
+
+        // Receive 20 kg at 50/kg = 1000 total, pay 1000 via UPI
+        Map<String, Object> itemData = Map.of(
+                "ingredientId", 101L,
+                "quantity", "20.0",
+                "costPerUnit", "50.0",
+                "unit", "kg"
+        );
+
+        Map<String, Object> result = inventoryService.receiveStock(
+                testPO,
+                "INV-PAY-01",
+                LocalDate.now(),
+                LocalDate.now(),
+                new BigDecimal("1000.0"),
+                "UPI",
+                "UPI-REF-12345",
+                LocalDate.now(),
+                List.of(itemData),
+                "Chef Ramesh"
+        );
+
+        assertNotNull(result);
+        assertEquals("Paid", result.get("paymentStatus"));
+        assertEquals("UPI", result.get("paymentMethod"));
+        assertEquals(0, ((BigDecimal) result.get("amountPaid")).compareTo(new BigDecimal("1000.0")));
+        assertEquals(0, ((BigDecimal) result.get("remainingBalance")).compareTo(BigDecimal.ZERO));
+        verify(goodsReceiptRepository).save(argThat(gr ->
+                "Paid".equals(gr.getPaymentStatus()) &&
+                "UPI".equals(gr.getPaymentMethod()) &&
+                gr.getRemainingBalance().compareTo(BigDecimal.ZERO) == 0
+        ));
+    }
+
+    @Test
+    @DisplayName("Payment: Partial payment updates vendor balance and marks Partially Paid")
+    void testReceiveStock_Payment_PartialPayment_UpdatesVendorBalance() {
+        testVendor.setBalance(new BigDecimal("200.0"));
+
+        when(goodsReceiptRepository.existsByPurchaseOrderAndInvoiceNumberIgnoreCase(testPO, "INV-PART-PAY"))
+                .thenReturn(false);
+        when(ingredientRepository.findById(101L)).thenReturn(Optional.of(riceIngredient));
+        when(goodsReceiptRepository.save(any(GoodsReceipt.class))).thenAnswer(invocation -> {
+            GoodsReceipt gr = invocation.getArgument(0);
+            gr.setId(504L);
+            return gr;
+        });
+
+        // Total 20 kg * 50 = 1000. Pay 400. Remaining balance = 600.
+        Map<String, Object> itemData = Map.of(
+                "ingredientId", 101L,
+                "quantity", "20.0",
+                "costPerUnit", "50.0",
+                "unit", "kg"
+        );
+
+        Map<String, Object> result = inventoryService.receiveStock(
+                testPO,
+                "INV-PART-PAY",
+                LocalDate.now(),
+                LocalDate.now(),
+                new BigDecimal("400.0"),
+                "Card",
+                "TXN-CARD-99",
+                LocalDate.now(),
+                List.of(itemData),
+                "Chef Ramesh"
+        );
+
+        assertNotNull(result);
+        assertEquals("Partially Paid", result.get("paymentStatus"));
+        assertEquals("Card", result.get("paymentMethod"));
+        assertEquals(0, ((BigDecimal) result.get("amountPaid")).compareTo(new BigDecimal("400.0")));
+        assertEquals(0, ((BigDecimal) result.get("remainingBalance")).compareTo(new BigDecimal("600.0")));
+
+        // Vendor balance updated: 200 + 600 = 800
+        assertEquals(0, testVendor.getBalance().compareTo(new BigDecimal("800.0")));
+        verify(vendorRepository).save(testVendor);
+    }
+
+    @Test
+    @DisplayName("Payment Validation: Paying more than inward amount throws IllegalArgumentException")
+    void testReceiveStock_Payment_ExceedingAmount_ThrowsException() {
+        when(goodsReceiptRepository.existsByPurchaseOrderAndInvoiceNumberIgnoreCase(testPO, "INV-EXCEED"))
+                .thenReturn(false);
+        when(ingredientRepository.findById(101L)).thenReturn(Optional.of(riceIngredient));
+
+        // Inward 10 kg * 50 = 500 total, but attempt to pay 600
+        Map<String, Object> itemData = Map.of(
+                "ingredientId", 101L,
+                "quantity", "10.0",
+                "costPerUnit", "50.0",
+                "unit", "kg"
+        );
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                inventoryService.receiveStock(
+                        testPO,
+                        "INV-EXCEED",
+                        LocalDate.now(),
+                        LocalDate.now(),
+                        new BigDecimal("600.0"),
+                        "Cash",
+                        null,
+                        LocalDate.now(),
+                        List.of(itemData),
+                        "Chef Ramesh"
+                )
+        );
+        assertTrue(ex.getMessage().contains("cannot exceed total inward purchase amount"));
     }
 }

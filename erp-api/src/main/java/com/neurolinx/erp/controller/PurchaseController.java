@@ -224,6 +224,9 @@ public class PurchaseController {
                     invoiceDate,
                     receiptDate,
                     amountPaid,
+                    payload.containsKey("paymentMethod") && payload.get("paymentMethod") != null ? payload.get("paymentMethod").toString() : "CASH",
+                    payload.containsKey("paymentReference") && payload.get("paymentReference") != null ? payload.get("paymentReference").toString() : null,
+                    payload.containsKey("paymentDate") && payload.get("paymentDate") != null ? LocalDate.parse(payload.get("paymentDate").toString()) : LocalDate.now(),
                     receivedItems,
                     username
             );

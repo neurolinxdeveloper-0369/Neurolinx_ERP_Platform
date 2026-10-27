@@ -41,6 +41,9 @@ public class PurchaseOrder {
     @Column(nullable = false)
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
+    @Column(length = 50)
+    private String paymentMethod;
+
     @Column(nullable = false)
     private String status = "Ordered"; // Draft, Ordered, Partially Received, Received, Cancelled, Pending, Paid
 
@@ -81,6 +84,8 @@ public class PurchaseOrder {
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
     public BigDecimal getAmountPaid() { return amountPaid != null ? amountPaid : BigDecimal.ZERO; }
     public void setAmountPaid(BigDecimal amountPaid) { this.amountPaid = amountPaid; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public String getStatus() { return status != null ? status : "Ordered"; }
     public void setStatus(String status) { this.status = status; }
     public LocalDate getInvoiceDate() { return invoiceDate; }
