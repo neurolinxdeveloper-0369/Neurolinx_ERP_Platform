@@ -1,9 +1,11 @@
 package com.neurolinx.erp.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "companies")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Company {
     private String subdomain;
     public String getSubdomain() { return subdomain; }

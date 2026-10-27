@@ -1,8 +1,12 @@
 package com.neurolinx.erp.model;
 import jakarta.persistence.*;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Entity
 @Table(name = "dish_categories")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class DishCategory {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -11,6 +15,7 @@ public class DishCategory {
     private String name;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
+    @JsonIgnore
     private Company company;
 
     public DishCategory() {}

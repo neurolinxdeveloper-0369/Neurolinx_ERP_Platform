@@ -77,8 +77,11 @@ public class AggregatorController {
             order.setBranch(branch);
             order.setOrderType(channel); // "Swiggy" or "Zomato"
             
-            String yearPrefix = String.valueOf(Year.now().getValue()).substring(2);
-            order.setOrderNumber(channel.toUpperCase().substring(0, 3) + "-" + extOrderId);
+            String aggOrderNum = channel.toUpperCase().substring(0, 3) + "-" + extOrderId;
+            if (orderRepo.existsByOrderNumber(aggOrderNum)) {
+                aggOrderNum += "-" + (System.currentTimeMillis() % 10000);
+            }
+            order.setOrderNumber(aggOrderNum);
             order.setExternalOrderId(extOrderId);
             order.setStatus("Completed");
             order.setKitchenStatus("Pending");

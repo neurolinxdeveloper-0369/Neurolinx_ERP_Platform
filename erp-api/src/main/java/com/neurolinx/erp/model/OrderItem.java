@@ -20,6 +20,7 @@ public class OrderItem {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dish_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "category", "imageBase64", "company"})
     private Dish dish;
     
     private String dishName;

@@ -21,4 +21,8 @@ public interface CustomerOrderRepository extends JpaRepository<CustomerOrder, Lo
     List<CustomerOrder> findByCompanyAndDeliveryStatusIn(Company company, List<String> deliveryStatuses);
     long countByCompanyAndStatus(Company company, String status);
     long countByCompanyAndStatusIn(Company company, List<String> statuses);
+
+    boolean existsByOrderNumber(String orderNumber);
+    CustomerOrder findTopByOrderNumberStartingWithOrderByIdDesc(String prefix);
+    CustomerOrder findTopByCompanyAndOrderNumberStartingWithOrderByIdDesc(Company company, String prefix);
 }

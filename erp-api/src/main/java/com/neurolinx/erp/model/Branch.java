@@ -1,11 +1,13 @@
 package com.neurolinx.erp.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "branches")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Branch {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
