@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { apiFetch } from '../../api';
 import { usePrinter } from '../../context/PrinterContext';
-import TableSetupModal from '../../components/restaurant/TableSetupModal';
 import FloorTableLayout, { type RestaurantTableData } from '../../components/restaurant/FloorTableLayout';
 import DeliveryManagement from './DeliveryManagement';
 
@@ -79,7 +78,6 @@ export default function RestaurantOrders() {
   const [activeFloor, setActiveFloor] = useState<number>(1);
   const [tables, setTables] = useState<RestaurantTableData[]>([]);
   const [loadingTables, setLoadingTables] = useState<boolean>(false);
-  const [isSetupModalOpen, setIsSetupModalOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
   const [company, setCompany] = useState<any>(null);
@@ -243,31 +241,6 @@ export default function RestaurantOrders() {
       if (res.ok) {
         let data: RestaurantTableData[] = await res.json();
         
-        // Auto-configure from Company provisioning if empty on Floor 1
-        if (data.length === 0 && floorNum === 1) {
-          try {
-            const compRes = await apiFetch('https://erp-api.neurolinx.in/api/settings/my-company');
-            if (compRes.ok) {
-              const compData = await compRes.json();
-              if (compData.totalTables && compData.totalTables > 0) {
-                const autoTables = Array(compData.totalTables).fill({ capacity: 4, tableName: 'Unmapped Table' });
-                
-                // Save them via API directly so it persists
-                const confRes = await apiFetch('https://erp-api.neurolinx.in/api/pos/tables/configure', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ floor: 1, tables: autoTables })
-                });
-                if (confRes.ok) {
-                  data = await confRes.json();
-                }
-              }
-            }
-          } catch (e) {
-            console.error('Failed to auto-configure tables', e);
-          }
-        }
-        
         setTables(data);
         localStorage.setItem(`floor_tables_${floorNum}`, JSON.stringify(data));
       } else {
@@ -294,47 +267,6 @@ export default function RestaurantOrders() {
   useEffect(() => {
     loadFloorTables(activeFloor);
   }, [viewMode, activeFloor]);
-
-  const handleSaveTableConfig = async (floor: number, newTables: { capacity: number }[]) => {
-    try {
-      const res = await apiFetch('https://erp-api.neurolinx.in/api/pos/tables/configure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ floor, tables: newTables })
-      });
-      if (res.ok) {
-        const saved: RestaurantTableData[] = await res.json();
-        setActiveFloor(floor);
-        setTables(saved);
-        localStorage.setItem(`floor_tables_${floor}`, JSON.stringify(saved));
-      } else {
-        const fallbackTables: RestaurantTableData[] = newTables.map((t, idx) => ({
-          id: Date.now() + idx,
-          tableName: `Table ${idx + 1}`,
-          capacity: t.capacity,
-          floor: floor,
-          position: idx + 1,
-          status: 'Free'
-        }));
-        setActiveFloor(floor);
-        setTables(fallbackTables);
-        localStorage.setItem(`floor_tables_${floor}`, JSON.stringify(fallbackTables));
-      }
-    } catch (err) {
-      console.error('Error saving table configuration, saving locally', err);
-      const fallbackTables: RestaurantTableData[] = newTables.map((t, idx) => ({
-        id: Date.now() + idx,
-        tableName: `Table ${idx + 1}`,
-        capacity: t.capacity,
-        floor: floor,
-        position: idx + 1,
-        status: 'Free'
-      }));
-      setActiveFloor(floor);
-      setTables(fallbackTables);
-      localStorage.setItem(`floor_tables_${floor}`, JSON.stringify(fallbackTables));
-    }
-  };
 
   const handleTableStatusChange = async (tableId: number, newStatus: string) => {
     try {
@@ -1195,60 +1127,42 @@ export default function RestaurantOrders() {
                 </div>
               </div>
 
-              {/* Right Side Actions */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'absolute', right: '1.5rem' }}>
-                {/* Floor Switcher */}
-                <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '0.2rem', borderRadius: '24px', gap: '0.2rem' }}>
-                  {Array.from({ length: company?.totalFloors || 1 }, (_, i) => i + 1).map(floorNum => (
-                    <button
-                      key={floorNum}
-                      onClick={() => setActiveFloor(floorNum)}
-                      style={{
-                        padding: '0.4rem 1.25rem',
-                        border: 'none',
-                        borderRadius: '20px',
-                        fontWeight: 700,
-                        fontSize: '0.75rem',
-                        cursor: 'pointer',
-                        backgroundColor: activeFloor === floorNum ? '#e2e8f0' : 'transparent',
-                        color: activeFloor === floorNum ? '#334155' : '#94a3b8',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      {floorNum}{floorNum === 1 ? 'st' : floorNum === 2 ? 'nd' : floorNum === 3 ? 'rd' : 'th'} Floor
-                    </button>
-                  ))}
+              {/* Right Side Actions - Floor Switcher if client has > 1 floor */}
+              {(company?.totalFloors || 1) > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'absolute', right: '1.5rem' }}>
+                  <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '0.2rem', borderRadius: '24px', gap: '0.2rem' }}>
+                    {Array.from({ length: company?.totalFloors || 1 }, (_, i) => i + 1).map(floorNum => (
+                      <button
+                        key={floorNum}
+                        onClick={() => setActiveFloor(floorNum)}
+                        style={{
+                          padding: '0.4rem 1.25rem',
+                          border: 'none',
+                          borderRadius: '20px',
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          backgroundColor: activeFloor === floorNum ? '#e2e8f0' : 'transparent',
+                          color: activeFloor === floorNum ? '#334155' : '#94a3b8',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {floorNum}{floorNum === 1 ? 'st' : floorNum === 2 ? 'nd' : floorNum === 3 ? 'rd' : 'th'} Floor
+                      </button>
+                    ))}
+                  </div>
                 </div>
-
-                {/* Configure Button */}
-                <button
-                  onClick={() => setIsSetupModalOpen(true)}
-                  title="Configure Tables"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '36px',
-                    height: '36px',
-                    backgroundColor: '#0f172a',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '50%',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 6px rgba(15, 23, 42, 0.2)'
-                  }}
-                >
-                  <Icons.SlidersHorizontal size={16} />
-                </button>
-              </div>
+              )}
             </div>
 
             {/* Subtitle / Overview */}
             <div style={{ padding: '0.85rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
               <div>
-                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>Floor {activeFloor}</span>
-                <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '0.75rem', fontWeight: 500 }}>
-                  {tables.length} {tables.length === 1 ? 'table' : 'tables'} configured
+                {(company?.totalFloors || 1) > 1 && (
+                  <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginRight: '0.75rem' }}>Floor {activeFloor}</span>
+                )}
+                <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
+                  {tables.length} {tables.length === 1 ? 'table' : 'tables'} available
                 </span>
               </div>
               {tables.length > 0 && (
@@ -1279,30 +1193,11 @@ export default function RestaurantOrders() {
                 }}>
                   <Icons.Armchair size={48} color="#94a3b8" style={{ marginBottom: '1rem' }} />
                   <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b', fontSize: '1.1rem' }}>
-                    No Tables Configured on Floor {activeFloor}
+                    {(company?.totalFloors || 1) > 1 ? `No Tables on Floor ${activeFloor}` : 'No Tables Configured'}
                   </h3>
-                  <p style={{ margin: '0 0 1.5rem 0', color: '#64748b', fontSize: '0.875rem', textAlign: 'center', maxWidth: '360px' }}>
-                    Get started by setting the table count and seating capacities for Floor {activeFloor}.
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem', textAlign: 'center', maxWidth: '380px' }}>
+                    No tables have been provisioned for this floor. Table setup is configured when creating or editing the client profile.
                   </p>
-                  <button
-                    onClick={() => setIsSetupModalOpen(true)}
-                    style={{
-                      padding: '0.75rem 1.5rem',
-                      backgroundColor: '#0ea5e9',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '10px',
-                      fontWeight: 600,
-                      fontSize: '0.9rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      boxShadow: '0 4px 6px -1px rgba(14, 165, 233, 0.25)'
-                    }}
-                  >
-                    <Icons.Plus size={16} /> Configure Floor {activeFloor} Tables
-                  </button>
                 </div>
               ) : (
                 <FloorTableLayout
@@ -2003,14 +1898,6 @@ export default function RestaurantOrders() {
         </div>
       </div>
 
-      {/* Table Configuration Modal */}
-      <TableSetupModal
-        isOpen={isSetupModalOpen}
-        onClose={() => setIsSetupModalOpen(false)}
-        onSave={handleSaveTableConfig}
-        currentFloor={activeFloor}
-        existingTables={tables.map(t => ({ capacity: t.capacity }))}
-      />
 
       {/* Reservation Modal */}
       {isReservationModalOpen && (

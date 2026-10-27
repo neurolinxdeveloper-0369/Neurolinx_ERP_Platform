@@ -25,6 +25,8 @@ public class AdminController {
     @Autowired private UserRepository userRepository;
     @Autowired private BranchRepository branchRepository;
     @Autowired private DeviceSessionRepository deviceSessionRepository;
+    @Autowired private RestaurantTableRepository tableRepo;
+    @Autowired private CustomerOrderRepository orderRepo;
     @Autowired private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     // --- DEVICE SESSIONS ---
@@ -98,33 +100,88 @@ public class AdminController {
     }
 
     @GetMapping("/companies/{id}")
-    public ResponseEntity<Company> getCompany(@PathVariable Long id) {
-        return companyRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> getCompany(@PathVariable Long id) {
+        return companyRepository.findById(id).map(company -> {
+            java.util.Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", company.getId());
+            map.put("name", company.getName());
+            map.put("industryType", company.getIndustryType());
+            map.put("isActive", company.getIsActive());
+            map.put("logoBase64", company.getLogoBase64());
+            map.put("contactNumber", company.getContactNumber());
+            map.put("address", company.getAddress());
+            map.put("clientName", company.getClientName());
+            map.put("websiteUrl", company.getWebsiteUrl());
+            map.put("totalTables", company.getTotalTables());
+            map.put("totalFloors", company.getTotalFloors());
+            map.put("gstin", company.getGstin());
+            map.put("panNumber", company.getPanNumber());
+            map.put("registrationNumber", company.getRegistrationNumber());
+            map.put("foodLicense", company.getFoodLicense());
+            map.put("operatingHours", company.getOperatingHours());
+            map.put("serviceModel", company.getServiceModel());
+            map.put("kitchenSetup", company.getKitchenSetup());
+            map.put("bypassDeviceLimit", company.getBypassDeviceLimit());
+
+            List<RestaurantTable> tables = tableRepo.findByCompanyOrderByFloorAscPositionAscIdAsc(company);
+            java.util.Map<Integer, Long> floorCounts = tables.stream()
+                    .filter(t -> t.getFloor() != null)
+                    .collect(Collectors.groupingBy(RestaurantTable::getFloor, Collectors.counting()));
+
+            int floors = (company.getTotalFloors() != null && company.getTotalFloors() > 0) ? company.getTotalFloors() : 1;
+            List<java.util.Map<String, Object>> floorTables = new java.util.ArrayList<>();
+            for (int f = 1; f <= floors; f++) {
+                java.util.Map<String, Object> ft = new java.util.HashMap<>();
+                ft.put("floor", f);
+                ft.put("tableCount", floorCounts.getOrDefault(f, 0L).intValue());
+                floorTables.add(ft);
+            }
+            map.put("floorTables", floorTables);
+
+            return ResponseEntity.ok(map);
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/companies/{id}")
-    public ResponseEntity<Company> updateCompany(@PathVariable Long id, @RequestBody Company updatedCompany) {
+    @Transactional
+    public ResponseEntity<?> updateCompany(@PathVariable Long id, @RequestBody java.util.Map<String, Object> payload) {
         return companyRepository.findById(id).map(company -> {
-            company.setName(updatedCompany.getName());
-            company.setIndustryType(updatedCompany.getIndustryType());
-            company.setIsActive(updatedCompany.getIsActive());
-            company.setLogoBase64(updatedCompany.getLogoBase64());
-            company.setContactNumber(updatedCompany.getContactNumber());
-            company.setAddress(updatedCompany.getAddress());
-            company.setClientName(updatedCompany.getClientName());
-            company.setWebsiteUrl(updatedCompany.getWebsiteUrl());
-            company.setTotalTables(updatedCompany.getTotalTables());
-            company.setTotalFloors(updatedCompany.getTotalFloors());
-            company.setGstin(updatedCompany.getGstin());
-            company.setPanNumber(updatedCompany.getPanNumber());
-            company.setRegistrationNumber(updatedCompany.getRegistrationNumber());
-            company.setFoodLicense(updatedCompany.getFoodLicense());
-            company.setOperatingHours(updatedCompany.getOperatingHours());
-            company.setServiceModel(updatedCompany.getServiceModel());
-            company.setKitchenSetup(updatedCompany.getKitchenSetup());
-            return ResponseEntity.ok(companyRepository.save(company));
+            if (payload.containsKey("name") && payload.get("name") != null) company.setName(payload.get("name").toString());
+            if (payload.containsKey("industryType")) company.setIndustryType(payload.get("industryType") != null ? payload.get("industryType").toString() : null);
+            if (payload.containsKey("isActive") && payload.get("isActive") != null) company.setIsActive(Boolean.parseBoolean(payload.get("isActive").toString()));
+            if (payload.containsKey("logoBase64")) company.setLogoBase64(payload.get("logoBase64") != null ? payload.get("logoBase64").toString() : null);
+            if (payload.containsKey("contactNumber")) company.setContactNumber(payload.get("contactNumber") != null ? payload.get("contactNumber").toString() : null);
+            if (payload.containsKey("address")) company.setAddress(payload.get("address") != null ? payload.get("address").toString() : null);
+            if (payload.containsKey("clientName")) company.setClientName(payload.get("clientName") != null ? payload.get("clientName").toString() : null);
+            if (payload.containsKey("websiteUrl")) company.setWebsiteUrl(payload.get("websiteUrl") != null ? payload.get("websiteUrl").toString() : null);
+
+            Integer totalFloors = 1;
+            if (payload.get("totalFloors") != null && !payload.get("totalFloors").toString().isBlank()) {
+                try { totalFloors = Integer.parseInt(payload.get("totalFloors").toString()); } catch (Exception ignored) {}
+            }
+            Integer totalTables = 0;
+            if (payload.get("totalTables") != null && !payload.get("totalTables").toString().isBlank()) {
+                try { totalTables = Integer.parseInt(payload.get("totalTables").toString()); } catch (Exception ignored) {}
+            }
+            company.setTotalFloors(totalFloors);
+            company.setTotalTables(totalTables);
+
+            if (payload.containsKey("gstin")) company.setGstin(payload.get("gstin") != null ? payload.get("gstin").toString() : null);
+            if (payload.containsKey("panNumber")) company.setPanNumber(payload.get("panNumber") != null ? payload.get("panNumber").toString() : null);
+            if (payload.containsKey("registrationNumber")) company.setRegistrationNumber(payload.get("registrationNumber") != null ? payload.get("registrationNumber").toString() : null);
+            if (payload.containsKey("foodLicense")) company.setFoodLicense(payload.get("foodLicense") != null ? payload.get("foodLicense").toString() : null);
+            if (payload.containsKey("operatingHours")) company.setOperatingHours(payload.get("operatingHours") != null ? payload.get("operatingHours").toString() : null);
+            if (payload.containsKey("serviceModel")) company.setServiceModel(payload.get("serviceModel") != null ? payload.get("serviceModel").toString() : null);
+            if (payload.containsKey("kitchenSetup")) company.setKitchenSetup(payload.get("kitchenSetup") != null ? payload.get("kitchenSetup").toString() : null);
+
+            Company saved = companyRepository.save(company);
+
+            if (payload.containsKey("floorTables")) {
+                List<java.util.Map<String, Object>> floorTables = (List<java.util.Map<String, Object>>) payload.get("floorTables");
+                provisionCompanyTables(saved, totalFloors, totalTables, floorTables);
+            }
+
+            return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -183,6 +240,7 @@ public class AdminController {
     }
 
     @PostMapping("/companies")
+    @Transactional
     public ResponseEntity<?> createCompany(@RequestBody CompanyProvisionDTO dto) {
         // 1. Create Company
         Company company = new Company(dto.getCompanyName(), dto.getIndustryType());
@@ -191,8 +249,8 @@ public class AdminController {
         company.setAddress(dto.getAddress());
         company.setClientName(dto.getClientName());
         company.setWebsiteUrl(dto.getWebsiteUrl());
-        company.setTotalTables(dto.getTotalTables());
-        company.setTotalFloors(dto.getTotalFloors());
+        company.setTotalTables(dto.getTotalTables() != null ? dto.getTotalTables() : 0);
+        company.setTotalFloors(dto.getTotalFloors() != null ? dto.getTotalFloors() : 1);
         company.setGstin(dto.getGstin());
         company.setPanNumber(dto.getPanNumber());
         company.setRegistrationNumber(dto.getRegistrationNumber());
@@ -223,7 +281,91 @@ public class AdminController {
             }
         }
 
+        // 5. Provision Tables for the specified floors and tables
+        provisionCompanyTables(company, company.getTotalFloors(), company.getTotalTables(), dto.getFloorTables());
+
         return ResponseEntity.ok(company);
+    }
+
+    @Transactional
+    public void provisionCompanyTables(Company company, Integer totalFloors, Integer totalTables, List<java.util.Map<String, Object>> floorTables) {
+        if (totalFloors == null || totalFloors < 1) totalFloors = 1;
+
+        java.util.Map<Integer, Integer> targetCounts = new java.util.HashMap<>();
+        if (floorTables != null && !floorTables.isEmpty()) {
+            for (java.util.Map<String, Object> ft : floorTables) {
+                if (ft.containsKey("floor") && ft.containsKey("tableCount") && ft.get("tableCount") != null) {
+                    try {
+                        int floor = Integer.parseInt(ft.get("floor").toString());
+                        int count = Integer.parseInt(ft.get("tableCount").toString());
+                        targetCounts.put(floor, Math.max(0, count));
+                    } catch (Exception ignored) {}
+                }
+            }
+        } else if (totalTables != null && totalTables > 0) {
+            int perFloor = totalTables / totalFloors;
+            int remainder = totalTables % totalFloors;
+            for (int f = 1; f <= totalFloors; f++) {
+                targetCounts.put(f, perFloor + (f <= remainder ? 1 : 0));
+            }
+        }
+
+        for (int f = 1; f <= totalFloors; f++) {
+            int targetCount = targetCounts.getOrDefault(f, 0);
+            List<RestaurantTable> existing = tableRepo.findByCompanyAndFloorOrderByPositionAscIdAsc(company, f);
+
+            for (int i = 0; i < targetCount; i++) {
+                RestaurantTable t;
+                if (i < existing.size()) {
+                    t = existing.get(i);
+                } else {
+                    t = new RestaurantTable();
+                    t.setCompany(company);
+                    t.setFloor(f);
+                    t.setStatus("Free");
+                }
+                if (t.getTableName() == null || t.getTableName().isBlank() || t.getTableName().startsWith("Table ") || t.getTableName().equals("Unmapped Table")) {
+                    t.setTableName("Table " + (i + 1));
+                }
+                if (t.getCapacity() == null || t.getCapacity() < 1) {
+                    t.setCapacity(4);
+                }
+                t.setPosition(i + 1);
+                if (t.getStatus() == null) {
+                    t.setStatus("Free");
+                }
+                tableRepo.save(t);
+            }
+
+            if (existing.size() > targetCount) {
+                for (int i = targetCount; i < existing.size(); i++) {
+                    RestaurantTable surplus = existing.get(i);
+                    try {
+                        if (orderRepo.existsByRestaurantTable(surplus)) {
+                            surplus.setPosition(null);
+                            tableRepo.save(surplus);
+                        } else {
+                            tableRepo.delete(surplus);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        // Clean up surplus floors beyond totalFloors
+        List<RestaurantTable> allTables = tableRepo.findByCompany(company);
+        for (RestaurantTable t : allTables) {
+            if (t.getFloor() != null && t.getFloor() > totalFloors) {
+                try {
+                    if (orderRepo.existsByRestaurantTable(t)) {
+                        t.setPosition(null);
+                        tableRepo.save(t);
+                    } else {
+                        tableRepo.delete(t);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
     }
 
     // --- ROLES & PRIVILEGES (Client Provisioning) ---
