@@ -148,6 +148,7 @@ public class InvoiceVerificationTest {
     void testVerifyInvoice_ValidInvoice_Verified() throws Exception {
         when(purchaseOrderRepository.findById(201L)).thenReturn(Optional.of(testPO));
         when(goodsReceiptRepository.existsByPurchaseOrderAndInvoiceNumberIgnoreCase(testPO, "261036G002900941")).thenReturn(false);
+        when(invoiceParserService.isVendorMatch(any(), any(), any())).thenReturn(true);
 
         // Attached invoice data for Zepto sample
         Map<String, Object> invoiceData = new LinkedHashMap<>();
@@ -181,5 +182,31 @@ public class InvoiceVerificationTest {
         assertEquals("VERIFIED", body.get("status"));
         assertEquals("261036G002900941", body.get("invoiceNumber"));
         assertNotNull(body.get("items"));
+    }
+
+    @Test
+    @DisplayName("Validation: Reject when invoice supplier does not match PO vendor")
+    void testVerifyInvoice_InvoiceSupplierMismatch_Rejected() throws Exception {
+        when(purchaseOrderRepository.findById(201L)).thenReturn(Optional.of(testPO));
+        when(goodsReceiptRepository.existsByPurchaseOrderAndInvoiceNumberIgnoreCase(testPO, "261036G002900941")).thenReturn(false);
+        when(invoiceParserService.isVendorMatch(any(), any(), any())).thenReturn(false);
+
+        Map<String, Object> invoiceData = new LinkedHashMap<>();
+        invoiceData.put("invoiceNumber", "261036G002900941");
+        invoiceData.put("vendorName", "Sri Krishna Rice Mill & Agro Traders");
+        testPO.setInvoiceData(new ObjectMapper().writeValueAsString(invoiceData));
+
+        Map<String, Object> payload = Map.of(
+                "invoiceNumber", "261036G002900941",
+                "vendorId", 10L
+        );
+
+        ResponseEntity<?> res = purchaseController.verifyInvoice(201L, payload);
+        assertEquals(200, res.getStatusCode().value());
+        Map<String, Object> body = (Map<String, Object>) res.getBody();
+        assertNotNull(body);
+        assertEquals(false, body.get("verified"));
+        assertEquals("VENDOR_MISMATCH", body.get("status"));
+        assertTrue(body.get("message").toString().contains("Vendor Mismatch"));
     }
 }

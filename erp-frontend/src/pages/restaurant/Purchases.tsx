@@ -143,25 +143,42 @@ export default function Purchases() {
         setInvoiceVerificationMessage(data.message || 'Invoice successfully verified against original supplier records.');
         setVerifiedInvoiceData(data);
         const mappedItems = Array.isArray(data.items) ? data.items.map((it: any) => {
-          const ordered = parseFloat(it.orderedQuantity !== undefined ? it.orderedQuantity : it.quantity) || 0;
-          const rec = parseFloat(it.alreadyReceivedQuantity !== undefined ? it.alreadyReceivedQuantity : (it.alreadyReceived || 0)) || 0;
-          const rem = Math.max(0, it.remainingQuantity !== undefined ? it.remainingQuantity : (ordered - rec));
-          const receivingQty = it.receivingQuantity !== undefined ? it.receivingQuantity : (rem > 0 ? rem : 0);
+          const invQty = parseFloat(it.invoiceQuantity !== undefined ? it.invoiceQuantity : it.quantity) || 1;
+          const mult = parseFloat(it.multiplier) || 1;
+          const inwardQty = it.inwardQuantity !== undefined ? parseFloat(it.inwardQuantity) : (invQty * mult);
+          const ordered = it.orderedQuantity !== undefined ? parseFloat(it.orderedQuantity) : inwardQty;
+          const rec = it.alreadyReceivedQuantity !== undefined ? parseFloat(it.alreadyReceivedQuantity) : (it.alreadyReceived || 0);
+          const rem = Math.max(0, it.remainingQuantity !== undefined ? parseFloat(it.remainingQuantity) : (ordered - rec));
+          const receivingQty = it.receivingQuantity !== undefined ? parseFloat(it.receivingQuantity) : inwardQty;
+          const lineTotal = it.lineTotal !== undefined ? parseFloat(it.lineTotal) : ((parseFloat(it.unitRate || 0)) * invQty);
+          const effectiveUnitCost = inwardQty > 0 ? (lineTotal / inwardQty) : (it.costPerUnit || it.unitRate || 0);
+
           return {
             ingredientId: it.matchedIngredientId,
             ingredientName: it.matchedIngredientName || it.shortName || it.description,
             itemCode: it.itemCode || '',
-            unit: it.unit || 'kg',
+            description: it.description || it.shortName || 'Item',
+            invoiceQuantity: invQty,
+            invoiceUnit: it.invoiceUnit || it.unit || 'pc',
+            packSize: it.packSize,
+            packUnit: it.packUnit,
+            packDisplay: it.packDisplay || `1 ${it.invoiceUnit || it.unit || 'unit'} = ${mult} ${it.baseUnit || 'kg'}`,
+            multiplier: mult,
+            baseUnit: it.baseUnit || it.unit || 'kg',
+            unit: it.baseUnit || it.unit || 'kg',
+            inwardQuantity: inwardQty,
             quantityOrdered: ordered,
             alreadyReceived: rec,
             remaining: rem,
             quantity: receivingQty,
-            costPerUnit: it.costPerUnit !== undefined ? it.costPerUnit : (it.unitRate || 0),
+            costPerUnit: effectiveUnitCost,
+            unitRate: parseFloat(it.unitRate) || 0,
             mrp: it.mrp,
             discountPercent: it.discountPercent || 0,
+            discountAmount: it.discountAmount || 0,
             taxRate: it.taxRate || 0,
             taxAmount: it.taxAmount || 0,
-            lineTotal: it.lineTotal !== undefined ? it.lineTotal : ((parseFloat(receivingQty) || 0) * (parseFloat(it.costPerUnit || it.unitRate || 0))),
+            lineTotal: lineTotal,
             mismatchFlag: Boolean(it.mismatchFlag),
             mismatchReason: it.mismatchReason || '',
             expiryDate: it.expiryDate || ''
@@ -185,6 +202,73 @@ export default function Purchases() {
       setVerifiedInvoiceData(null);
       setReceiveForm(prev => ({ ...prev, items: [] }));
     }
+  };
+
+  // Allow user to review and correct raw material mappings for verified invoice items
+  const handleItemMappingChange = (idx: number, newIngredientId: string) => {
+    const updated = [...receiveForm.items];
+    const targetItem = updated[idx];
+    if (!newIngredientId) {
+      targetItem.ingredientId = null;
+      targetItem.ingredientName = '';
+      targetItem.mismatchFlag = true;
+      targetItem.mismatchReason = 'Unmapped: Please select an existing raw material from the inventory catalog.';
+      setReceiveForm({ ...receiveForm, items: updated });
+      return;
+    }
+
+    const newIng = ingredients.find(i => i.id === parseInt(newIngredientId));
+    if (!newIng) return;
+
+    targetItem.ingredientId = newIng.id;
+    targetItem.ingredientName = newIng.name;
+    targetItem.baseUnit = newIng.unit || 'kg';
+    targetItem.unit = newIng.unit || 'kg';
+    targetItem.mismatchFlag = false;
+    targetItem.mismatchReason = '';
+
+    // Recompute multiplier based on pack size and new base unit
+    const iu = (targetItem.invoiceUnit || 'pc').toLowerCase();
+    const bu = (newIng.unit || 'kg').toLowerCase();
+    const pu = (targetItem.packUnit || '').toLowerCase();
+    const ps = parseFloat(targetItem.packSize) || 0;
+
+    let mult = 1;
+    if (bu === 'pcs' || bu === 'units' || bu === 'pc') {
+      mult = 1;
+    } else if (ps > 0 && pu) {
+      if (pu === bu) mult = ps;
+      else if (pu === 'g' && bu === 'kg') mult = ps / 1000;
+      else if (pu === 'kg' && bu === 'g') mult = ps * 1000;
+      else if (pu === 'ml' && bu === 'l') mult = ps / 1000;
+      else if (pu === 'l' && bu === 'ml') mult = ps * 1000;
+    } else if (iu === bu) {
+      mult = 1;
+    } else if (iu === 'g' && bu === 'kg') mult = 0.001;
+    else if (iu === 'kg' && bu === 'g') mult = 1000;
+    else if (iu === 'ml' && bu === 'l') mult = 0.001;
+    else if (iu === 'l' && bu === 'ml') mult = 1000;
+
+    targetItem.multiplier = mult;
+    targetItem.packDisplay = `1 ${targetItem.invoiceUnit || 'unit'} = ${mult} ${newIng.unit}`;
+    const invQty = parseFloat(targetItem.invoiceQuantity) || 1;
+    targetItem.inwardQuantity = invQty * mult;
+    targetItem.quantity = targetItem.inwardQuantity;
+    targetItem.costPerUnit = targetItem.inwardQuantity > 0 ? (targetItem.lineTotal / targetItem.inwardQuantity) : 0;
+
+    // Check PO status
+    const poItem = selectedPOObject?.items?.find((p: any) => p.ingredient?.id === newIng.id);
+    if (poItem) {
+      targetItem.quantityOrdered = poItem.quantityOrdered;
+      targetItem.alreadyReceived = poItem.quantityReceived || 0;
+      targetItem.remaining = Math.max(0, poItem.quantityOrdered - (poItem.quantityReceived || 0));
+    } else {
+      targetItem.quantityOrdered = targetItem.inwardQuantity;
+      targetItem.alreadyReceived = 0;
+      targetItem.remaining = targetItem.inwardQuantity;
+    }
+
+    setReceiveForm({ ...receiveForm, items: updated });
   };
 
   // Add Item to PO Form
@@ -844,6 +928,36 @@ export default function Purchases() {
                       >
                         {invoiceVerificationStatus === 'CHECKING' ? 'Checking...' : 'Verify Invoice'}
                       </button>
+                      <label
+                        style={{
+                          padding: '0.6rem 0.85rem',
+                          backgroundColor: '#f8fafc',
+                          color: '#0369a1',
+                          border: '1px solid #bae6fd',
+                          borderRadius: '4px',
+                          cursor: isUploadingInvoice ? 'not-allowed' : 'pointer',
+                          fontWeight: 600,
+                          fontSize: '0.8rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          whiteSpace: 'nowrap'
+                        }}
+                        title="Upload supplier invoice (PDF/Image) for automatic extraction & verification"
+                      >
+                        <Icons.FileText size={16} color="#0284c7" />
+                        {isUploadingInvoice ? 'Extracting...' : '📎 Attach Invoice'}
+                        <input
+                          type="file"
+                          accept=".pdf,image/*"
+                          style={{ display: 'none' }}
+                          disabled={isUploadingInvoice || !selectedPOId}
+                          onChange={e => {
+                            if (selectedPOObject) handleFileUpload(e, selectedPOObject.id);
+                            else alert('Please select a Purchase Order first.');
+                          }}
+                        />
+                      </label>
                     </div>
                   </div>
 
@@ -908,13 +1022,31 @@ export default function Purchases() {
                         <b>Original Invoice Document Not Attached:</b> {invoiceVerificationMessage}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setInvoiceModalPO(selectedPOObject)}
-                      style={{ padding: '0.4rem 0.8rem', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}
+                    <label
+                      style={{
+                        padding: '0.45rem 0.9rem',
+                        backgroundColor: '#d97706',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem'
+                      }}
                     >
-                      + Upload Vendor Bill
-                    </button>
+                      <Icons.Upload size={14} /> Upload Supplier Invoice
+                      <input
+                        type="file"
+                        accept=".pdf,image/*"
+                        style={{ display: 'none' }}
+                        onChange={e => {
+                          if (selectedPOObject) handleFileUpload(e, selectedPOObject.id);
+                        }}
+                      />
+                    </label>
                   </div>
                 )}
               </div>
@@ -925,7 +1057,7 @@ export default function Purchases() {
               <div style={{ padding: '1.25rem', backgroundColor: '#eff6ff', border: '1px dashed #93c5fd', borderRadius: '8px', color: '#1e40af', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
                 <Icons.Lock size={20} color="#2563eb" />
                 <div>
-                  <strong>Option 4 (Items Received) is Locked:</strong> Enter the official supplier invoice number above and click <strong>Verify Invoice</strong> (or upload the vendor bill) to validate items, actual pricing, and inward quantities.
+                  <strong>Option 4 (Items Received) is Locked:</strong> Enter the official supplier invoice number above and click <strong>Verify Invoice</strong> (or attach the invoice file) to validate genuine line items, pack sizes, and prices.
                 </div>
               </div>
             )}
@@ -936,7 +1068,7 @@ export default function Purchases() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Icons.PackageCheck size={20} color="#059669" />
-                    <h4 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 600 }}>4. Verified Items Received (Enter Inward Quantities)</h4>
+                    <h4 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 600 }}>4. Verified Items Received & Raw Material Mapping Review</h4>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
                     Inwarding against Verified Invoice: <strong style={{ color: '#0284c7' }}>#{receiveForm.invoiceNumber.trim()}</strong>
@@ -947,54 +1079,96 @@ export default function Purchases() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
                     <thead>
                       <tr style={{ backgroundColor: '#f1f5f9', fontSize: '0.8rem', color: '#475569' }}>
-                        <th style={{ padding: '0.75rem' }}>Item & Code</th>
-                        <th style={{ padding: '0.75rem' }}>Invoice Qty</th>
+                        <th style={{ padding: '0.75rem' }}>Invoice Item & Pack</th>
+                        <th style={{ padding: '0.75rem', minWidth: '220px' }}>Mapped Raw Material (Review & Map)</th>
+                        <th style={{ padding: '0.75rem' }}>Pack Conversion</th>
                         <th style={{ padding: '0.75rem' }}>PO Ordered</th>
-                        <th style={{ padding: '0.75rem' }}>Remaining</th>
-                        <th style={{ padding: '0.75rem' }}>Receiving Now *</th>
-                        <th style={{ padding: '0.75rem' }}>Invoice Rate (₹) *</th>
+                        <th style={{ padding: '0.75rem' }}>Inward Qty (Base Unit) *</th>
+                        <th style={{ padding: '0.75rem' }}>Invoice Rate (₹)</th>
                         <th style={{ padding: '0.75rem' }}>Tax / Disc</th>
                         <th style={{ padding: '0.75rem' }}>Expiry Date</th>
-                        <th style={{ padding: '0.75rem' }}>Verified Total (₹)</th>
+                        <th style={{ padding: '0.75rem' }}>Line Inward Total (₹)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {receiveForm.items.map((item, idx) => {
-                        const lineTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.costPerUnit) || 0);
+                        const inwardQty = parseFloat(item.inwardQuantity) || parseFloat(item.quantity) || 1;
+                        const recQty = parseFloat(item.quantity) || 0;
+                        const lineInwardValue = inwardQty > 0 ? (item.lineTotal * (recQty / inwardQty)) : 0;
                         const isHighlighted = highlightedIngredientId === item.ingredientId;
                         const maxRemaining = item.remaining !== undefined ? item.remaining : Math.max(0, (item.quantityOrdered || 0) - (item.alreadyReceived || 0));
                         const isExceeding = parseFloat(item.quantity) > maxRemaining;
+                        const isUnmapped = !item.ingredientId || item.mismatchFlag;
 
                         return (
                           <tr
                             key={idx}
                             style={{
                               borderBottom: '1px solid #f1f5f9',
-                              backgroundColor: isExceeding ? '#fef2f2' : item.mismatchFlag ? '#fffbeb' : isHighlighted ? '#eff6ff' : 'white',
+                              backgroundColor: isUnmapped ? '#fffbeb' : isExceeding ? '#fef2f2' : isHighlighted ? '#eff6ff' : 'white',
                               transition: 'background-color 0.3s'
                             }}
                           >
-                            <td style={{ padding: '0.75rem' }}>
-                              <div style={{ fontWeight: 600, color: '#0f172a' }}>{item.ingredientName}</div>
-                              {item.itemCode && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Code: {item.itemCode}</div>}
-                              {item.mismatchFlag && (
-                                <span style={{ display: 'inline-block', marginTop: '0.2rem', backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 600 }}>
-                                  Mismatch: Flagged for Review
+                            <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
+                              <div style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.85rem' }}>{item.description || item.ingredientName}</div>
+                              {item.itemCode && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>HSN: {item.itemCode}</div>}
+                              <div style={{ fontSize: '0.75rem', color: '#0369a1', marginTop: '2px' }}>
+                                Invoice Qty: <strong>{item.invoiceQuantity} {item.invoiceUnit}</strong>
+                              </div>
+                              {isUnmapped && (
+                                <span style={{ display: 'inline-block', marginTop: '0.35rem', backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.7rem', padding: '0.15rem 0.45rem', borderRadius: '4px', fontWeight: 600 }}>
+                                  ⚠️ Unmapped: Flagged for Review
                                 </span>
                               )}
                               {isHighlighted && <span style={{ marginLeft: '0.5rem', color: '#0284c7', fontSize: '0.75rem', fontWeight: 600 }}>[Scanned]</span>}
                             </td>
-                            <td style={{ padding: '0.75rem', color: '#334155' }}>
-                              {item.quantityOrdered || item.quantity} {item.unit}
+
+                            <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
+                              <select
+                                value={item.ingredientId || ''}
+                                onChange={e => handleItemMappingChange(idx, e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '0.45rem',
+                                  fontSize: '0.8rem',
+                                  borderRadius: '4px',
+                                  border: isUnmapped ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+                                  backgroundColor: isUnmapped ? '#fffbeb' : 'white',
+                                  fontWeight: 500
+                                }}
+                              >
+                                <option value="">-- Select / Correct Material Mapping --</option>
+                                {ingredients.map(ing => (
+                                  <option key={ing.id} value={ing.id}>
+                                    {ing.name} ({ing.unit})
+                                  </option>
+                                ))}
+                              </select>
+                              {item.ingredientId ? (
+                                <div style={{ fontSize: '0.7rem', color: '#16a34a', marginTop: '3px', fontWeight: 600 }}>
+                                  ✓ Mapped: {item.ingredientName} (Base: {item.baseUnit})
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '0.7rem', color: '#d97706', marginTop: '3px', fontWeight: 600 }}>
+                                  Select an existing material to map
+                                </div>
+                              )}
                             </td>
-                            <td style={{ padding: '0.75rem', color: '#64748b' }}>
-                              {item.quantityOrdered} {item.unit}
-                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Prev Rec: {item.alreadyReceived || 0}</div>
+
+                            <td style={{ padding: '0.75rem', verticalAlign: 'top', fontSize: '0.8rem', color: '#475569' }}>
+                              <div style={{ fontWeight: 600 }}>{item.packDisplay || `1 ${item.invoiceUnit} = 1 ${item.unit}`}</div>
+                              <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>Multiplier: x{item.multiplier}</div>
                             </td>
-                            <td style={{ padding: '0.75rem', fontWeight: 600, color: maxRemaining > 0 ? '#0284c7' : '#10b981' }}>
-                              {maxRemaining} {item.unit}
+
+                            <td style={{ padding: '0.75rem', verticalAlign: 'top', color: '#64748b', fontSize: '0.8rem' }}>
+                              <div>{item.quantityOrdered} {item.unit}</div>
+                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Prev: {item.alreadyReceived || 0}</div>
+                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: maxRemaining > 0 ? '#0284c7' : '#10b981', marginTop: '2px' }}>
+                                Rem: {maxRemaining} {item.unit}
+                              </div>
                             </td>
-                            <td style={{ padding: '0.75rem' }}>
+
+                            <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
                               <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                   <input
@@ -1010,7 +1184,7 @@ export default function Purchases() {
                                       setReceiveForm({ ...receiveForm, items: updated });
                                     }}
                                     style={{
-                                      width: '90px',
+                                      width: '95px',
                                       padding: '0.4rem',
                                       borderRadius: '4px',
                                       border: isExceeding ? '2px solid #ef4444' : isHighlighted ? '2px solid #0284c7' : '1px solid #cbd5e1',
@@ -1021,10 +1195,10 @@ export default function Purchases() {
                                   <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{item.unit}</span>
                                   <button
                                     type="button"
-                                    title="Fill full remaining quantity"
+                                    title="Fill full inward quantity"
                                     onClick={() => {
                                       const updated = [...receiveForm.items];
-                                      updated[idx].quantity = maxRemaining;
+                                      updated[idx].quantity = item.inwardQuantity !== undefined ? item.inwardQuantity : maxRemaining;
                                       setReceiveForm({ ...receiveForm, items: updated });
                                     }}
                                     style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', borderRadius: '3px', cursor: 'pointer', fontWeight: 600 }}
@@ -1039,26 +1213,19 @@ export default function Purchases() {
                                 )}
                               </div>
                             </td>
-                            <td style={{ padding: '0.75rem' }}>
-                              <input
-                                required
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={item.costPerUnit}
-                                onChange={e => {
-                                  const updated = [...receiveForm.items];
-                                  updated[idx].costPerUnit = e.target.value;
-                                  setReceiveForm({ ...receiveForm, items: updated });
-                                }}
-                                style={{ width: '90px', padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-                              />
+
+                            <td style={{ padding: '0.75rem', verticalAlign: 'top', fontSize: '0.85rem' }}>
+                              <div style={{ fontWeight: 600, color: '#0f172a' }}>₹{(parseFloat(item.unitRate) || parseFloat(item.costPerUnit) || 0).toFixed(2)}</div>
+                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>per {item.invoiceUnit || 'unit'}</div>
                             </td>
-                            <td style={{ padding: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>
-                              {item.taxRate ? `${item.taxRate}% GST` : '0%'}
-                              {item.discountPercent > 0 && <span style={{ display: 'block', color: '#059669' }}>-{item.discountPercent}% Disc</span>}
+
+                            <td style={{ padding: '0.75rem', verticalAlign: 'top', fontSize: '0.75rem', color: '#64748b' }}>
+                              <div>{item.taxRate ? `${item.taxRate}% GST` : '0%'}</div>
+                              {item.discountPercent > 0 && <span style={{ display: 'block', color: '#059669', fontWeight: 600 }}>-{item.discountPercent}% Disc</span>}
+                              {item.taxAmount > 0 && <span style={{ display: 'block', color: '#64748b' }}>Tax: ₹{Number(item.taxAmount).toFixed(2)}</span>}
                             </td>
-                            <td style={{ padding: '0.75rem' }}>
+
+                            <td style={{ padding: '0.75rem', verticalAlign: 'top' }}>
                               <input
                                 type="date"
                                 value={item.expiryDate}
@@ -1070,7 +1237,13 @@ export default function Purchases() {
                                 style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
                               />
                             </td>
-                            <td style={{ padding: '0.75rem', fontWeight: 600 }}>₹{lineTotal.toFixed(2)}</td>
+
+                            <td style={{ padding: '0.75rem', verticalAlign: 'top', fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>
+                              ₹{lineInwardValue.toFixed(2)}
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 400 }}>
+                                Rate: ₹{(recQty > 0 ? (lineInwardValue / recQty) : 0).toFixed(2)}/{item.unit}
+                              </div>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1078,29 +1251,72 @@ export default function Purchases() {
                   </table>
                 </div>
 
-                {/* Cost Reconciliation & Inward Summary */}
-                <div style={{ padding: '1rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 6px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                  <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                    <div>
-                      Items selected for receiving: <strong style={{ color: '#0f172a' }}>{validReceivingItemsCount} of {receiveForm.items.length}</strong>
-                    </div>
-                    {verifiedInvoiceData?.invoiceTotal !== undefined && (
-                      <div style={{ marginTop: '0.25rem', fontSize: '0.8rem' }}>
-                        Supplier Invoice Value: <strong style={{ color: '#0f172a' }}>₹{Number(verifiedInvoiceData.invoiceTotal).toFixed(2)}</strong>
-                        {verifiedInvoiceData.taxableAmount && <span> (Taxable: ₹{Number(verifiedInvoiceData.taxableAmount).toFixed(2)} | GST: ₹{Number(verifiedInvoiceData.taxAmount || 0).toFixed(2)})</span>}
-                      </div>
-                    )}
+                {/* Accurate Invoice Total and Stock Value Reconciliation Card */}
+                <div style={{ marginTop: '1.25rem', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '1.25rem' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Icons.Receipt size={18} color="#0284c7" />
+                    <span>3. Financial Reconciliation & Tax Breakdown</span>
                   </div>
 
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
-                      Total Inward Stock Value: <strong style={{ color: '#059669' }}>₹{totalInwardAmount.toFixed(2)}</strong>
-                    </div>
-                    {verifiedInvoiceData?.invoiceTotal !== undefined && Math.abs(totalInwardAmount - Number(verifiedInvoiceData.invoiceTotal)) > 0.01 && (
-                      <div style={{ fontSize: '0.75rem', color: '#b45309', fontWeight: 600, marginTop: '2px' }}>
-                        Notice: Partial receipt recorded (₹{totalInwardAmount.toFixed(2)} of ₹{Number(verifiedInvoiceData.invoiceTotal).toFixed(2)} invoice value).
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #e2e8f0' }}>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Invoice Subtotal (Gross)</div>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                        ₹{Number(verifiedInvoiceData?.subtotal || verifiedInvoiceData?.invoiceTotal || 0).toFixed(2)}
                       </div>
-                    )}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Discounts</div>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#059669' }}>
+                        -₹{Number(verifiedInvoiceData?.discountAmount || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Taxable Amount</div>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                        ₹{Number(verifiedInvoiceData?.taxableAmount || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Applicable GST</div>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                        ₹{Number(verifiedInvoiceData?.taxAmount || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div style={{ backgroundColor: '#f1f5f9', padding: '0.5rem 0.75rem', borderRadius: '6px' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 600 }}>Supplier Invoice Total</div>
+                      <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0284c7' }}>
+                        ₹{Number(verifiedInvoiceData?.invoiceTotal || 0).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                        Items selected for receiving: <strong>{validReceivingItemsCount} of {receiveForm.items.length}</strong>
+                      </div>
+                      {verifiedInvoiceData?.invoiceTotal !== undefined && Math.abs(totalInwardAmount - Number(verifiedInvoiceData.invoiceTotal)) <= 0.05 ? (
+                        <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: '#15803d', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Icons.CheckCircle size={16} color="#16a34a" />
+                          <span>Complete Delivery: Total inward stock value (₹{totalInwardAmount.toFixed(2)}) fully reconciles with the supplier invoice total.</span>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: '0.35rem', fontSize: '0.8rem', color: '#b45309', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Icons.AlertCircle size={16} color="#d97706" />
+                          <span>
+                            Partial Delivery Recorded: Inwarding ₹{totalInwardAmount.toFixed(2)} of ₹{Number(verifiedInvoiceData?.invoiceTotal || 0).toFixed(2)} invoice value. Difference: ₹{(Number(verifiedInvoiceData?.invoiceTotal || 0) - totalInwardAmount).toFixed(2)} pending inwarding.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Inward Stock Value</div>
+                      <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#059669' }}>
+                        ₹{totalInwardAmount.toFixed(2)}
+                      </div>
+                    </div>
                   </div>
                 </div>
 

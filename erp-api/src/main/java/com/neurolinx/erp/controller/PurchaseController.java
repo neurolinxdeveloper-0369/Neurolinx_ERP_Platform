@@ -410,6 +410,17 @@ public class PurchaseController {
                 String storedInvNum = invData.getOrDefault("invoiceNumber", "").toString().trim();
 
                 if (storedInvNum.equalsIgnoreCase(inputInvoice)) {
+                    // Check if invoice vendor matches PO vendor
+                    Object invVendorName = invData.get("vendorName");
+                    Object invVendorGstin = invData.get("vendorGstin");
+                    if (po.getVendor() != null && !invoiceParserService.isVendorMatch(po.getVendor(), invVendorName, invVendorGstin)) {
+                        return ResponseEntity.ok(Map.of(
+                                "verified", false,
+                                "status", "VENDOR_MISMATCH",
+                                "message", "Vendor Mismatch: The supplier on this invoice ('" + (invVendorName != null ? invVendorName : "Unknown") + "') does not match the vendor on Purchase Order #" + po.getPoNumber() + " ('" + po.getVendor().getName() + "'). Please ensure the invoice belongs to the selected vendor."
+                        ));
+                    }
+
                     List<Map<String, Object>> rawItems = (List<Map<String, Object>>) invData.getOrDefault("items", Collections.emptyList());
                     List<Map<String, Object>> reconciled = invoiceParserService.reconcileWithPO(rawItems, po, company);
 
@@ -421,7 +432,11 @@ public class PurchaseController {
                     response.put("invoiceDate", invData.getOrDefault("invoiceDate", po.getInvoiceDate() != null ? po.getInvoiceDate().toString() : LocalDate.now().toString()));
                     response.put("vendorName", invData.getOrDefault("vendorName", po.getVendor() != null ? po.getVendor().getName() : "Vendor"));
                     response.put("vendorGstin", invData.getOrDefault("vendorGstin", ""));
+                    response.put("subtotal", invData.getOrDefault("subtotal", invData.getOrDefault("taxableAmount", po.getTotalAmount())));
+                    response.put("discountAmount", invData.getOrDefault("discountAmount", BigDecimal.ZERO));
                     response.put("taxableAmount", invData.getOrDefault("taxableAmount", BigDecimal.ZERO));
+                    response.put("cgstAmount", invData.getOrDefault("cgstAmount", BigDecimal.ZERO));
+                    response.put("sgstAmount", invData.getOrDefault("sgstAmount", BigDecimal.ZERO));
                     response.put("taxAmount", invData.getOrDefault("taxAmount", BigDecimal.ZERO));
                     response.put("invoiceTotal", invData.getOrDefault("invoiceTotal", po.getTotalAmount()));
                     response.put("items", reconciled);

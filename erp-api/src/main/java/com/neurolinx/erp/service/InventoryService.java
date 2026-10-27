@@ -353,7 +353,20 @@ public class InventoryService {
             }
 
             if (matchingPoi == null) {
-                throw new IllegalArgumentException("Ingredient " + ing.getName() + " does not belong to Purchase Order #" + po.getPoNumber());
+                // If this is a verified supplier invoice item being received, record it on the Purchase Order
+                matchingPoi = new PurchaseOrderItem();
+                matchingPoi.setPurchaseOrder(po);
+                matchingPoi.setIngredient(ing);
+                matchingPoi.setUnit(ing.getUnit());
+                BigDecimal uCost = itemData.containsKey("costPerUnit") && itemData.get("costPerUnit") != null
+                        ? new BigDecimal(itemData.get("costPerUnit").toString())
+                        : (ing.getCostPerUnit() != null ? ing.getCostPerUnit() : BigDecimal.ZERO);
+                matchingPoi.setUnitCost(uCost);
+                matchingPoi.setQuantityOrdered(qtyReceived);
+                matchingPoi.setQuantityReceived(BigDecimal.ZERO);
+                purchaseOrderItemRepository.save(matchingPoi);
+                if (po.getItems() == null) po.setItems(new ArrayList<>());
+                po.getItems().add(matchingPoi);
             }
 
             String itemUnit = itemData.containsKey("unit") && itemData.get("unit") != null

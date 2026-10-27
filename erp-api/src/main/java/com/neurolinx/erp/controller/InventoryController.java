@@ -134,24 +134,34 @@ public class InventoryController {
         ing.setName(payload.get("name").toString());
         ing.setUnit(payload.get("unit") != null ? payload.get("unit").toString() : "kg");
 
-        if (payload.get("stockLevel") != null) {
-            ing.setStockLevel(new BigDecimal(payload.get("stockLevel").toString()));
-        }
-        if (payload.get("reorderLevel") != null) {
+        // Initial stock quantity and cost are strictly initialized to zero on creation
+        // Stock and valuation populate exclusively from confirmed goods receipts
+        ing.setStockLevel(BigDecimal.ZERO);
+        ing.setCostPerUnit(BigDecimal.ZERO);
+
+        if (payload.get("reorderLevel") != null && !payload.get("reorderLevel").toString().isEmpty()) {
             ing.setReorderLevel(new BigDecimal(payload.get("reorderLevel").toString()));
+        } else {
+            ing.setReorderLevel(BigDecimal.ZERO);
         }
-        if (payload.get("parLevel") != null) {
+        if (payload.get("parLevel") != null && !payload.get("parLevel").toString().isEmpty()) {
             ing.setParLevel(new BigDecimal(payload.get("parLevel").toString()));
+        } else {
+            ing.setParLevel(BigDecimal.ZERO);
         }
-        if (payload.get("costPerUnit") != null) {
-            ing.setCostPerUnit(new BigDecimal(payload.get("costPerUnit").toString()));
-        }
-        if (payload.get("storageZone") != null) {
+        if (payload.get("storageZone") != null && !payload.get("storageZone").toString().isEmpty()) {
             ing.setStorageZone(payload.get("storageZone").toString());
+        } else {
+            ing.setStorageZone("Dry Storage");
         }
-        if (payload.get("barcode") != null) {
-            ing.setBarcode(payload.get("barcode").toString());
+
+        // Generate or assign SKU item code if not provided
+        String barcode = payload.get("barcode") != null ? payload.get("barcode").toString().trim() : "";
+        if (barcode.isEmpty()) {
+            barcode = String.format("RAW-%06d", (int) (Math.random() * 900000 + 100000));
         }
+        ing.setBarcode(barcode);
+
         if (payload.get("preferredVendorId") != null && !payload.get("preferredVendorId").toString().isEmpty()) {
             try {
                 Long vId = Long.parseLong(payload.get("preferredVendorId").toString());
@@ -160,26 +170,6 @@ public class InventoryController {
         }
 
         Ingredient saved = ingredientRepository.save(ing);
-
-        // Record initial stock movement if starting stock > 0
-        if (saved.getStockLevel().compareTo(BigDecimal.ZERO) > 0) {
-            String username = SecurityContextHolder.getContext().getAuthentication().getName();
-            inventoryService.recordMovement(
-                    company,
-                    null,
-                    saved,
-                    "INITIAL_STOCK",
-                    saved.getStockLevel(),
-                    BigDecimal.ZERO,
-                    saved.getStockLevel(),
-                    saved.getCostPerUnit(),
-                    "MANUAL_ENTRY",
-                    "INIT-" + saved.getId(),
-                    "Initial stock recorded on ingredient creation",
-                    username
-            );
-        }
-
         return ResponseEntity.ok(saved);
     }
 
