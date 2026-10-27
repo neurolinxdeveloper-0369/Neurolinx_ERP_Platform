@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Users, Settings, Building2, X, Edit2, Trash2, CheckSquare, Square, CheckCircle } from 'lucide-react';
+import { Plus, Users, Settings, Building2, X, Edit2, Trash2, CheckSquare, Square, CheckCircle, Layers } from 'lucide-react';
 import { apiFetch } from '../../api';
 
 export default function ClientProvisioning() {
@@ -804,6 +804,28 @@ export default function ClientProvisioning() {
                 <div style={{ flex: 1 }}></div>
                 )}
               </div>
+
+              {(industryType === 'Restaurant' || industryType === 'Hotel' || industryType === 'Hybrid (Hotel & Restaurant)') && (
+                <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '0.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <Layers size={16} color="#0284c7" />
+                    <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#0f172a', textTransform: 'uppercase' }}>Online Delivery Aggregators (Option 2 Middleware)</span>
+                  </div>
+                  <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.8125rem', color: '#64748b' }}>
+                    Ready for UrbanPiper Hub. Outlets & Swiggy/Zomato IDs can be configured under Branch Management.
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#fff7ed', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid #fed7aa' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ea580c' }}>SWIGGY:</span>
+                      <span style={{ fontSize: '0.75rem', color: '#475569' }}>Enabled</span>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#fef2f2', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid #fecaca' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#dc2626' }}>ZOMATO:</span>
+                      <span style={{ fontSize: '0.75rem', color: '#475569' }}>Enabled</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {!editingId && (
                 <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '1rem' }}>

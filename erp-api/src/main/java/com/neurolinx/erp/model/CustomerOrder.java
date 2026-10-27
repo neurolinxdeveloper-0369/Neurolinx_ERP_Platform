@@ -31,7 +31,7 @@ public class CustomerOrder {
     private BigDecimal discountApplied = BigDecimal.ZERO;
     private BigDecimal taxApplied = BigDecimal.ZERO;
 
-    // Delivery Specific Fields
+    // Delivery & Aggregator Specific Fields
     @Column(length = 100)
     private String customerName;
 
@@ -82,6 +82,10 @@ public class CustomerOrder {
     private LocalDateTime deliveredAt;
     private Boolean inventoryDeducted = false;
     private Boolean inventoryRestored = false;
+
+    private String externalOrderId;
+    private String deliveryRiderName;
+    private String deliveryRiderPhone;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id", nullable = true)
@@ -140,6 +144,7 @@ public class CustomerOrder {
     public List<OrderItem> getItems() { return items; }
     public void setItems(List<OrderItem> items) { this.items = items; }
 
+<<<<<<< HEAD
     public String getCustomerName() { return customerName; }
     public void setCustomerName(String customerName) { this.customerName = customerName; }
 
@@ -202,4 +207,11 @@ public class CustomerOrder {
 
     public Boolean getInventoryRestored() { return inventoryRestored != null ? inventoryRestored : false; }
     public void setInventoryRestored(Boolean inventoryRestored) { this.inventoryRestored = inventoryRestored; }
+
+    public String getExternalOrderId() { return externalOrderId; }
+    public void setExternalOrderId(String externalOrderId) { this.externalOrderId = externalOrderId; }
+    public String getDeliveryRiderName() { return deliveryRiderName; }
+    public void setDeliveryRiderName(String deliveryRiderName) { this.deliveryRiderName = deliveryRiderName; }
+    public String getDeliveryRiderPhone() { return deliveryRiderPhone; }
+    public void setDeliveryRiderPhone(String deliveryRiderPhone) { this.deliveryRiderPhone = deliveryRiderPhone; }
 }

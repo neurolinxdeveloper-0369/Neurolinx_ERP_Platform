@@ -26,6 +26,12 @@ public class Branch {
     @Column(nullable = false)
     private Boolean isActive = true;
 
+    private String swiggyOutletId;
+    private String zomatoRestaurantId;
+    private String urbanpiperStoreId;
+    private Boolean autoAcceptOrders = true;
+    private Boolean onlineOrderingActive = true;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -47,4 +53,15 @@ public class Branch {
     public void setIsActive(Boolean isActive) { this.isActive = isActive; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getSwiggyOutletId() { return swiggyOutletId; }
+    public void setSwiggyOutletId(String swiggyOutletId) { this.swiggyOutletId = swiggyOutletId; }
+    public String getZomatoRestaurantId() { return zomatoRestaurantId; }
+    public void setZomatoRestaurantId(String zomatoRestaurantId) { this.zomatoRestaurantId = zomatoRestaurantId; }
+    public String getUrbanpiperStoreId() { return urbanpiperStoreId; }
+    public void setUrbanpiperStoreId(String urbanpiperStoreId) { this.urbanpiperStoreId = urbanpiperStoreId; }
+    public Boolean getAutoAcceptOrders() { return autoAcceptOrders; }
+    public void setAutoAcceptOrders(Boolean autoAcceptOrders) { this.autoAcceptOrders = autoAcceptOrders; }
+    public Boolean getOnlineOrderingActive() { return onlineOrderingActive; }
+    public void setOnlineOrderingActive(Boolean onlineOrderingActive) { this.onlineOrderingActive = onlineOrderingActive; }
 }

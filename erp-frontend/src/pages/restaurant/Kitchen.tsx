@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { apiFetch } from '../../api';
 import * as Icons from 'lucide-react';
 
+<<<<<<< HEAD
 interface OrderItem {
   id?: number;
   quantity: number;
@@ -14,6 +15,12 @@ interface OrderItem {
   notes?: string;
   price?: number;
 }
+=======
+export default function KitchenDisplay() {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSimulating, setIsSimulating] = useState(false);
+>>>>>>> 74e452e (Implement Option 2: Aggregator Middleware Hub for Swiggy & Zomato with KDS and Test Simulators)
 
 interface RestaurantTable {
   id?: number;
@@ -120,6 +127,7 @@ export default function KitchenDisplay() {
   useEffect(() => {
     fetchOrders(false);
 
+<<<<<<< HEAD
     let interval: any = null;
     if (autoRefresh) {
       interval = setInterval(() => {
@@ -179,6 +187,35 @@ export default function KitchenDisplay() {
       setErrorMessage(`Failed to update status to ${nextStatus}: ${err.message || 'Network error'}. Changes were NOT saved to server.`);
     } finally {
       setUpdatingOrderId(null);
+=======
+  const simulateOnlineOrder = async (channel: 'Swiggy' | 'Zomato') => {
+    setIsSimulating(true);
+    try {
+      const res = await apiFetch('https://erp-api.neurolinx.in/api/aggregators/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        fetchOrders();
+      } else {
+        alert(data.message || 'Simulation failed');
+      }
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Pending': return { bg: '#fee2e2', text: '#ef4444', border: '#fca5a5' };
+      case 'Preparing': return { bg: '#fef3c7', text: '#d97706', border: '#fcd34d' };
+      case 'Ready': return { bg: '#d1fae5', text: '#10b981', border: '#6ee7b7' };
+      default: return { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+>>>>>>> 74e452e (Implement Option 2: Aggregator Middleware Hub for Swiggy & Zomato with KDS and Test Simulators)
     }
   };
 
@@ -344,6 +381,7 @@ export default function KitchenDisplay() {
   }, [allOrders, activeTab, searchQuery]);
 
   return (
+<<<<<<< HEAD
     <div style={{ padding: '1.5rem 2rem', maxWidth: '1600px', margin: '0 auto', fontFamily: 'Inter, system-ui, sans-serif', color: '#0f172a' }}>
       
       {/* Top Header */}
@@ -408,10 +446,38 @@ export default function KitchenDisplay() {
           >
             <Icons.RefreshCw size={15} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
             {isRefreshing ? 'Refreshing...' : 'Refresh'}
+=======
+    <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 style={{ margin: 0 }}>Kitchen Display System (KDS)</h2>
+          <p style={{ margin: '0.25rem 0 0 0', color: '#64748b', fontSize: '0.875rem' }}>Live order preparation queue with auto-synced aggregator delivery tracking.</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', backgroundColor: '#f1f5f9', padding: '0.25rem', borderRadius: '6px' }}>
+            <button 
+              disabled={isSimulating}
+              onClick={() => simulateOnlineOrder('Swiggy')} 
+              style={{ padding: '0.4rem 0.75rem', backgroundColor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+            >
+              <Icons.Zap size={14} /> + Sim Swiggy
+            </button>
+            <button 
+              disabled={isSimulating}
+              onClick={() => simulateOnlineOrder('Zomato')} 
+              style={{ padding: '0.4rem 0.75rem', backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+            >
+              <Icons.Zap size={14} /> + Sim Zomato
+            </button>
+          </div>
+          <button onClick={fetchOrders} style={{ padding: '0.5rem 1rem', backgroundColor: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <Icons.RefreshCw size={14} /> Refresh
+>>>>>>> 74e452e (Implement Option 2: Aggregator Middleware Hub for Swiggy & Zomato with KDS and Test Simulators)
           </button>
         </div>
       </div>
 
+<<<<<<< HEAD
       {/* Notifications / Error Banner */}
       {errorMessage && (
         <div style={{
@@ -674,6 +740,32 @@ export default function KitchenDisplay() {
                         <span style={{ color: '#94a3b8' }}>• {order.orderType}</span>
                       )}
                     </div>
+=======
+      {isLoading ? <div>Loading kitchen queue...</div> : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+          {orders.map(order => {
+            const colors = getStatusColor(order.kitchenStatus || 'Pending');
+            const timeElapsed = Math.floor((new Date().getTime() - new Date(order.createdAt).getTime()) / 60000);
+            const isSwiggy = order.orderType === 'Swiggy';
+            const isZomato = order.orderType === 'Zomato';
+            
+            return (
+              <div key={order.id} style={{ backgroundColor: 'white', borderRadius: '10px', border: `2px solid ${isSwiggy ? '#fed7aa' : (isZomato ? '#fecaca' : colors.border)}`, overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}>
+                {/* Channel Banner for Swiggy / Zomato */}
+                {(isSwiggy || isZomato) && (
+                  <div style={{ backgroundColor: isSwiggy ? '#ea580c' : '#dc2626', color: 'white', padding: '0.35rem 1rem', fontSize: '0.75rem', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <span>{isSwiggy ? '🛵 SWIGGY DELIVERY ORDER' : '🛵 ZOMATO DELIVERY ORDER'}</span>
+                    <span>{order.paymentMethod || 'PREPAID'}</span>
+                  </div>
+                )}
+
+                <div style={{ backgroundColor: colors.bg, padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${colors.border}` }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: colors.text }}>#{order.orderNumber}</h3>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>
+                      {order.orderType} {order.restaurantTable ? `- Table ${order.restaurantTable.tableNumber}` : ''}
+                    </span>
+>>>>>>> 74e452e (Implement Option 2: Aggregator Middleware Hub for Swiggy & Zomato with KDS and Test Simulators)
                   </div>
 
                   {/* Timing Pill (Elapsed & Created Time) */}
@@ -699,6 +791,7 @@ export default function KitchenDisplay() {
                   </div>
                 </div>
 
+<<<<<<< HEAD
                 {/* Order Items Body */}
                 <div style={{ padding: '1rem', flex: 1, backgroundColor: '#ffffff' }}>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', marginBottom: '0.5rem' }}>
@@ -750,6 +843,21 @@ export default function KitchenDisplay() {
                     ) : (
                       <li style={{ color: '#94a3b8', fontSize: '0.85rem', fontStyle: 'italic', padding: '0.5rem 0' }}>
                         No items detailed
+=======
+                {/* Rider & Customer Dispatch Info for Online Delivery */}
+                {(order.customerName || order.deliveryRiderName) && (
+                  <div style={{ padding: '0.6rem 1rem', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.8125rem', color: '#475569' }}>
+                    {order.customerName && <div><strong>Diner:</strong> {order.customerName}</div>}
+                    {order.deliveryRiderName && <div><strong>Rider:</strong> {order.deliveryRiderName} {order.deliveryRiderPhone ? `(${order.deliveryRiderPhone})` : ''}</div>}
+                  </div>
+                )}
+
+                <div style={{ padding: '1rem', flex: 1 }}>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {order.items?.map((item: any) => (
+                      <li key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px dashed #e2e8f0', fontSize: '1.05rem', fontWeight: 500 }}>
+                        <span>{item.quantity}x {item.dish?.name}</span>
+>>>>>>> 74e452e (Implement Option 2: Aggregator Middleware Hub for Swiggy & Zomato with KDS and Test Simulators)
                       </li>
                     )}
                   </ul>
@@ -776,6 +884,7 @@ export default function KitchenDisplay() {
                   )}
                 </div>
 
+<<<<<<< HEAD
                 {/* Status Transitions Action Footer */}
                 <div style={{
                   padding: '0.85rem 1rem',
@@ -864,11 +973,41 @@ export default function KitchenDisplay() {
                       <Icons.CheckCircle2 size={16} />
                       <span>Order Completed</span>
                     </div>
+=======
+                <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem' }}>
+                  {(order.kitchenStatus || 'Pending') === 'Pending' && (
+                    <button onClick={() => updateKitchenStatus(order.id, 'Preparing')} style={{ flex: 1, padding: '0.75rem', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>
+                      Start Preparing
+                    </button>
+                  )}
+                  {(order.kitchenStatus || 'Pending') === 'Preparing' && (
+                    <button onClick={() => updateKitchenStatus(order.id, 'Ready')} style={{ flex: 1, padding: '0.75rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>
+                      Mark Food Ready (Notify Rider)
+                    </button>
+                  )}
+                  {(order.kitchenStatus || 'Pending') === 'Ready' && (
+                    <button onClick={() => updateKitchenStatus(order.id, 'Delivered')} style={{ flex: 1, padding: '0.75rem', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>
+                      {isSwiggy || isZomato ? 'Handover to Rider' : 'Mark Delivered'}
+                    </button>
+>>>>>>> 74e452e (Implement Option 2: Aggregator Middleware Hub for Swiggy & Zomato with KDS and Test Simulators)
                   )}
                 </div>
               </div>
             );
           })}
+<<<<<<< HEAD
+=======
+          {orders.length === 0 && (
+            <div style={{ gridColumn: '1 / -1', padding: '4rem 2rem', textAlign: 'center', backgroundColor: 'white', borderRadius: '12px', border: '1px dashed #cbd5e1', color: '#64748b' }}>
+              <Icons.UtensilsCrossed size={48} style={{ marginBottom: '1rem', opacity: 0.4 }} />
+              <h3>All caught up! No active kitchen orders.</h3>
+              <p>When an order is placed in POS or received from Swiggy/Zomato, it will ring and appear here in real time.</p>
+              <button onClick={() => simulateOnlineOrder('Swiggy')} style={{ marginTop: '0.5rem', padding: '0.6rem 1.25rem', backgroundColor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
+                Try Simulating a Swiggy Order Now
+              </button>
+            </div>
+          )}
+>>>>>>> 74e452e (Implement Option 2: Aggregator Middleware Hub for Swiggy & Zomato with KDS and Test Simulators)
         </div>
       )}
 

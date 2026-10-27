@@ -97,7 +97,8 @@ export default function RestaurantBilling() {
   const totalCashSales = todayOrders.filter(o => o.paymentMethod === 'Cash').reduce((sum, o) => sum + o.totalAmount, 0);
   const totalCardSales = todayOrders.filter(o => o.paymentMethod === 'Card').reduce((sum, o) => sum + o.totalAmount, 0);
   const totalUPI = todayOrders.filter(o => o.paymentMethod === 'UPI').reduce((sum, o) => sum + o.totalAmount, 0);
-  const totalRevenue = totalCashSales + totalCardSales + totalUPI;
+  const totalAggregator = todayOrders.filter(o => o.orderType === 'Swiggy' || o.orderType === 'Zomato' || (o.paymentMethod && o.paymentMethod.includes('Prepaid'))).reduce((sum, o) => sum + o.totalAmount, 0);
+  const totalRevenue = totalCashSales + totalCardSales + totalUPI + totalAggregator;
 
   const totalCashPayouts = todayPurchases.reduce((sum, p) => sum + (p.totalAmount || 0), 0); // Assuming all POs are paid in cash from till for MVP
 
@@ -137,9 +138,22 @@ export default function RestaurantBilling() {
                   <tr key={ord.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                     <td style={{ padding: '1rem', fontWeight: 600, color: '#0f172a' }}>{ord.orderNumber}</td>
                     <td style={{ padding: '1rem' }}>
-                      <div style={{ fontWeight: 500 }}>{ord.orderType} {ord.tableName ? `(${ord.tableName})` : ''}</div>
-                      {ord.orderType === 'Delivery' && ord.customerName && (
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          backgroundColor: ord.orderType === 'Swiggy' ? '#fff7ed' : (ord.orderType === 'Zomato' ? '#fef2f2' : (ord.orderType === 'Delivery' ? '#eff6ff' : '#f1f5f9')),
+                          color: ord.orderType === 'Swiggy' ? '#ea580c' : (ord.orderType === 'Zomato' ? '#dc2626' : (ord.orderType === 'Delivery' ? '#2563eb' : '#334155')),
+                          border: `1px solid ${ord.orderType === 'Swiggy' ? '#fed7aa' : (ord.orderType === 'Zomato' ? '#fecaca' : (ord.orderType === 'Delivery' ? '#bfdbfe' : '#cbd5e1'))}`
+                        }}>
+                          {ord.orderType}
+                        </span>
+                        {ord.tableName && <span style={{ fontWeight: 500 }}>({ord.tableName})</span>}
+                      </div>
+                      {ord.customerName && (
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
                           {ord.customerName} {ord.customerPhone ? `• ${ord.customerPhone}` : ''}
                           {ord.deliveryArea ? ` (${ord.deliveryArea})` : ''}
                         </div>
@@ -182,9 +196,13 @@ export default function RestaurantBilling() {
                   <span style={{ color: '#64748b', paddingLeft: '1rem' }}>↳ Card Sales</span>
                   <span style={{ color: '#64748b' }}>₹{totalCardSales.toFixed(2)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ color: '#64748b', paddingLeft: '1rem' }}>↳ UPI / Digital</span>
                   <span style={{ color: '#64748b' }}>₹{totalUPI.toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                  <span style={{ color: '#ea580c', paddingLeft: '1rem', fontWeight: 500 }}>↳ Online Aggregators (Swiggy / Zomato)</span>
+                  <span style={{ color: '#ea580c', fontWeight: 600 }}>₹{totalAggregator.toFixed(2)}</span>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px dashed #e2e8f0' }}>
