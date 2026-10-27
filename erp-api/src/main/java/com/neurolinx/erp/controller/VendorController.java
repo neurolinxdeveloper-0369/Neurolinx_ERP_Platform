@@ -92,17 +92,31 @@ public class VendorController {
         }
 
         try {
-            // 1. Unlink stock batches tied to this vendor's purchase orders
+            // 1. Unlink any ingredients that have this vendor as preferred vendor
+            jdbcTemplate.update("UPDATE ingredients SET preferred_vendor_id = NULL WHERE preferred_vendor_id = ?", id);
+
+            // 2. Unlink any FIFO stock batches referencing purchase orders belonging to this vendor
             jdbcTemplate.update("UPDATE stock_batches SET purchase_order_id = NULL WHERE purchase_order_id IN (SELECT id FROM purchase_orders WHERE vendor_id = ?)", id);
-            
-            // 2. Delete purchase orders tied to this vendor
+
+            // 3. Delete goods receipt items for any goods receipts tied to this vendor or its purchase orders
+            jdbcTemplate.update("DELETE FROM goods_receipt_items WHERE goods_receipt_id IN (SELECT id FROM goods_receipts WHERE vendor_id = ? OR purchase_order_id IN (SELECT id FROM purchase_orders WHERE vendor_id = ?))", id, id);
+
+            // 4. Delete goods receipts tied to this vendor or its purchase orders
+            jdbcTemplate.update("DELETE FROM goods_receipts WHERE vendor_id = ? OR purchase_order_id IN (SELECT id FROM purchase_orders WHERE vendor_id = ?)", id, id);
+
+            // 5. Delete purchase order items belonging to this vendor's purchase orders
+            jdbcTemplate.update("DELETE FROM purchase_order_items WHERE purchase_order_id IN (SELECT id FROM purchase_orders WHERE vendor_id = ?)", id);
+
+            // 6. Delete purchase orders belonging to this vendor
             jdbcTemplate.update("DELETE FROM purchase_orders WHERE vendor_id = ?", id);
 
-            // 3. Delete vendor
+            // 7. Delete the vendor itself from PostgreSQL
             vendorRepository.delete(vendor);
+            vendorRepository.flush();
             
-            return ResponseEntity.ok(Map.of("message", "Deleted successfully"));
+            return ResponseEntity.ok(Map.of("message", "Vendor and associated records deleted successfully from database", "id", id));
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("message", "Failed to delete vendor: " + e.getMessage()));
         }
     }

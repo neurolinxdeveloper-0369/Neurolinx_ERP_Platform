@@ -12,6 +12,7 @@ export default function Vendors() {
   const [form, setForm] = useState({ id: 0, name: '', contactPerson: '', phone: '', email: '', address: '', gstNumber: '' });
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'directory' | 'scorecards'>('directory');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // Vendor POs Modal
   const [selectedVendorForPOs, setSelectedVendorForPOs] = useState<any | null>(null);
@@ -58,13 +59,19 @@ export default function Vendors() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this vendor? This will also clean up associated purchase records.")) {
+    const vendorToDelete = vendors.find(v => v.id === id);
+    const vendorName = vendorToDelete ? vendorToDelete.name : 'this vendor';
+    if (!window.confirm(`Are you sure you want to permanently delete "${vendorName}" from the database? This will clean up all associated purchase orders and records.`)) {
       return;
     }
+    setDeletingId(id);
     try {
       const res = await apiFetch(`https://erp-api.neurolinx.in/api/inventory/vendors/${id}`, { method: 'DELETE' });
       if (res.ok) {
+        setVendors(prev => prev.filter(v => v.id !== id));
+        if (selectedVendorForPOs?.id === id) setSelectedVendorForPOs(null);
         fetchData();
+        alert(`Vendor "${vendorName}" has been deleted from the database successfully.`);
       } else {
         let msg = `Failed to delete vendor (Status: ${res.status})`;
         try {
@@ -75,6 +82,8 @@ export default function Vendors() {
       }
     } catch (err: any) {
       alert(err?.message || "Failed to delete vendor");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -164,7 +173,22 @@ export default function Vendors() {
                       </button>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <button onClick={() => { setIsEditing(true); setForm(v); setShowForm(true); }} style={{ padding: '0.45rem', flex: 1, backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>Edit</button>
-                        <button onClick={() => handleDelete(v.id)} style={{ padding: '0.45rem', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>Delete</button>
+                        <button
+                          onClick={() => handleDelete(v.id)}
+                          disabled={deletingId === v.id}
+                          style={{
+                            padding: '0.45rem',
+                            backgroundColor: deletingId === v.id ? '#f1f5f9' : '#fee2e2',
+                            color: deletingId === v.id ? '#94a3b8' : '#ef4444',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: deletingId === v.id ? 'not-allowed' : 'pointer',
+                            fontSize: '0.85rem',
+                            fontWeight: 500
+                          }}
+                        >
+                          {deletingId === v.id ? 'Deleting...' : 'Delete'}
+                        </button>
                       </div>
                     </div>
                   </div>
