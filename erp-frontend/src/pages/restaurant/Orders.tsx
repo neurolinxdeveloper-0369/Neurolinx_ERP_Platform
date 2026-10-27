@@ -76,6 +76,7 @@ export default function RestaurantOrders() {
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string>('');
   const [tables, setTables] = useState<RestaurantTableData[]>([]);
+  const [selectedFloor, setSelectedFloor] = useState<number>(1);
   const [loadingTables, setLoadingTables] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
@@ -1095,124 +1096,134 @@ export default function RestaurantOrders() {
         {viewMode === 'Tables' && (
           <div style={{ flex: 1, backgroundColor: '#f8fafc', borderRadius: '16px', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid #e2e8f0' }}>
             {/* Top Floor Bar & Controls */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '1rem 1.5rem',
-              backgroundColor: 'white',
-              borderBottom: '1px solid #e2e8f0',
-              flexWrap: 'wrap',
-              gap: '1rem',
-              position: 'relative'
-            }}>
-              
-              {/* Center Status Legend */}
-              <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '0.4rem 1.2rem', borderRadius: '32px', gap: '1.25rem', fontSize: '0.75rem', fontWeight: 700, color: '#475569', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', margin: '0 auto' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', border: '2px solid #cbd5e1' }} /> Available
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b' }} /> Not Available
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#1e293b' }} /> Reserved
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} /> Can't Select
-                </div>
-              </div>
-            </div>
+            {(() => {
+              const activeTables = tables.filter(t => t.position != null);
+              const floorNums = Array.from(new Set(activeTables.map(t => t.floor || 1))).sort((a, b) => a - b);
+              const effectiveFloor = floorNums.includes(selectedFloor) ? selectedFloor : (floorNums[0] || 1);
+              const currentFloorTables = floorNums.length > 1
+                ? activeTables.filter(t => (t.floor || 1) === effectiveFloor)
+                : activeTables;
 
-            {/* Subtitle / Overview */}
-            <div style={{ padding: '0.85rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
-              <div>
-                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>Dine-In Tables</span>
-                <span style={{ fontSize: '0.85rem', color: '#64748b', marginLeft: '0.75rem', fontWeight: 500 }}>
-                  {tables.filter(t => t.position != null).length} {tables.filter(t => t.position != null).length === 1 ? 'table' : 'tables'} available
-                </span>
-              </div>
-              {tables.length > 0 && (
-                <div style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: 600 }}>
-                  💡 Click any Free table to assign it for Dine-In
-                </div>
-              )}
-            </div>
+              return (
+                <>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '0.85rem 1.5rem',
+                    backgroundColor: 'white',
+                    borderBottom: '1px solid #e2e8f0',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                    position: 'relative'
+                  }}>
+                    {/* Left Title / Subtitle */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
+                        {floorNums.length > 1 ? `Floor ${effectiveFloor} Tables` : 'Dine-In Tables'}
+                      </span>
+                      <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
+                        {currentFloorTables.length} {currentFloorTables.length === 1 ? 'table' : 'tables'} available
+                        {floorNums.length > 1 && ` (Total ${activeTables.length})`}
+                      </span>
+                    </div>
 
-            {/* Table Area */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', position: 'relative' }}>
-              {loadingTables ? (
-                <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
-                  Loading tables...
-                </div>
-              ) : tables.length === 0 ? (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '350px',
-                  backgroundColor: 'white',
-                  borderRadius: '16px',
-                  border: '2px dashed #cbd5e1',
-                  margin: '1.5rem',
-                  padding: '2rem'
-                }}>
-                  <Icons.Armchair size={48} color="#94a3b8" style={{ marginBottom: '1rem' }} />
-                  <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b', fontSize: '1.1rem' }}>
-                    No Tables Configured
-                  </h3>
-                  <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem', textAlign: 'center', maxWidth: '380px' }}>
-                    No tables have been provisioned. Tables are configured when creating or editing the client profile.
-                  </p>
-                </div>
-              ) : (
-                (() => {
-                  const activeTables = tables.filter(t => t.position != null);
-                  const floorNums = Array.from(new Set(activeTables.map(t => t.floor || 1))).sort((a, b) => a - b);
-                  if (floorNums.length <= 1) {
-                    return (
+                    {/* Center Status Legend */}
+                    <div style={{ display: 'flex', alignItems: 'center', backgroundColor: '#f8fafc', padding: '0.4rem 1.2rem', borderRadius: '32px', gap: '1.25rem', fontSize: '0.75rem', fontWeight: 700, color: '#475569', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', border: '2px solid #cbd5e1' }} /> Available
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b' }} /> Not Available
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#1e293b' }} /> Reserved
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#cbd5e1' }} /> Can't Select
+                      </div>
+                    </div>
+
+                    {/* Right Corner: Floor 1 & Floor 2 Button Options if client has > 1 floor */}
+                    <div style={{ display: 'flex', alignItems: 'center', minWidth: '120px', justifyContent: 'flex-end' }}>
+                      {floorNums.length > 1 && (
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          backgroundColor: '#f1f5f9',
+                          padding: '0.25rem',
+                          borderRadius: '10px',
+                          gap: '0.25rem',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          {floorNums.map(floorNum => {
+                            const isSelected = effectiveFloor === floorNum;
+                            return (
+                              <button
+                                key={floorNum}
+                                type="button"
+                                onClick={() => setSelectedFloor(floorNum)}
+                                style={{
+                                  padding: '0.45rem 1rem',
+                                  borderRadius: '8px',
+                                  border: 'none',
+                                  fontWeight: 700,
+                                  fontSize: '0.825rem',
+                                  cursor: 'pointer',
+                                  backgroundColor: isSelected ? '#0284c7' : 'transparent',
+                                  color: isSelected ? 'white' : '#64748b',
+                                  boxShadow: isSelected ? '0 1px 3px rgba(2, 132, 199, 0.3)' : 'none',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                Floor {floorNum}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Table Area */}
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', position: 'relative' }}>
+                    {loadingTables ? (
+                      <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                        Loading tables...
+                      </div>
+                    ) : activeTables.length === 0 || currentFloorTables.length === 0 ? (
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '350px',
+                        backgroundColor: 'white',
+                        borderRadius: '16px',
+                        border: '2px dashed #cbd5e1',
+                        margin: '1.5rem',
+                        padding: '2rem'
+                      }}>
+                        <Icons.Armchair size={48} color="#94a3b8" style={{ marginBottom: '1rem' }} />
+                        <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b', fontSize: '1.1rem' }}>
+                          {floorNums.length > 1 ? `No Tables on Floor ${effectiveFloor}` : 'No Tables Configured'}
+                        </h3>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem', textAlign: 'center', maxWidth: '380px' }}>
+                          No tables have been provisioned. Tables are configured when creating or editing the client profile.
+                        </p>
+                      </div>
+                    ) : (
                       <FloorTableLayout
-                        tables={activeTables}
+                        tables={currentFloorTables}
                         selectedTableId={selectedTableId}
                         onSelectTable={handleSelectTable}
                         onStatusChange={handleTableStatusChange}
                       />
-                    );
-                  }
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                      {floorNums.map(floorNum => {
-                        const floorTables = activeTables.filter(t => (t.floor || 1) === floorNum);
-                        return (
-                          <div key={floorNum}>
-                            <div style={{ 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '0.5rem', 
-                              padding: '0.5rem 0.75rem', 
-                              backgroundColor: '#f8fafc', 
-                              borderRadius: '8px', 
-                              borderLeft: '4px solid #0284c7', 
-                              marginBottom: '1rem' 
-                            }}>
-                              <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Floor {floorNum}</span>
-                              <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>({floorTables.length} tables)</span>
-                            </div>
-                            <FloorTableLayout
-                              tables={floorTables}
-                              selectedTableId={selectedTableId}
-                              onSelectTable={handleSelectTable}
-                              onStatusChange={handleTableStatusChange}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })()
-              )}
-            </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
 
             {/* Floating Action Bar when a table is selected */}
             {selectedTableId && (() => {
