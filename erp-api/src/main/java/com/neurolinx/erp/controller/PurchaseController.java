@@ -451,75 +451,23 @@ public class PurchaseController {
             } catch (Exception ignored) {}
         }
 
-        // 4. Check against PO's registered invoiceNumber
+        // 4. Check against PO's registered invoiceNumber if present
         String registeredInv = po.getInvoiceNumber() != null ? po.getInvoiceNumber().trim() : "";
         boolean isDefaultPoInv = registeredInv.startsWith("INV-PO-");
 
-        if (!isDefaultPoInv && !registeredInv.isEmpty()) {
-            if (registeredInv.equalsIgnoreCase(inputInvoice)) {
-                List<Map<String, Object>> poItemsList = buildItemsFromPO(po);
-                Map<String, Object> response = new LinkedHashMap<>();
-                response.put("verified", true);
-                response.put("status", "VERIFIED");
-                response.put("message", "Supplier Invoice #" + inputInvoice + " verified successfully against Purchase Order #" + po.getPoNumber());
-                response.put("invoiceNumber", registeredInv);
-                response.put("invoiceDate", po.getInvoiceDate() != null ? po.getInvoiceDate().toString() : LocalDate.now().toString());
-                response.put("vendorName", po.getVendor() != null ? po.getVendor().getName() : "");
-                response.put("taxableAmount", po.getTotalAmount());
-                response.put("taxAmount", BigDecimal.ZERO);
-                response.put("invoiceTotal", po.getTotalAmount());
-                response.put("items", poItemsList);
-                return ResponseEntity.ok(response);
-            } else {
-                return ResponseEntity.ok(Map.of(
-                        "verified", false,
-                        "status", "INVALID",
-                        "message", "Invalid Invoice Number: Invoice '" + inputInvoice + "' does not match registered supplier invoice #" + registeredInv + " for PO #" + po.getPoNumber() + "."
-                ));
-            }
+        if (!isDefaultPoInv && !registeredInv.isEmpty() && !registeredInv.equalsIgnoreCase(inputInvoice)) {
+            return ResponseEntity.ok(Map.of(
+                    "verified", false,
+                    "status", "INVALID",
+                    "message", "Invalid Invoice Number: Invoice '" + inputInvoice + "' does not match registered supplier invoice #" + registeredInv + " for PO #" + po.getPoNumber() + "."
+            ));
         }
 
-        // 5. If no invoice document or verified data is attached yet:
+        // 5. If no uploaded invoice document or verified data is stored on this PO:
         return ResponseEntity.ok(Map.of(
                 "verified", false,
                 "status", "UNVERIFIED",
-                "message", "Invoice Verification Failed: No verified supplier invoice document found for invoice '" + inputInvoice + "' on PO #" + po.getPoNumber() + ". Please upload the original vendor invoice PDF / scanned challan to verify real items and pricing."
+                "message", "Invoice Document Unavailable: No original supplier invoice document or verified data found for invoice #" + inputInvoice + " on PO #" + po.getPoNumber() + ". Please upload the original supplier invoice PDF or image to extract and verify actual items and prices."
         ));
-    }
-
-    private List<Map<String, Object>> buildItemsFromPO(PurchaseOrder po) {
-        List<Map<String, Object>> items = new ArrayList<>();
-        if (po.getItems() != null) {
-            for (PurchaseOrderItem poi : po.getItems()) {
-                if (poi.getIngredient() == null) continue;
-                Ingredient ing = poi.getIngredient();
-                BigDecimal ordered = poi.getQuantityOrdered() != null ? poi.getQuantityOrdered() : BigDecimal.ZERO;
-                BigDecimal received = poi.getQuantityReceived() != null ? poi.getQuantityReceived() : BigDecimal.ZERO;
-                BigDecimal remaining = ordered.subtract(received);
-                if (remaining.compareTo(BigDecimal.ZERO) < 0) remaining = BigDecimal.ZERO;
-
-                Map<String, Object> row = new LinkedHashMap<>();
-                row.put("itemCode", "RM-" + ing.getId());
-                row.put("description", ing.getName());
-                row.put("shortName", ing.getName());
-                row.put("quantity", ordered);
-                row.put("unit", poi.getUnit() != null ? poi.getUnit() : ing.getUnit());
-                row.put("unitRate", poi.getUnitCost() != null ? poi.getUnitCost() : ing.getCostPerUnit());
-                row.put("discountPercent", BigDecimal.ZERO);
-                row.put("taxRate", BigDecimal.ZERO);
-                row.put("taxAmount", BigDecimal.ZERO);
-                row.put("lineTotal", (poi.getUnitCost() != null ? poi.getUnitCost() : BigDecimal.ZERO).multiply(ordered));
-                row.put("matchedIngredientId", ing.getId());
-                row.put("matchedIngredientName", ing.getName());
-                row.put("orderedQuantity", ordered);
-                row.put("alreadyReceivedQuantity", received);
-                row.put("remainingQuantity", remaining);
-                row.put("receivingQuantity", remaining);
-                row.put("costPerUnit", poi.getUnitCost() != null ? poi.getUnitCost() : ing.getCostPerUnit());
-                row.put("mismatchFlag", false);
-                items.add(row);
-            }
-        }
-        return items;
     }
 }

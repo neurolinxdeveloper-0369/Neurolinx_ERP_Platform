@@ -209,4 +209,26 @@ public class InvoiceVerificationTest {
         assertEquals("VENDOR_MISMATCH", body.get("status"));
         assertTrue(body.get("message").toString().contains("Vendor Mismatch"));
     }
+
+    @Test
+    @DisplayName("Validation: Return UNVERIFIED when invoice document is not uploaded")
+    void testVerifyInvoice_NoInvoiceData_ReturnsUnverified() {
+        when(purchaseOrderRepository.findById(201L)).thenReturn(Optional.of(testPO));
+        when(goodsReceiptRepository.existsByPurchaseOrderAndInvoiceNumberIgnoreCase(testPO, "UNKNOWN-INV-999")).thenReturn(false);
+        testPO.setInvoiceNumber("UNKNOWN-INV-999");
+        testPO.setInvoiceData(null);
+
+        Map<String, Object> payload = Map.of(
+                "invoiceNumber", "UNKNOWN-INV-999",
+                "vendorId", 10L
+        );
+
+        ResponseEntity<?> res = purchaseController.verifyInvoice(201L, payload);
+        assertEquals(200, res.getStatusCode().value());
+        Map<String, Object> body = (Map<String, Object>) res.getBody();
+        assertNotNull(body);
+        assertEquals(false, body.get("verified"));
+        assertEquals("UNVERIFIED", body.get("status"));
+        assertTrue(body.get("message").toString().contains("Invoice Document Unavailable"));
+    }
 }

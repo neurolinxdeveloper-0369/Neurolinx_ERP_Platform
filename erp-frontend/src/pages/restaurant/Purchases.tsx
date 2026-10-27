@@ -102,10 +102,9 @@ export default function Purchases() {
       return;
     }
     const po = purchases.find(p => p.id === parseInt(poId));
-    const suggestedInv = po?.invoiceNumber && !po.invoiceNumber.startsWith('INV-PO-') ? po.invoiceNumber : '';
     setReceiveForm(prev => ({
       ...prev,
-      invoiceNumber: suggestedInv,
+      invoiceNumber: '', // Strictly empty until user enters it or document is verified
       invoiceDate: po?.invoiceDate ? po.invoiceDate : prev.invoiceDate,
       items: [] // Items strictly hidden until invoice is validated!
     }));
@@ -540,7 +539,14 @@ export default function Purchases() {
     receiveForm.invoiceDate &&
     receiveForm.receiptDate
   );
-  const showItemsReceived = Boolean(isStep3Complete && receiveForm.items.length > 0);
+  const showItemsReceived = Boolean(
+    isStep1Complete &&
+    isStep2Complete &&
+    isStep3Complete &&
+    invoiceVerificationStatus === 'VERIFIED' &&
+    Array.isArray(receiveForm.items) &&
+    receiveForm.items.length > 0
+  );
 
   const totalInwardAmount = receiveForm.items.reduce(
     (sum, it) => sum + ((parseFloat(it.quantity) || 0) * (parseFloat(it.costPerUnit) || 0)),
@@ -830,46 +836,6 @@ export default function Purchases() {
               </div>
             </div>
 
-            {/* Attached Challan Banner if exists */}
-            {selectedPOObject && (
-              <div style={{ backgroundColor: selectedPOObject.invoiceAttachmentUrl ? '#f0fdf4' : '#fffbeb', border: selectedPOObject.invoiceAttachmentUrl ? '1px solid #bbf7d0' : '1px solid #fef3c7', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  {selectedPOObject.invoiceAttachmentUrl ? <Icons.FileCheck size={20} color="#166534" /> : <Icons.AlertCircle size={20} color="#b45309" />}
-                  <div>
-                    <div style={{ fontWeight: 600, color: selectedPOObject.invoiceAttachmentUrl ? '#166534' : '#92400e', fontSize: '0.9rem' }}>
-                      {selectedPOObject.invoiceAttachmentUrl ? `Physical Invoice Attached: ${selectedPOObject.invoiceAttachmentName || 'Vendor Bill'}` : 'Physical Vendor Invoice Not Yet Attached'}
-                    </div>
-                    <span style={{ fontSize: '0.75rem', color: selectedPOObject.invoiceAttachmentUrl ? '#15803d' : '#b45309' }}>
-                      Cross-verify inward quantities and pricing against the original vendor invoice document.
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {selectedPOObject.invoiceAttachmentUrl && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPreviewDocUrl(selectedPOObject.invoiceAttachmentUrl);
-                        setPreviewDocName(selectedPOObject.invoiceAttachmentName || 'Delivery-Challan');
-                        setShowInvoiceViewer(true);
-                      }}
-                      style={{ padding: '0.5rem 1rem', backgroundColor: '#15803d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
-                    >
-                      Inspect Bill
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setInvoiceModalPO(selectedPOObject)}
-                    style={{ padding: '0.5rem 1rem', backgroundColor: selectedPOObject.invoiceAttachmentUrl ? '#0284c7' : '#d97706', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}
-                  >
-                    {selectedPOObject.invoiceAttachmentUrl ? 'Re-upload / Update Bill' : '+ Upload Scanned Bill'}
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Step 3: Invoice & Receipt Details */}
             {selectedPOId && (
               <div style={{ backgroundColor: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
@@ -882,6 +848,41 @@ export default function Purchases() {
                   </div>
                 </div>
 
+                {/* Attached Document Status */}
+                {selectedPOObject && (
+                  <div style={{ backgroundColor: selectedPOObject.invoiceAttachmentUrl ? '#f0fdf4' : '#fffbeb', border: selectedPOObject.invoiceAttachmentUrl ? '1px solid #bbf7d0' : '1px solid #fef3c7', borderRadius: '6px', padding: '0.75rem 1rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {selectedPOObject.invoiceAttachmentUrl ? <Icons.FileCheck size={18} color="#166534" /> : <Icons.AlertCircle size={18} color="#b45309" />}
+                      <span style={{ fontWeight: 600, color: selectedPOObject.invoiceAttachmentUrl ? '#166534' : '#92400e', fontSize: '0.85rem' }}>
+                        {selectedPOObject.invoiceAttachmentUrl ? `Attached Document: ${selectedPOObject.invoiceAttachmentName || 'Supplier Invoice'}` : 'Original Supplier Invoice Document Not Yet Attached'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {selectedPOObject.invoiceAttachmentUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewDocUrl(selectedPOObject.invoiceAttachmentUrl);
+                            setPreviewDocName(selectedPOObject.invoiceAttachmentName || 'Delivery-Challan');
+                            setShowInvoiceViewer(true);
+                          }}
+                          style={{ padding: '0.35rem 0.75rem', backgroundColor: '#15803d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}
+                        >
+                          Inspect Document
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setInvoiceModalPO(selectedPOObject)}
+                        style={{ padding: '0.35rem 0.75rem', backgroundColor: selectedPOObject.invoiceAttachmentUrl ? '#0284c7' : '#d97706', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600, fontSize: '0.75rem' }}
+                      >
+                        {selectedPOObject.invoiceAttachmentUrl ? 'Replace Document' : '+ Upload Document'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>Vendor Invoice # *</label>
@@ -892,11 +893,15 @@ export default function Purchases() {
                         placeholder="e.g. 261036G002900941"
                         value={receiveForm.invoiceNumber}
                         onChange={e => {
-                          setReceiveForm({ ...receiveForm, invoiceNumber: e.target.value });
-                          if (invoiceVerificationStatus !== 'IDLE') {
-                            setInvoiceVerificationStatus('IDLE');
-                            setInvoiceVerificationMessage('');
-                          }
+                          const val = e.target.value;
+                          setReceiveForm(prev => ({
+                            ...prev,
+                            invoiceNumber: val,
+                            items: [] // strictly clear items on invoice number edit
+                          }));
+                          setInvoiceVerificationStatus('IDLE');
+                          setInvoiceVerificationMessage('');
+                          setVerifiedInvoiceData(null);
                         }}
                         style={{
                           flex: 1,
