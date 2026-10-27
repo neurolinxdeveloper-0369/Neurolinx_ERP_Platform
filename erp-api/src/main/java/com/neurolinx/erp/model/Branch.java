@@ -29,6 +29,8 @@ public class Branch {
     private String swiggyOutletId;
     private String zomatoRestaurantId;
     private String urbanpiperStoreId;
+    private String urbanpiperApiKey;
+    private String urbanpiperUsername;
     private Boolean autoAcceptOrders = true;
     private Boolean onlineOrderingActive = true;
 
@@ -64,4 +66,8 @@ public class Branch {
     public void setAutoAcceptOrders(Boolean autoAcceptOrders) { this.autoAcceptOrders = autoAcceptOrders; }
     public Boolean getOnlineOrderingActive() { return onlineOrderingActive; }
     public void setOnlineOrderingActive(Boolean onlineOrderingActive) { this.onlineOrderingActive = onlineOrderingActive; }
+    public String getUrbanpiperApiKey() { return urbanpiperApiKey; }
+    public void setUrbanpiperApiKey(String urbanpiperApiKey) { this.urbanpiperApiKey = urbanpiperApiKey; }
+    public String getUrbanpiperUsername() { return urbanpiperUsername; }
+    public void setUrbanpiperUsername(String urbanpiperUsername) { this.urbanpiperUsername = urbanpiperUsername; }
 }

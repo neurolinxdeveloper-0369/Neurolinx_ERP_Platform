@@ -54,6 +54,8 @@ public class BranchController {
         if (payload.containsKey("swiggyOutletId") && payload.get("swiggyOutletId") != null) branch.setSwiggyOutletId(payload.get("swiggyOutletId").toString());
         if (payload.containsKey("zomatoRestaurantId") && payload.get("zomatoRestaurantId") != null) branch.setZomatoRestaurantId(payload.get("zomatoRestaurantId").toString());
         if (payload.containsKey("urbanpiperStoreId") && payload.get("urbanpiperStoreId") != null) branch.setUrbanpiperStoreId(payload.get("urbanpiperStoreId").toString());
+        if (payload.containsKey("urbanpiperApiKey") && payload.get("urbanpiperApiKey") != null) branch.setUrbanpiperApiKey(payload.get("urbanpiperApiKey").toString());
+        if (payload.containsKey("urbanpiperUsername") && payload.get("urbanpiperUsername") != null) branch.setUrbanpiperUsername(payload.get("urbanpiperUsername").toString());
         if (payload.containsKey("autoAcceptOrders") && payload.get("autoAcceptOrders") != null) branch.setAutoAcceptOrders(Boolean.parseBoolean(payload.get("autoAcceptOrders").toString()));
         if (payload.containsKey("onlineOrderingActive") && payload.get("onlineOrderingActive") != null) branch.setOnlineOrderingActive(Boolean.parseBoolean(payload.get("onlineOrderingActive").toString()));
 
@@ -72,13 +74,10 @@ public class BranchController {
             if (payload.containsKey("swiggyOutletId")) branch.setSwiggyOutletId(payload.get("swiggyOutletId") != null ? payload.get("swiggyOutletId").toString() : null);
             if (payload.containsKey("zomatoRestaurantId")) branch.setZomatoRestaurantId(payload.get("zomatoRestaurantId") != null ? payload.get("zomatoRestaurantId").toString() : null);
             if (payload.containsKey("urbanpiperStoreId")) branch.setUrbanpiperStoreId(payload.get("urbanpiperStoreId") != null ? payload.get("urbanpiperStoreId").toString() : null);
+            if (payload.containsKey("urbanpiperApiKey")) branch.setUrbanpiperApiKey(payload.get("urbanpiperApiKey") != null ? payload.get("urbanpiperApiKey").toString() : null);
+            if (payload.containsKey("urbanpiperUsername")) branch.setUrbanpiperUsername(payload.get("urbanpiperUsername") != null ? payload.get("urbanpiperUsername").toString() : null);
             if (payload.containsKey("autoAcceptOrders") && payload.get("autoAcceptOrders") != null) branch.setAutoAcceptOrders(Boolean.parseBoolean(payload.get("autoAcceptOrders").toString()));
             if (payload.containsKey("onlineOrderingActive") && payload.get("onlineOrderingActive") != null) branch.setOnlineOrderingActive(Boolean.parseBoolean(payload.get("onlineOrderingActive").toString()));
-        if (payload.containsKey("swiggyOutletId") && payload.get("swiggyOutletId") != null) branch.setSwiggyOutletId(payload.get("swiggyOutletId").toString());
-        if (payload.containsKey("zomatoRestaurantId") && payload.get("zomatoRestaurantId") != null) branch.setZomatoRestaurantId(payload.get("zomatoRestaurantId").toString());
-        if (payload.containsKey("urbanpiperStoreId") && payload.get("urbanpiperStoreId") != null) branch.setUrbanpiperStoreId(payload.get("urbanpiperStoreId").toString());
-        if (payload.containsKey("autoAcceptOrders") && payload.get("autoAcceptOrders") != null) branch.setAutoAcceptOrders(Boolean.parseBoolean(payload.get("autoAcceptOrders").toString()));
-        if (payload.containsKey("onlineOrderingActive") && payload.get("onlineOrderingActive") != null) branch.setOnlineOrderingActive(Boolean.parseBoolean(payload.get("onlineOrderingActive").toString()));
             return ResponseEntity.ok(branchRepository.save(branch));
         }).orElse(ResponseEntity.notFound().build());
     }

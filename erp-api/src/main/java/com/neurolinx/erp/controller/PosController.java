@@ -25,6 +25,7 @@ public class PosController {
     @Autowired private IngredientRepository ingredientRepo;
     @Autowired private EmployeeRepository employeeRepo;
     @Autowired private com.neurolinx.erp.service.InventoryService inventoryService;
+    @Autowired private com.neurolinx.erp.service.UrbanPiperService urbanPiperService;
     
 
     @Autowired private BranchRepository branchRepo;
@@ -360,6 +361,7 @@ public class PosController {
             if (payload.containsKey("kitchenStatus") && payload.get("kitchenStatus") != null) {
                 String kStatus = payload.get("kitchenStatus").toString();
                 order.setKitchenStatus(kStatus);
+                urbanPiperService.notifyKitchenStatusChange(order, kStatus);
                 if ("Completed".equalsIgnoreCase(kStatus) && "Pending".equalsIgnoreCase(order.getStatus())) {
                     order.setStatus("Completed");
                 }

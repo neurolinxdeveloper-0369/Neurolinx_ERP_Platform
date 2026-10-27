@@ -19,6 +19,8 @@ export default function Branches() {
     swiggyOutletId: '',
     zomatoRestaurantId: '',
     urbanpiperStoreId: '',
+    urbanpiperApiKey: '',
+    urbanpiperUsername: '',
     autoAcceptOrders: true,
     onlineOrderingActive: true
   });
@@ -89,6 +91,8 @@ export default function Branches() {
             swiggyOutletId: '',
             zomatoRestaurantId: '',
             urbanpiperStoreId: '',
+            urbanpiperApiKey: '',
+            urbanpiperUsername: '',
             autoAcceptOrders: true,
             onlineOrderingActive: true
           });
@@ -162,6 +166,26 @@ export default function Branches() {
                   </label>
                   <input type="text" value={form.urbanpiperStoreId || ''} onChange={e => setForm({...form, urbanpiperStoreId: e.target.value})} placeholder="e.g. SPICE_ECIL" style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                 </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', marginBottom: '0.375rem', color: '#475569', fontWeight: 600 }}>
+                    UrbanPiper API Key (Production)
+                  </label>
+                  <input type="password" value={form.urbanpiperApiKey || ''} onChange={e => setForm({...form, urbanpiperApiKey: e.target.value})} placeholder="e.g. biz_live_xxxxxxxxxxxx" style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', marginBottom: '0.375rem', color: '#475569', fontWeight: 600 }}>
+                    UrbanPiper Username
+                  </label>
+                  <input type="text" value={form.urbanpiperUsername || ''} onChange={e => setForm({...form, urbanpiperUsername: e.target.value})} placeholder="e.g. neurolinx_spicenation" style={{ width: '100%', padding: '0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </div>
+              </div>
+
+              <div style={{ backgroundColor: '#ffffff', padding: '0.75rem 1rem', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>Your Live Webhook URL for UrbanPiper Atlas:</div>
+                <code style={{ fontSize: '0.8125rem', color: '#0284c7', userSelect: 'all', fontWeight: 600 }}>https://erp-api.neurolinx.in/api/webhooks/aggregators/order</code>
               </div>
 
               <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>

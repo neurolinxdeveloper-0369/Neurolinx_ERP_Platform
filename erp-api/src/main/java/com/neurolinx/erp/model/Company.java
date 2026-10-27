@@ -46,6 +46,9 @@ public class Company {
     @Column(columnDefinition = "boolean default false")
     private Boolean bypassDeviceLimit = false;
 
+    private String urbanpiperApiKey;
+    private String urbanpiperUsername;
+
     public Company() {}
 
     public Company(String name, String industryType) {
@@ -109,4 +112,8 @@ public class Company {
 
     public Boolean getBypassDeviceLimit() { return bypassDeviceLimit; }
     public void setBypassDeviceLimit(Boolean bypassDeviceLimit) { this.bypassDeviceLimit = bypassDeviceLimit; }
+    public String getUrbanpiperApiKey() { return urbanpiperApiKey; }
+    public void setUrbanpiperApiKey(String urbanpiperApiKey) { this.urbanpiperApiKey = urbanpiperApiKey; }
+    public String getUrbanpiperUsername() { return urbanpiperUsername; }
+    public void setUrbanpiperUsername(String urbanpiperUsername) { this.urbanpiperUsername = urbanpiperUsername; }
 }
