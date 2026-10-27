@@ -563,14 +563,54 @@ export default function DeliveryManagement() {
       </div>
 
       {/* KPI Stats Strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-        <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem', maxWidth: '300px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
+        <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7' }}>
             <Icons.Package size={22} />
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Active Deliveries</div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>{stats.totalActive}</div>
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ea580c' }}>
+            <Icons.Flame size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Kitchen Preparing</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>{stats.inKitchen}</div>
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9333ea' }}>
+            <Icons.CheckCircle2 size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Ready for Dispatch</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>{stats.readyForDispatch}</div>
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: '#ecfeff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0891b2' }}>
+            <Icons.Navigation size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Out for Delivery</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>{stats.outForDelivery}</div>
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: stats.overdueCount > 0 ? '#fff1f2' : 'white', padding: '1rem', borderRadius: '12px', border: `1px solid ${stats.overdueCount > 0 ? '#fecdd3' : '#e2e8f0'}`, display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: stats.overdueCount > 0 ? '#fee2e2' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: stats.overdueCount > 0 ? '#e11d48' : '#94a3b8' }}>
+            <Icons.AlertTriangle size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: stats.overdueCount > 0 ? '#be123c' : '#64748b', fontWeight: 600 }}>Overdue Delays</div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: stats.overdueCount > 0 ? '#e11d48' : '#0f172a' }}>{stats.overdueCount}</div>
           </div>
         </div>
       </div>
