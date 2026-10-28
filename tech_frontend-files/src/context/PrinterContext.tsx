@@ -5,9 +5,11 @@ interface PrinterContextType {
   connectedDevice: any;
   connectedCharacteristic: any;
   isConnecting: boolean;
+  connectionType: 'BLUETOOTH' | 'SERIAL' | null;
   logs: string[];
   clearLogs: () => void;
   connectBluetoothPrinter: () => Promise<any>;
+  connectSerialPrinter: () => Promise<any>;
   sendEscPos: (payload: Uint8Array) => Promise<void>;
   disconnect: () => void;
 }
@@ -20,15 +22,38 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
   const clearLogs = () => setLogs([]);
   const [connectedDevice, setConnectedDevice] = useState<any>(null);
   const [connectedCharacteristic, setConnectedCharacteristic] = useState<any>(null);
+  const [serialPort, setSerialPort] = useState<any>(null);
+  const [connectionType, setConnectionType] = useState<'BLUETOOTH' | 'SERIAL' | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+
+  // Broad list of known BLE thermal receipt printer service UUIDs
+  const PRINTER_BLE_SERVICES = [
+    '000018f0-0000-1000-8000-00805f9b34fb', // Standard POS print
+    '0000ffe0-0000-1000-8000-00805f9b34fb', // HM-10 / CC2541 BLE (most common 58mm/80mm mini printers)
+    '0000ff00-0000-1000-8000-00805f9b34fb', // FF00 common Chinese thermal printers
+    '0000fee7-0000-1000-8000-00805f9b34fb', // Tencent/WeChat IoT POS
+    '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC Microchip Transparent UART
+    'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Nordic UART Service (NUS)
+    '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART v2
+    '0000ae00-0000-1000-8000-00805f9b34fb', // AE00
+    '0000af00-0000-1000-8000-00805f9b34fb', // AF00
+    '0000fff0-0000-1000-8000-00805f9b34fb', // FFF0
+    '00001800-0000-1000-8000-00805f9b34fb', // Generic Access
+    '00001801-0000-1000-8000-00805f9b34fb', // Generic Attribute
+    '0000180a-0000-1000-8000-00805f9b34fb'  // Device Info
+  ];
 
   const connectBluetoothPrinter = async (): Promise<any> => {
     try {
+      if (!('bluetooth' in navigator)) {
+        alert("Web Bluetooth is not supported in this browser. Please use Google Chrome or Microsoft Edge on HTTPS or localhost.");
+        return;
+      }
       setIsConnecting(true);
-      addLog("Requesting Bluetooth Device...");
+      addLog("Requesting Bluetooth (BLE) Device...");
       const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', '49535343-fe7d-4ae5-8fa9-9fafd205e455', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
+        optionalServices: PRINTER_BLE_SERVICES
       });
 
       addLog(`Selected device: ${device.name}`);
@@ -73,6 +98,7 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
       if (characteristicFound) {
         setConnectedDevice(device);
         setConnectedCharacteristic(characteristicFound);
+        setConnectionType('BLUETOOTH');
         addLog("✅ Printer successfully connected and ready to print!");
         
         device.addEventListener('gattserverdisconnected', () => {
@@ -83,8 +109,9 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
             attempts++;
             if (attempts > 10) {
                 addLog("Printer disconnected.");
-    setConnectedDevice(null);
+                setConnectedDevice(null);
                 setConnectedCharacteristic(null);
+                setConnectionType(null);
                 alert("Printer disconnected and could not automatically reconnect. Please try pairing again.");
                 return;
             }
@@ -116,10 +143,47 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const connectSerialPrinter = async (): Promise<any> => {
+    try {
+      if (!('serial' in navigator)) {
+        alert("Web Serial is not supported in this browser. Please use Google Chrome or Microsoft Edge on a PC/Mac.");
+        return;
+      }
+      setIsConnecting(true);
+      addLog("Requesting USB / Bluetooth Virtual COM port...");
+      const port = await (navigator as any).serial.requestPort();
+      await port.open({ baudRate: 9600 });
+      setSerialPort(port);
+      setConnectedDevice({ name: "USB / Bluetooth COM Printer" });
+      setConnectionType('SERIAL');
+      addLog("✅ USB / Serial Printer connected and ready to print!");
+      return port;
+    } catch (e: any) {
+      addLog(`❌ Serial connection failed: ${e.message}`);
+      throw e;
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const sendEscPos = async (payload: Uint8Array) => {
+    if (connectionType === 'SERIAL' && serialPort && serialPort.writable) {
+      try {
+        const writer = serialPort.writable.getWriter();
+        await writer.write(payload);
+        writer.releaseLock();
+        addLog("✅ Print job transmitted successfully via USB / Serial!");
+        return;
+      } catch (error: any) {
+        addLog(`❌ Serial printing failed: ${error.message}`);
+        alert(`Serial printing failed: ${error.message}`);
+        return;
+      }
+    }
+
     if (!connectedCharacteristic) {
-      addLog("❌ No active Bluetooth connection.");
-      alert("No active Bluetooth connection. Please pair a printer in the Printer Canvas first.");
+      addLog("❌ No active Bluetooth or Serial connection.");
+      alert("No active printer connection. Please pair a printer in the Printer Canvas first.");
       return;
     }
     try {
@@ -134,7 +198,7 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
         // Add a tiny delay to prevent overwhelming the printer buffer
         await new Promise(resolve => setTimeout(resolve, 50));
       }
-      addLog("✅ Print job transmitted successfully!");
+      addLog("✅ Print job transmitted successfully via Bluetooth!");
     } catch (error: any) {
       addLog(`❌ Printing failed: ${error.message}`);
       alert(`Printing failed: ${error.message}`);
@@ -142,16 +206,23 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
   };
 
   const disconnect = () => {
-    if (connectedDevice && connectedDevice.gatt.connected) {
+    if (connectedDevice && connectedDevice.gatt && connectedDevice.gatt.connected) {
       connectedDevice.gatt.disconnect();
+    }
+    if (serialPort) {
+      try {
+        serialPort.close();
+      } catch (e) {}
+      setSerialPort(null);
     }
     addLog("Printer disconnected.");
     setConnectedDevice(null);
     setConnectedCharacteristic(null);
+    setConnectionType(null);
   };
 
   return (
-    <PrinterContext.Provider value={{ connectedDevice, connectedCharacteristic, isConnecting, connectBluetoothPrinter, sendEscPos, disconnect, logs, clearLogs }}>
+    <PrinterContext.Provider value={{ connectedDevice, connectedCharacteristic, isConnecting, connectionType, connectBluetoothPrinter, connectSerialPrinter, sendEscPos, disconnect, logs, clearLogs }}>
       {children}
     </PrinterContext.Provider>
   );
