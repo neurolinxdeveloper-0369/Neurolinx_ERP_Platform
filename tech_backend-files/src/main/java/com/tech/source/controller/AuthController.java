@@ -1,0 +1,287 @@
+package com.tech.source.controller;
+
+import com.tech.source.model.DeviceSession;
+import com.tech.source.model.User;
+import com.tech.source.repository.DeviceSessionRepository;
+import com.tech.source.repository.CompanyRepository;
+import com.tech.source.repository.UserRepository;
+import com.tech.source.service.OtpService;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+import java.util.Date;
+import java.util.Map;
+import java.util.UUID;
+import java.util.List;
+import java.util.Base64;
+import javax.crypto.SecretKey;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@RestController
+@RequestMapping("/api/auth")
+
+public class AuthController {
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private CompanyRepository companyRepository;
+    @Autowired
+    private DeviceSessionRepository deviceSessionRepository;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+    @Autowired
+    private OtpService otpService;
+    @Autowired
+    private SecretKey key;
+    
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    @GetMapping("/client/{slug}")
+    public ResponseEntity<?> getClientBySlug(@PathVariable String slug) {
+        return companyRepository.findByWebsiteUrlEndingWith(slug)
+            .map(c -> ResponseEntity.ok(Map.of(
+                "name", c.getName(),
+                "logo", c.getLogoBase64() != null ? c.getLogoBase64() : ""
+            )))
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    private String generateJwt(String email) {
+        // 1 hour expiry
+        return Jwts.builder()
+                .setSubject(email)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 3600000))
+                .signWith(key)
+                .compact();
+    }
+
+    private java.util.Map<String, Object> buildLoginResponse(String email, String refreshToken) {
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        res.put("token", generateJwt(email));
+        res.put("refreshToken", refreshToken);
+        res.put("message", "Login successful");
+        res.put("email", email);
+        
+        var userOpt = userRepository.findByEmail(email);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            if (user.getRole() != null) {
+                res.put("role", user.getRole().getName());
+            }
+            if (user.getCompany() != null) {
+                res.put("industryType", user.getCompany().getIndustryType());
+                res.put("companyName", user.getCompany().getName());
+                if (user.getCompany().getLogoBase64() != null) {
+                    res.put("companyLogo", user.getCompany().getLogoBase64());
+                }
+                String url = user.getCompany().getWebsiteUrl();
+                if (url != null && url.contains("/")) {
+                    res.put("companySlug", url.substring(url.lastIndexOf('/') + 1));
+                } else if (url != null) {
+                    res.put("companySlug", url);
+                }
+            }
+        }
+        if (email.equalsIgnoreCase("neurolinxdeveloper@gmail.com")) {
+            res.put("role", "Master Admin");
+        }
+        return res;
+    }
+
+    private ResponseEntity<?> handleDeviceSession(String email, String deviceId) {
+        if (deviceId == null || deviceId.isEmpty()) {
+            return ResponseEntity.status(400).body(Map.of("message", "Device ID is required"));
+        }
+
+        // Master Admin bypasses EVERYTHING
+        if (email.equalsIgnoreCase("neurolinxdeveloper@gmail.com")) {
+            DeviceSession newSession = new DeviceSession(email, deviceId);
+            String refreshToken = UUID.randomUUID().toString();
+            newSession.setRefreshToken(refreshToken);
+            newSession.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
+            newSession.setIsApproved(true);
+            deviceSessionRepository.save(newSession);
+            return ResponseEntity.ok(buildLoginResponse(email, refreshToken));
+        }
+
+        var sessionOpt = deviceSessionRepository.findByEmailAndDeviceId(email, deviceId);
+        
+        if (sessionOpt.isPresent()) {
+            DeviceSession session = sessionOpt.get();
+            if (!session.getIsApproved()) {
+                return ResponseEntity.status(403).body(Map.of("message", "Pending Master Admin approval for this device."));
+            }
+            // Generate refresh token (7 days)
+            String refreshToken = UUID.randomUUID().toString();
+            session.setRefreshToken(refreshToken);
+            session.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
+            deviceSessionRepository.save(session);
+            return ResponseEntity.ok(buildLoginResponse(email, refreshToken));
+        }
+
+        // New Device
+        List<DeviceSession> allSessions = deviceSessionRepository.findByEmail(email);
+        int count = allSessions.size();
+        
+        var userOpt = userRepository.findByEmail(email);
+        boolean bypassLimit = false;
+        if (userOpt.isPresent() && userOpt.get().getCompany() != null) {
+            bypassLimit = Boolean.TRUE.equals(userOpt.get().getCompany().getBypassDeviceLimit());
+        }
+
+        if (bypassLimit || count < 2) {
+            // Auto approve 1st and 2nd device, OR if bypass limit is true
+            DeviceSession newSession = new DeviceSession(email, deviceId);
+            String refreshToken = UUID.randomUUID().toString();
+            newSession.setRefreshToken(refreshToken);
+            newSession.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
+            newSession.setIsApproved(true);
+            deviceSessionRepository.save(newSession);
+            return ResponseEntity.ok(buildLoginResponse(email, refreshToken));
+        } else if (count == 2) {
+            // 3rd device requires OTP
+            otpService.generateAndSendOtp(email);
+            return ResponseEntity.ok(Map.of("message", "Device OTP required", "requiresDeviceOtp", true, "email", email));
+        } else {
+            // 4th+ device blocks and requires manual approval
+            DeviceSession newSession = new DeviceSession(email, deviceId);
+            newSession.setIsApproved(false);
+            deviceSessionRepository.save(newSession);
+            return ResponseEntity.status(403).body(Map.of("message", "Device limit reached. Pending Master Admin approval for this device."));
+        }
+    }
+
+    @PostMapping("/verify-device-otp")
+    public ResponseEntity<?> verifyDeviceOtp(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String deviceId = payload.get("deviceId");
+        String otp = payload.get("otp");
+
+        if (otpService.verifyOtp(email, otp)) {
+            DeviceSession newSession = new DeviceSession(email, deviceId);
+            String refreshToken = UUID.randomUUID().toString();
+            newSession.setRefreshToken(refreshToken);
+            newSession.setExpiryDate(new Date(System.currentTimeMillis() + 604800000L));
+            newSession.setIsApproved(true);
+            deviceSessionRepository.save(newSession);
+            return ResponseEntity.ok(buildLoginResponse(email, refreshToken));
+        }
+        return ResponseEntity.status(401).body(Map.of("message", "Invalid or expired OTP"));
+    }
+
+    @PostMapping("/login-password")
+    public ResponseEntity<?> loginPassword(@RequestBody Map<String, String> creds) {
+        String email = creds.get("email");
+        String password = creds.get("password");
+        String deviceId = creds.get("deviceId");
+        
+        var userOpt = userRepository.findByEmail(email);
+        if (userOpt.isPresent() && passwordEncoder.matches(password, userOpt.get().getPassword())) {
+            return handleDeviceSession(email, deviceId);
+        }
+        return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials"));
+    }
+
+    @PostMapping("/request-otp")
+    public ResponseEntity<?> requestOtp(@RequestBody Map<String, String> creds) {
+        String email = creds.get("email");
+        var userOpt = userRepository.findByEmail(email);
+        if (userOpt.isPresent() || email.equalsIgnoreCase("neurolinxdeveloper@gmail.com")) {
+            otpService.generateAndSendOtp(email);
+            return ResponseEntity.ok(Map.of("message", "OTP sent"));
+        }
+        return ResponseEntity.status(401).body(Map.of("message", "Email not found"));
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String otp = payload.get("otp");
+        String deviceId = payload.get("deviceId");
+
+        if (otpService.verifyOtp(email, otp)) {
+            return handleDeviceSession(email, deviceId);
+        }
+        return ResponseEntity.status(401).body(Map.of("message", "Invalid or expired OTP"));
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> payload) {
+        try {
+            String token = payload.get("token");
+            String deviceId = payload.get("deviceId");
+            String[] parts = token.split("\\.");
+            String decodedPayload = new String(Base64.getUrlDecoder().decode(parts[1]));
+            
+            @SuppressWarnings("unchecked")
+            Map<String, Object> claims = mapper.readValue(decodedPayload, Map.class);
+            String email = (String) claims.get("email");
+            
+            var userOpt = userRepository.findByEmail(email);
+            if (userOpt.isPresent() || email.equalsIgnoreCase("neurolinxdeveloper@gmail.com")) {
+                return handleDeviceSession(email, deviceId);
+            }
+            return ResponseEntity.status(401).body(Map.of("message", "No user found for this Google account."));
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body(Map.of("message", "Invalid Google token"));
+        }
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(@RequestBody Map<String, String> payload) {
+        String refreshToken = payload.get("refreshToken");
+        var sessionOpt = deviceSessionRepository.findByRefreshToken(refreshToken);
+        if (sessionOpt.isPresent()) {
+            DeviceSession session = sessionOpt.get();
+            if (session.getExpiryDate().after(new Date()) && session.getIsApproved()) {
+                return ResponseEntity.ok(Map.of("token", generateJwt(session.getEmail())));
+            }
+        }
+        return ResponseEntity.status(401).body(Map.of("message", "Invalid or expired refresh token"));
+    }
+
+    // REGISTRATION
+    @PostMapping("/send-registration-otp")
+    public ResponseEntity<?> sendRegistrationOtp(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        otpService.generateAndSendOtp(email);
+        return ResponseEntity.ok(Map.of("message", "OTP sent to " + email));
+    }
+
+    @PostMapping("/verify-registration-otp")
+    public ResponseEntity<?> verifyRegistrationOtp(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String otp = payload.get("otp");
+        if (otpService.verifyOtp(email, otp)) {
+            return ResponseEntity.ok(Map.of("message", "OTP verified"));
+        }
+        return ResponseEntity.status(401).body(Map.of("message", "Invalid or expired OTP"));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody Map<String, String> payload) {
+        String email = payload.get("email");
+        String otp = payload.get("otp");
+        String newPassword = payload.get("newPassword");
+
+        if (email == null || otp == null || newPassword == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Missing required fields"));
+        }
+
+        if (otpService.verifyOtp(email, otp)) {
+            var userOpt = userRepository.findByEmail(email);
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                user.setPassword(passwordEncoder.encode(newPassword));
+                userRepository.save(user);
+                return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
+            }
+            return ResponseEntity.status(404).body(Map.of("message", "User not found"));
+        }
+        return ResponseEntity.status(401).body(Map.of("message", "Invalid or expired OTP"));
+    }
+}

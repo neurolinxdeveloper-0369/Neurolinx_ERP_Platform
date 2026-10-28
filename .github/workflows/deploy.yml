@@ -30,14 +30,14 @@ jobs:
       - name: Build and push ERP API
         uses: docker/build-push-action@v4
         with:
-          context: ./erp-api
+          context: ./tech_backend-files
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.API_IMAGE_NAME }}:latest
 
       - name: Build and push ERP Frontend
         uses: docker/build-push-action@v4
         with:
-          context: ./erp-frontend
+          context: ./tech_frontend-files
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
 
