@@ -56,8 +56,8 @@ public class MenuController {
 
         List<RolePrivilege> privileges = new java.util.ArrayList<>(rolePrivilegeRepository.findByRole(role));
 
-        // If no privileges assigned yet or if Company Admin is missing modules, auto-grant active modules for industry
-        if (privileges.isEmpty() || (role.getName() != null && role.getName().contains("Admin"))) {
+        // If no privileges assigned yet (unconfigured role), auto-grant active modules for industry
+        if (privileges.isEmpty()) {
             String industry = (user.getCompany() != null && user.getCompany().getIndustryType() != null)
                     ? user.getCompany().getIndustryType()
                     : "Restaurant";

@@ -189,11 +189,41 @@ export default function ClientProvisioning() {
     });
   };
 
+  const getAvailableModules = (type: string) => {
+    return allModules.filter(mod => {
+      if (!mod.industryType || mod.industryType === 'All') return true;
+      if (type === mod.industryType) return true;
+      if (type === 'Hybrid (Hotel & Restaurant)' && (mod.industryType === 'Hotel' || mod.industryType === 'Restaurant')) return true;
+      if (type === 'Hybrid (Software & Hardware)' && (mod.industryType === 'Software' || mod.industryType === 'Hardware' || mod.industryType === 'Electronics (Manufacturing & Assembly)')) return true;
+      return false;
+    });
+  };
+
+  const handleIndustryTypeChange = (newType: string) => {
+    setIndustryType(newType);
+    setSelectedCompanyType(newType);
+    if (!editingId) {
+      const avail = getAvailableModules(newType);
+      setAssignedModuleIds(avail.map(m => m.id));
+    }
+  };
+
+  const handleSelectAllModules = () => {
+    const currentType = editingId ? (industryType || selectedCompanyType) : industryType;
+    const avail = getAvailableModules(currentType);
+    setAssignedModuleIds(avail.map(m => m.id));
+  };
+
+  const handleDeselectAllModules = () => {
+    setAssignedModuleIds([]);
+  };
+
   const openCreateModal = () => {
     setEditingId(null);
     setCompanyName('');
     setClientName('');
     setIndustryType('Restaurant');
+    setSelectedCompanyType('Restaurant');
     setLogoBase64('');
     setContactNumber('');
     setAddress('');
@@ -215,6 +245,11 @@ export default function ClientProvisioning() {
     setOtpVerified(false);
     setOtp('');
     setBranches([]);
+
+    // Pre-select all available modules for new client
+    const avail = getAvailableModules('Restaurant');
+    setAssignedModuleIds(avail.map(m => m.id));
+
     setShowModal(true);
   };
 
@@ -225,6 +260,8 @@ export default function ClientProvisioning() {
       if (res.ok) {
         const fullComp = await res.json();
         setEditingId(fullComp.id);
+        setSelectedCompanyName(fullComp.name);
+        setSelectedCompanyType(fullComp.industryType || '');
         setCompanyName(fullComp.name);
         setClientName(fullComp.clientName || '');
         setIndustryType(fullComp.industryType);
@@ -261,6 +298,24 @@ export default function ClientProvisioning() {
         setOperatingHours(fullComp.operatingHours || '');
         setServiceModel(fullComp.serviceModel || 'Quick Service (QSR)');
         setKitchenSetup(fullComp.kitchenSetup || 'KDS');
+
+        // Fetch assigned modules for this existing client
+        try {
+          const modRes = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${fullComp.id}/modules`);
+          if (modRes.ok) {
+            const modData = await modRes.json();
+            if (Array.isArray(modData) && modData.length > 0) {
+              setAssignedModuleIds(modData);
+            } else {
+              const avail = getAvailableModules(fullComp.industryType || 'Restaurant');
+              setAssignedModuleIds(avail.map(m => m.id));
+            }
+          }
+        } catch (e) {
+          const avail = getAvailableModules(fullComp.industryType || 'Restaurant');
+          setAssignedModuleIds(avail.map(m => m.id));
+        }
+
         setShowModal(true);
       }
     } catch (err) {
@@ -286,10 +341,35 @@ export default function ClientProvisioning() {
   };
 
   const toggleModule = (id: number) => {
-    if (assignedModuleIds.includes(id)) {
-      setAssignedModuleIds(assignedModuleIds.filter(mId => mId !== id));
+    const mod = allModules.find(m => m.id === id);
+    if (!mod) return;
+
+    const isParent = !mod.parentId || mod.parentId === 0;
+    const isCurrentlyChecked = assignedModuleIds.includes(id);
+
+    if (isCurrentlyChecked) {
+      // DESELECT: Remove parent and its child submodules
+      if (isParent) {
+        const childIds = allModules.filter(m => m.parentId === id).map(m => m.id);
+        const toRemove = new Set([id, ...childIds]);
+        setAssignedModuleIds(prev => prev.filter(mId => !toRemove.has(mId)));
+      } else {
+        // Deselect single submenu option: remove only this child
+        setAssignedModuleIds(prev => prev.filter(mId => mId !== id));
+      }
     } else {
-      setAssignedModuleIds([...assignedModuleIds, id]);
+      // SELECT: Add parent and its child submodules, or child and ensure parent
+      if (isParent) {
+        const childIds = allModules.filter(m => m.parentId === id).map(m => m.id);
+        setAssignedModuleIds(prev => Array.from(new Set([...prev, id, ...childIds])));
+      } else {
+        const parentId = mod.parentId;
+        const toAdd = [id];
+        if (parentId && parentId !== 0) {
+          toAdd.push(parentId);
+        }
+        setAssignedModuleIds(prev => Array.from(new Set([...prev, ...toAdd])));
+      }
     }
   };
 
@@ -311,6 +391,111 @@ export default function ClientProvisioning() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const renderModuleTree = (type: string) => {
+    if (allModules.length === 0) {
+      return (
+        <div style={{ color: '#64748b', textAlign: 'center', padding: '2rem 1rem', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', fontSize: '0.875rem' }}>
+          No global modules found. Please create some in Settings first.
+        </div>
+      );
+    }
+
+    const availableModules = getAvailableModules(type);
+    const parentModules = availableModules.filter(m => !m.parentId || m.parentId === 0);
+
+    if (parentModules.length === 0) {
+      return (
+        <div style={{ color: '#64748b', textAlign: 'center', padding: '2rem 1rem', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', fontSize: '0.875rem' }}>
+          No modules available for {type}.
+        </div>
+      );
+    }
+
+    return parentModules.map(mod => {
+      const children = availableModules.filter(m => m.parentId === mod.id);
+      const isChecked = assignedModuleIds.includes(mod.id);
+      const checkedChildrenCount = children.filter(c => assignedModuleIds.includes(c.id)).length;
+
+      return (
+        <div key={mod.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+          <div 
+            onClick={() => toggleModule(mod.id)}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.75rem', 
+              padding: '0.75rem 1rem', 
+              border: '1px solid', 
+              borderColor: isChecked ? '#3b82f6' : '#e2e8f0', 
+              borderRadius: '10px', 
+              backgroundColor: isChecked ? '#eff6ff' : 'white',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              boxShadow: isChecked ? '0 0 0 1px #3b82f6' : '0 1px 2px rgba(0,0,0,0.03)'
+            }}
+            onMouseOver={e => !isChecked && (e.currentTarget.style.borderColor = '#cbd5e1')}
+            onMouseOut={e => !isChecked && (e.currentTarget.style.borderColor = '#e2e8f0')}
+          >
+            {isChecked ? <CheckSquare size={20} color="#2563eb" /> : <Square size={20} color="#94a3b8" />}
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ fontWeight: 600, color: isChecked ? '#1e3a8a' : '#0f172a', fontSize: '0.9rem' }}>
+                  {mod.name}
+                </span>
+                <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: isChecked ? '#3b82f6' : '#94a3b8' }}>
+                  {mod.frontendRoute}
+                </span>
+              </div>
+              {children.length > 0 && (
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: '999px', backgroundColor: isChecked ? '#dbeafe' : '#f1f5f9', color: isChecked ? '#1d4ed8' : '#64748b' }}>
+                  {checkedChildrenCount}/{children.length} Submenus
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {children.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', paddingLeft: '2rem', marginTop: '0.1rem' }}>
+              {children.map(child => {
+                const isChildChecked = assignedModuleIds.includes(child.id);
+                return (
+                  <div 
+                    key={child.id}
+                    onClick={() => toggleModule(child.id)}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.625rem', 
+                      padding: '0.55rem 0.875rem', 
+                      border: '1px solid', 
+                      borderColor: isChildChecked ? '#93c5fd' : '#e2e8f0', 
+                      borderRadius: '8px', 
+                      backgroundColor: isChildChecked ? '#f0f9ff' : '#f8fafc',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseOver={e => !isChildChecked && (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                    onMouseOut={e => !isChildChecked && (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                  >
+                    {isChildChecked ? <CheckSquare size={16} color="#0284c7" /> : <Square size={16} color="#cbd5e1" />}
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 500, color: isChildChecked ? '#0369a1' : '#475569', fontSize: '0.8125rem' }}>
+                        {child.name}
+                      </span>
+                      <span style={{ fontSize: '0.7rem', color: isChildChecked ? '#38bdf8' : '#94a3b8' }}>
+                        {child.frontendRoute}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   const openRolesModal = async (comp: any) => {
@@ -578,95 +763,30 @@ export default function ClientProvisioning() {
               </button>
             </div>
             
-            <div style={{ maxHeight: '60vh', overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingRight: '0.5rem' }}>
-              {(() => {
-                if (allModules.length === 0) {
-                  return <div style={{ color: '#64748b', textAlign: 'center', padding: '3rem 1rem', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>No global modules found. Please create some in Settings first.</div>;
-                }
-                
-                const availableModules = allModules.filter(mod => {
-                  if (assignedModuleIds.includes(mod.id)) return true;
-                  if (!mod.industryType || mod.industryType === 'All') return true;
-                  if (selectedCompanyType === mod.industryType) return true;
-                  if (selectedCompanyType === 'Hybrid (Hotel & Restaurant)' && (mod.industryType === 'Hotel' || mod.industryType === 'Restaurant')) return true;
-                  if (selectedCompanyType === 'Hybrid (Software & Hardware)' && (mod.industryType === 'Software' || mod.industryType === 'Hardware' || mod.industryType === 'Electronics (Manufacturing & Assembly)')) return true;
-                  return false;
-                });
-                
-                const parentModules = availableModules.filter(m => !m.parentId || m.parentId === 0);
-                
-                return parentModules.map(mod => {
-                  const children = availableModules.filter(m => m.parentId === mod.id);
-                  const isChecked = assignedModuleIds.includes(mod.id);
-                  
-                  return (
-                    <div key={mod.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                      <div 
-                        onClick={() => toggleModule(mod.id)}
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '1rem', 
-                          padding: '1rem', 
-                          border: '1px solid', 
-                          borderColor: isChecked ? '#3b82f6' : '#e2e8f0', 
-                          borderRadius: '12px', 
-                          backgroundColor: isChecked ? '#eff6ff' : 'white',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          boxShadow: isChecked ? '0 0 0 1px #3b82f6' : '0 1px 2px rgba(0,0,0,0.05)'
-                        }}
-                        onMouseOver={e => !isChecked && (e.currentTarget.style.borderColor = '#cbd5e1')}
-                        onMouseOut={e => !isChecked && (e.currentTarget.style.borderColor = '#e2e8f0')}
-                      >
-                        {isChecked ? <CheckSquare size={22} color="#2563eb" /> : <Square size={22} color="#94a3b8" />}
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, color: isChecked ? '#1e3a8a' : '#0f172a', fontSize: '0.9375rem' }}>
-                            {mod.name}
-                          </div>
-                          <div style={{ fontSize: '0.8125rem', color: isChecked ? '#3b82f6' : '#64748b' }}>{mod.frontendRoute}</div>
-                        </div>
-                      </div>
-                      
-                      {children.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', paddingLeft: '2.5rem', marginTop: '0.125rem' }}>
-                          {children.map(child => {
-                            const isChildChecked = assignedModuleIds.includes(child.id);
-                            return (
-                              <div 
-                                key={child.id}
-                                onClick={() => toggleModule(child.id)}
-                                style={{ 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  gap: '0.75rem', 
-                                  padding: '0.75rem 1rem', 
-                                  border: '1px solid', 
-                                  borderColor: isChildChecked ? '#93c5fd' : '#e2e8f0', 
-                                  borderRadius: '10px', 
-                                  backgroundColor: isChildChecked ? '#eff6ff' : '#f8fafc',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s'
-                                }}
-                                onMouseOver={e => !isChildChecked && (e.currentTarget.style.backgroundColor = '#f1f5f9')}
-                                onMouseOut={e => !isChildChecked && (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                              >
-                                {isChildChecked ? <CheckSquare size={18} color="#2563eb" /> : <Square size={18} color="#cbd5e1" />}
-                                <div>
-                                  <div style={{ fontWeight: 600, color: isChildChecked ? '#1e40af' : '#475569', fontSize: '0.875rem' }}>
-                                    {child.name}
-                                  </div>
-                                  <div style={{ fontSize: '0.75rem', color: isChildChecked ? '#60a5fa' : '#94a3b8' }}>{child.frontendRoute}</div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                });
-              })()}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ fontSize: '0.8125rem', color: '#64748b' }}>
+                <span style={{ fontWeight: 600, color: '#2563eb' }}>{assignedModuleIds.length}</span> modules selected
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleSelectAllModules}
+                  style={{ padding: '0.35rem 0.75rem', backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeselectAllModules}
+                  style={{ padding: '0.35rem 0.75rem', backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Deselect All
+                </button>
+              </div>
+            </div>
+            
+            <div style={{ maxHeight: '55vh', overflowY: 'auto', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingRight: '0.5rem' }}>
+              {renderModuleTree(selectedCompanyType || 'Restaurant')}
             </div>
 
             <button 
@@ -734,7 +854,7 @@ export default function ClientProvisioning() {
                   />
                   <select 
                     value={industryType}
-                    onChange={e => setIndustryType(e.target.value)}
+                    onChange={e => handleIndustryTypeChange(e.target.value)}
                     style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s', backgroundColor: 'white' }}
                     onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
                     onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
@@ -1092,6 +1212,46 @@ export default function ClientProvisioning() {
                   </div>
                 </div>
               )}
+
+              {/* Modules & Sidebar Menu Permissions Section */}
+              <div style={{ backgroundColor: '#f8fafc', padding: '1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Settings size={18} color="#2563eb" />
+                      <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                        Sidebar Menu Modules
+                      </h3>
+                    </div>
+                    <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: '#64748b' }}>
+                      Select the modules and submenu options that will appear in this client's sidebar.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, marginRight: '0.25rem' }}>
+                      <span style={{ color: '#2563eb' }}>{assignedModuleIds.length}</span> selected
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleSelectAllModules}
+                      style={{ padding: '0.35rem 0.75rem', backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllModules}
+                      style={{ padding: '0.35rem 0.75rem', backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ maxHeight: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingRight: '0.25rem' }}>
+                  {renderModuleTree(industryType || 'Restaurant')}
+                </div>
+              </div>
 
               <button 
                 type="submit" 

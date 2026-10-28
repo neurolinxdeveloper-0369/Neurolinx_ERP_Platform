@@ -176,6 +176,17 @@ public class AdminController {
 
             Company saved = companyRepository.save(company);
 
+            if (payload.containsKey("moduleIds") && payload.get("moduleIds") instanceof List<?> list) {
+                Role adminRole = roleRepository.findAll().stream()
+                        .filter(r -> r.getCompany() != null && r.getCompany().getId().equals(id) && "Company Admin".equals(r.getName()))
+                        .findFirst()
+                        .orElse(null);
+                if (adminRole != null) {
+                    List<Long> modIds = list.stream().map(o -> Long.parseLong(o.toString())).toList();
+                    saveCompanyAdminPrivileges(adminRole, modIds);
+                }
+            }
+
             if (payload.containsKey("floorTables")) {
                 List<java.util.Map<String, Object>> floorTables = (List<java.util.Map<String, Object>>) payload.get("floorTables");
                 provisionCompanyTables(saved, totalFloors, totalTables, floorTables);
@@ -263,6 +274,19 @@ public class AdminController {
         // 2. Create Default "Company Admin" Role for this client
         Role clientAdminRole = new Role("Company Admin", company);
         clientAdminRole = roleRepository.save(clientAdminRole);
+
+        // Assign module privileges for this client
+        if (dto.getModuleIds() != null && !dto.getModuleIds().isEmpty()) {
+            saveCompanyAdminPrivileges(clientAdminRole, dto.getModuleIds());
+        } else {
+            String ind = company.getIndustryType() != null ? company.getIndustryType() : "Restaurant";
+            List<Long> defaultModuleIds = menuItemRepository.findAll().stream()
+                    .filter(m -> Boolean.TRUE.equals(m.getIsMasterEnabled()))
+                    .filter(m -> "All".equalsIgnoreCase(m.getIndustryType()) || ind.equalsIgnoreCase(m.getIndustryType()))
+                    .map(MenuItem::getId)
+                    .toList();
+            saveCompanyAdminPrivileges(clientAdminRole, defaultModuleIds);
+        }
 
         // 3. Create the Admin User
         User adminUser = new User(dto.getEmail(), passwordEncoder.encode(dto.getPassword()));
@@ -418,18 +442,20 @@ public class AdminController {
         
         if (adminRole == null) return ResponseEntity.notFound().build();
 
-        // Remove old privileges
+        saveCompanyAdminPrivileges(adminRole, moduleIds);
+        return ResponseEntity.ok().build();
+    }
+
+    private void saveCompanyAdminPrivileges(Role adminRole, List<Long> moduleIds) {
+        if (adminRole == null || moduleIds == null) return;
         List<RolePrivilege> existing = rolePrivilegeRepository.findByRole(adminRole);
         rolePrivilegeRepository.deleteAll(existing);
 
-        // Add new privileges
         for (Long moduleId : moduleIds) {
             menuItemRepository.findById(moduleId).ifPresent(menuItem -> {
                 RolePrivilege rp = new RolePrivilege(adminRole, menuItem, true, true, true);
                 rolePrivilegeRepository.save(rp);
             });
         }
-        
-        return ResponseEntity.ok().build();
     }
 }

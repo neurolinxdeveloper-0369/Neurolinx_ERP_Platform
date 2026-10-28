@@ -65,75 +65,16 @@ export default function MasterLayout() {
             filtered.unshift({ id: -1, name: "Dashboard", route: "/res-dashboard", icon: "layout-dashboard", parentId: null });
           }
 
-          // Ensure standard inventory submodules exist if parent inventory exists
-          const invParent = filtered.find((m: any) => m.route === '/res-inventory' || m.name === 'Inventory');
+          // Ensure parentId is correct for any inventory submodules that belong to invParent
+          const invParent = filtered.find((m: any) => m.name === 'Inventory' || m.route === '/res-inventory' || m.route === '#');
           if (invParent) {
-            const inventorySubRoutes = ['/res-waste', '/res-vendors', '/res-raw-materials', '/res-recipes'];
-            
-            // Re-assign parentId for any inventory submodules in filtered that have wrong parentId
+            const inventorySubRoutes = ['/res-waste', '/res-vendors', '/res-raw-materials', '/res-recipes', '/res-inventory'];
             filtered.forEach((m: any) => {
               if (m.id !== invParent.id && (inventorySubRoutes.includes(m.route) || m.name === 'Menu Management')) {
                 m.parentId = invParent.id;
               }
             });
-
-            // Ensure Menu Management child exists if invParent has route /res-inventory
-            const hasMenuMgmt = filtered.some((m: any) => m.id !== invParent.id && (m.name === 'Menu Management' || m.route === '/res-inventory'));
-            if (!hasMenuMgmt) {
-              filtered.push({
-                id: 8999,
-                name: "Menu Management",
-                route: "/res-inventory",
-                icon: "book-open",
-                parentId: invParent.id
-              });
-            }
-
-            const defaultSubmodules = [
-              { name: "Waste Management", route: "/res-waste", icon: "trash-2" },
-              { name: "Vendor Management", route: "/res-vendors", icon: "truck" },
-              { name: "Raw Material", route: "/res-raw-materials", icon: "apple" },
-              { name: "Recipe Management", route: "/res-recipes", icon: "chef-hat" },
-            ];
-            defaultSubmodules.forEach((sub, sIdx) => {
-              const existing = filtered.find((m: any) => m.route === sub.route);
-              if (!existing) {
-                filtered.push({
-                  id: 9000 + sIdx,
-                  name: sub.name,
-                  route: sub.route,
-                  icon: sub.icon,
-                  parentId: invParent.id
-                });
-              } else {
-                existing.parentId = invParent.id;
-                if (!existing.icon) existing.icon = sub.icon;
-              }
-            });
           }
-
-          // Ensure other essential restaurant menus exist
-          const otherEssentialMenus = [
-            { name: "Orders", route: "/res-orders", icon: "clipboard-list" },
-            { name: "Kitchen KDS", route: "/res-kitchen", icon: "monitor-play" },
-            { name: "Billing", route: "/res-billing", icon: "receipt" },
-            { name: "Analytics", route: "/res-analytics", icon: "bar-chart-3" },
-            { name: "Reports", route: "/res-reports", icon: "file-text" },
-            { name: "Staff", route: "/res-staff", icon: "users" },
-            { name: "Branches", route: "/res-branches", icon: "store" },
-            { name: "Settings", route: "/res-settings", icon: "settings" },
-          ];
-          otherEssentialMenus.forEach((em, idx) => {
-            if (!filtered.some((m: any) => m.route === em.route)) {
-              filtered.push({
-                id: 9100 + idx,
-                name: em.name,
-                route: em.route,
-                icon: em.icon,
-                parentId: 0
-              });
-            }
-          });
 
           setMenus(filtered);
         })
@@ -204,7 +145,7 @@ export default function MasterLayout() {
         </div>
         <nav style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', overflowY: 'auto' }}>
           {parentMenus.map((menu, index) => {
-            const isInventory = menu.name === 'Inventory' || menu.route === '/res-inventory';
+            const isInventory = menu.name === 'Inventory' || menu.route === '/res-inventory' || menu.route === '#';
 
             let allChildItems: any[];
             if (isInventory) {
@@ -216,16 +157,12 @@ export default function MasterLayout() {
                 { name: "Recipe Management", route: "/res-recipes", icon: "chef-hat" },
               ];
 
-              allChildItems = standardInventorySubmodules.map((sub, sIdx) => {
-                const found = menus.find((m: any) => m.id !== menu.id && (m.route === sub.route || m.name?.toLowerCase() === sub.name.toLowerCase()));
-                return found ? { ...found, name: sub.name, icon: found.icon || sub.icon, route: sub.route } : {
-                  id: `inv_sub_${sIdx}`,
-                  name: sub.name,
-                  route: sub.route,
-                  icon: sub.icon,
-                  parentId: menu.id
-                };
-              });
+              allChildItems = standardInventorySubmodules
+                .filter(sub => menus.some((m: any) => m.id !== menu.id && (m.route === sub.route || m.name?.toLowerCase() === sub.name.toLowerCase())))
+                .map(sub => {
+                  const found = menus.find((m: any) => m.id !== menu.id && (m.route === sub.route || m.name?.toLowerCase() === sub.name.toLowerCase()));
+                  return { ...found, name: sub.name, icon: found?.icon || sub.icon, route: sub.route, parentId: menu.id };
+                });
             } else {
               const directChildren = menus.filter(m => String(m.parentId) === String(menu.id));
               allChildItems = [...directChildren];

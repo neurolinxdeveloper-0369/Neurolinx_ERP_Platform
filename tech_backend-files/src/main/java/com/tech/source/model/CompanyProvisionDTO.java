@@ -28,6 +28,10 @@ public class CompanyProvisionDTO {
 
     private List<Map<String, String>> branches;
     private List<Map<String, Object>> floorTables;
+    private List<Long> moduleIds;
+
+    public List<Long> getModuleIds() { return moduleIds; }
+    public void setModuleIds(List<Long> moduleIds) { this.moduleIds = moduleIds; }
 
     public List<Map<String, Object>> getFloorTables() { return floorTables; }
     public void setFloorTables(List<Map<String, Object>> floorTables) { this.floorTables = floorTables; }
