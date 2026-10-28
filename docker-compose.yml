@@ -2,7 +2,7 @@ version: '3.8'
 services:
   db:
     image: postgres:16-alpine
-    container_name: erp-postgres
+    container_name: tech_source_postgres
     environment:
       POSTGRES_USER: erp_admin
       POSTGRES_PASSWORD: Neurolinx@2026
@@ -15,23 +15,23 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: erp-redis
+    container_name: tech_source_redis
     ports:
       - "6381:6379"
     restart: unless-stopped
 
   emqx:
     image: emqx:5
-    container_name: erp-emqx
+    container_name: tech_source_emqx
     ports:
       - "8885:8883"
       - "18085:18083"
       - "1885:1883"
     restart: unless-stopped
 
-  erp-api:
+  tech_source_api:
     image: ghcr.io/neurolinxdeveloper-0369/erp-api:latest
-    container_name: erp-api
+    container_name: tech_source_api
     depends_on:
       - db
       - redis
@@ -39,21 +39,28 @@ services:
       - "8088:8080"
     restart: unless-stopped
 
-  frontend:
+  tech_source:
     image: ghcr.io/neurolinxdeveloper-0369/erp-frontend:latest
-    container_name: erp-frontend
+    container_name: tech_source
     ports:
       - "8087:80"
     restart: unless-stopped
 
   nginx:
     image: nginx:alpine
-    container_name: erp-nginx
+    container_name: tech_source_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - tech_source_api
+      - tech_source
     restart: unless-stopped
 
   certbot:
     image: certbot/certbot
-    container_name: erp-certbot
+    container_name: tech_source_certbot
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
