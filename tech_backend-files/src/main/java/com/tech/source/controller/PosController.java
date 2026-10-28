@@ -409,9 +409,9 @@ public class PosController {
         if (company == null) return ResponseEntity.status(403).body(java.util.Map.of("message", "Company not found for user"));
         Long branchId = getBranchId();
         if (branchId != null) {
-            return ResponseEntity.ok(orderRepo.findByCompanyAndBranchId(company, branchId));
+            return ResponseEntity.ok(orderRepo.findByCompanyAndBranchIdOrderByIdDesc(company, branchId));
         }
-        return ResponseEntity.ok(orderRepo.findByCompany(company));
+        return ResponseEntity.ok(orderRepo.findByCompanyOrderByIdDesc(company));
     }
 
     @PutMapping("/orders/{id}/kitchen-status")

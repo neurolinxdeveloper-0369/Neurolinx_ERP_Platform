@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
-import { apiFetch, formatOrderTime } from '../../api';
+import { apiFetch } from '../../api';
 import { usePrinter } from '../../context/PrinterContext';
 import FloorTableLayout, { type RestaurantTableData } from '../../components/restaurant/FloorTableLayout';
 import DeliveryManagement from './DeliveryManagement';
+import { formatISTDateTime, isTodayIST, isYesterdayIST, isPastWeekIST } from '../../utils/timeUtils';
 
 interface Dish {
   id: number;
@@ -28,12 +29,16 @@ interface OrderItem {
 export interface PlacedOrder {
   id: string | number;
   orderNumber: string;
-  orderType: 'Dine-In' | 'Takeaway' | 'Delivery';
+  orderType: 'Dine-In' | 'Takeaway' | 'Delivery' | string;
   tableName?: string;
-  items: { name: string; quantity: number; price: number }[];
+  items: { name: string; quantity: number; price: number; notes?: string }[];
   totalAmount: number;
+  subtotal?: number;
+  taxApplied?: number;
+  discountApplied?: number;
   paymentMethod?: string;
   status: string;
+  kitchenStatus?: string;
   notes?: string;
   orderSource?: string;
   customerName?: string;
@@ -47,6 +52,7 @@ export interface PlacedOrder {
   deliveryStatus?: string;
   expectedDeliveryTime?: string;
   createdAt: string;
+  rawCreatedAt?: string;
 }
 
 export interface ReservationData {
@@ -72,7 +78,12 @@ export default function RestaurantOrders() {
   
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [orderType, setOrderType] = useState<'Dine-In' | 'Takeaway' | 'Delivery'>('Dine-In');
-  const [viewMode, setViewMode] = useState<'POS' | 'Tables' | 'Reservations' | 'Deliveries'>('POS');
+  const [viewMode, setViewMode] = useState<'POS' | 'Tables' | 'Reservations' | 'Deliveries' | 'History'>('POS');
+  const [selectedOrderDetail, setSelectedOrderDetail] = useState<PlacedOrder | null>(null);
+  const [allOrders, setAllOrders] = useState<PlacedOrder[]>([]);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyDateFilter, setHistoryDateFilter] = useState<'all' | 'today' | 'yesterday' | 'week'>('all');
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<string>('all');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string>('');
   const [tables, setTables] = useState<RestaurantTableData[]>([]);
@@ -332,7 +343,7 @@ export default function RestaurantOrders() {
     });
 
     const fetchRecentOrders = () => {
-      apiFetch('https://erp-api.neurolinx.in/api/pos/orders/recent')
+      apiFetch('https://erp-api.neurolinx.in/api/pos/orders/all')
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data) && data.length > 0) {
@@ -341,14 +352,19 @@ export default function RestaurantOrders() {
               orderNumber: o.orderNumber,
               orderType: (o.orderType as any) || 'Dine-In',
               tableName: o.restaurantTable?.tableName,
-              items: o.items ? o.items.map((it: any) => ({
-                name: it.dish?.name || it.dishName || 'Dish Item',
+              items: Array.isArray(o.items) && o.items.length > 0 ? o.items.map((it: any) => ({
+                name: it.dishName || it.dish?.name || 'Dish Item',
                 quantity: it.quantity || 1,
-                price: it.price || 0
+                price: it.price || 0,
+                notes: it.notes
               })) : [],
               totalAmount: o.totalAmount || 0,
+              subtotal: o.totalAmount ? (o.totalAmount - (o.taxApplied || 0) + (o.discountApplied || 0)) : 0,
+              taxApplied: o.taxApplied || 0,
+              discountApplied: o.discountApplied || 0,
               paymentMethod: o.paymentMethod || 'UPI',
               status: o.status || 'Completed',
+              kitchenStatus: o.kitchenStatus || 'Pending',
               notes: o.notes,
               orderSource: o.orderSource,
               customerName: o.customerName,
@@ -361,10 +377,12 @@ export default function RestaurantOrders() {
               deliveryStaffName: o.deliveryStaffName,
               deliveryStatus: o.deliveryStatus,
               expectedDeliveryTime: o.expectedDeliveryTime,
-              createdAt: o.createdAtFormatted || (o.createdAt ? formatOrderTime(o.createdAt) : '')
+              rawCreatedAt: o.createdAt,
+              createdAt: o.createdAtFormatted || formatISTDateTime(o.createdAt)
             }));
-            setRecentOrders(mapped.slice(0, 10));
-            localStorage.setItem('pos_recent_orders', JSON.stringify(mapped.slice(0, 10)));
+            setAllOrders(mapped);
+            setRecentOrders(mapped.slice(0, 15));
+            localStorage.setItem('pos_recent_orders', JSON.stringify(mapped.slice(0, 15)));
           }
         })
         .catch(() => {});
@@ -524,6 +542,148 @@ export default function RestaurantOrders() {
     return payload;
   };
 
+  const handlePrint = (order: any) => {
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    if (!printWindow) return;
+    
+    let itemsHtml = '';
+    if (order.items && order.items.length > 0) {
+      order.items.forEach((item: any) => {
+        const lineTotal = (item.price || 0) * (item.quantity || 1);
+        itemsHtml += `
+          <tr>
+            <td style="padding: 4px 0; font-size: 13px;">
+              <strong>${item.quantity}x</strong> ${item.name || 'Item'}
+              ${item.notes ? `<div style="font-size: 11px; color: #555;">(${item.notes})</div>` : ''}
+            </td>
+            <td style="padding: 4px 0; text-align: right; font-size: 13px;">Rs. ${lineTotal.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Bill - ${order.orderNumber}</title>
+        <style>
+          body { font-family: monospace; width: 300px; margin: 0 auto; padding: 15px; color: #000; }
+          .header { text-align: center; margin-bottom: 15px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
+          .header h2 { margin: 0; font-size: 18px; text-transform: uppercase; }
+          .header p { margin: 3px 0; font-size: 12px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+          .totals { border-top: 1px dashed #000; padding-top: 8px; }
+          .totals div { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px; }
+          .totals .grand-total { font-size: 16px; font-weight: bold; border-top: 1px solid #000; padding-top: 6px; margin-top: 6px; }
+          .footer { text-align: center; margin-top: 20px; font-size: 11px; border-top: 1px dashed #000; padding-top: 8px; color: #444; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>RESTAURANT TAX INVOICE</h2>
+          <p><strong>Order #${order.orderNumber}</strong></p>
+          <p>IST Time: ${order.createdAt || formatISTDateTime(order.rawCreatedAt || new Date())}</p>
+          <p>${order.orderType}${order.tableName ? ' - ' + order.tableName : ''}</p>
+          ${order.orderType === 'Delivery' ? `<p style="font-size:11px;margin:3px 0;"><strong>Customer:</strong> ${order.customerName || ''} (${order.customerPhone || ''})<br/><strong>Address:</strong> ${order.deliveryAddress || ''}</p>` : ''}
+        </div>
+        
+        <table>
+          <thead>
+            <tr style="border-bottom: 1px dashed #000; text-align: left; font-size: 12px;">
+              <th style="padding-bottom: 4px;">Item Description</th>
+              <th style="text-align: right; padding-bottom: 4px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+        
+        <div class="totals">
+          ${order.subtotal ? `<div><span>Subtotal:</span> <span>Rs. ${Number(order.subtotal).toFixed(2)}</span></div>` : ''}
+          ${Number(order.taxApplied || 0) > 0 ? `<div><span>Tax:</span> <span>Rs. ${Number(order.taxApplied).toFixed(2)}</span></div>` : ''}
+          ${Number(order.discountApplied || 0) > 0 ? `<div><span>Discount:</span> <span>-Rs. ${Number(order.discountApplied).toFixed(2)}</span></div>` : ''}
+          <div class="grand-total"><span>Total Amount:</span> <span>Rs. ${Number(order.totalAmount || 0).toFixed(2)}</span></div>
+          <div style="font-size: 12px; margin-top: 4px;"><span>Payment:</span> <span>${order.paymentMethod || 'UPI'} (${order.status || 'Completed'})</span></div>
+        </div>
+        
+        <div class="footer">
+          <p>Thank you for dining with us!</p>
+          <p>All timestamps in Indian Standard Time (IST)</p>
+        </div>
+        
+        <script>
+          window.onload = function() { window.print(); window.close(); }
+        </script>
+      </body>
+      </html>
+    `;
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const handlePrintKOT = (order: any) => {
+    const printWindow = window.open('', '_blank', 'width=400,height=500');
+    if (!printWindow) return;
+    
+    let itemsHtml = '';
+    if (order.items && order.items.length > 0) {
+      order.items.forEach((item: any) => {
+        itemsHtml += `
+          <tr>
+            <td style="padding: 6px 0; font-size: 15px; font-weight: bold; border-bottom: 1px dotted #ccc;">
+              ${item.quantity}x ${item.name || 'Item'}
+            </td>
+            <td style="padding: 6px 0; text-align: right; font-size: 12px; color: #444; border-bottom: 1px dotted #ccc;">
+              ${item.notes ? `Note: ${item.notes}` : ''}
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>KOT - ${order.orderNumber}</title>
+        <style>
+          body { font-family: monospace; width: 300px; margin: 0 auto; padding: 15px; color: #000; }
+          .header { text-align: center; margin-bottom: 12px; border-bottom: 2px dashed #000; padding-bottom: 8px; }
+          .header h1 { margin: 0; font-size: 20px; }
+          .header p { margin: 3px 0; font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+          .footer { text-align: center; margin-top: 15px; font-size: 11px; border-top: 1px dashed #000; padding-top: 6px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>*** KITCHEN ORDER TICKET ***</h1>
+          <p style="font-size: 17px; font-weight: bold;">Order #${order.orderNumber}</p>
+          <p><strong>${order.orderType}${order.tableName ? ' - ' + order.tableName : ''}</strong></p>
+          <p>IST Time: ${order.createdAt || formatISTDateTime(order.rawCreatedAt || new Date())}</p>
+          ${order.notes ? `<p style="background: #f1f1f1; padding: 4px; font-weight: 600;">Note: ${order.notes}</p>` : ''}
+        </div>
+        <table>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>KDS Dispatch Ticket | Indian Standard Time</p>
+        </div>
+        <script>
+          window.onload = function() { window.print(); window.close(); }
+        </script>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   const placeOrder = (status: 'Completed' | 'Parked') => {
     if (cart.length === 0) return;
 
@@ -555,74 +715,6 @@ export default function RestaurantOrders() {
     const currentTableId = selectedTableId;
     const currentTableName = selectedTableName || (currentTableId ? ('Table ' + currentTableId) : '');
 
-    const handlePrint = (order: any) => {
-      const printWindow = window.open('', '_blank', 'width=400,height=600');
-      if (!printWindow) return;
-      
-      let itemsHtml = '';
-      if (order.items) {
-        order.items.forEach((item: any) => {
-          itemsHtml += `
-            <tr>
-              <td style="padding: 4px 0; font-size: 14px;">${item.quantity}x ${item.name || 'Item'}</td>
-              <td style="padding: 4px 0; text-align: right; font-size: 14px;">${(item.price * item.quantity).toFixed(2)}</td>
-            </tr>
-          `;
-        });
-      }
-
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Receipt - ${order.orderNumber}</title>
-          <style>
-            body { font-family: monospace; width: 300px; margin: 0 auto; padding: 20px; color: #000; }
-            .header { text-align: center; margin-bottom: 20px; border-bottom: 1px dashed #000; padding-bottom: 10px; }
-            .header h2 { margin: 0; font-size: 20px; }
-            .header p { margin: 5px 0; font-size: 14px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            .totals { border-top: 1px dashed #000; padding-top: 10px; }
-            .totals div { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; }
-            .totals .grand-total { font-size: 18px; font-weight: bold; border-top: 1px solid #000; padding-top: 5px; margin-top: 5px; }
-            .footer { text-align: center; margin-top: 30px; font-size: 12px; border-top: 1px dashed #000; padding-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h2>RESTAURANT</h2>
-            <p>Order #${order.orderNumber}</p>
-            <p>${formatOrderTime(order.createdAt) || order.createdAt}</p>
-            <p>${order.orderType}${order.tableName ? ' - ' + order.tableName : ''}</p>
-            ${order.orderType === 'Delivery' ? `<p style="font-size:12px;margin:2px 0;"><strong>Customer:</strong> ${order.customerName || ''} (${order.customerPhone || ''})<br/><strong>Address:</strong> ${order.deliveryAddress || ''}</p>` : ''}
-          </div>
-          
-          <table>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-          
-          <div class="totals">
-            <div class="grand-total"><span>Total</span> <span>${order.totalAmount?.toFixed(2)}</span></div>
-          </div>
-          
-          <div class="footer">
-            <p>Thank you for visiting!</p>
-            <p>Powered by Neurolinx</p>
-          </div>
-          
-          <script>
-            window.onload = function() { window.print(); window.close(); }
-          </script>
-        </body>
-        </html>
-      `;
-      
-      printWindow.document.write(html);
-      printWindow.document.close();
-    };
-
     const saveOrderLocally = (serverOrder?: any) => {
       const orderNum = serverOrder?.orderNumber || `ORD-${Date.now().toString().slice(-4)}`;
       const newOrderRecord: PlacedOrder = {
@@ -632,8 +724,12 @@ export default function RestaurantOrders() {
         tableName: orderType === 'Dine-In' ? (currentTableName || 'Table') : undefined,
         items: cart.map(c => ({ name: c.dish.name, quantity: c.quantity, price: c.dish.price })),
         totalAmount: finalTotal,
+        subtotal: subtotalAfterDiscount,
+        taxApplied: tax,
+        discountApplied: discountAmount,
         paymentMethod: status === 'Parked' ? 'Unpaid' : paymentMethod,
         status: status,
+        kitchenStatus: 'Pending',
         customerName: orderType === 'Delivery' ? deliveryCustomerName.trim() : undefined,
         customerPhone: orderType === 'Delivery' ? deliveryCustomerPhone.trim() : undefined,
         deliveryAddress: orderType === 'Delivery' ? deliveryAddress.trim() : undefined,
@@ -643,14 +739,16 @@ export default function RestaurantOrders() {
         deliveryInstructions: orderType === 'Delivery' ? deliveryInstructions.trim() : undefined,
         deliveryStaffName: orderType === 'Delivery' && deliveryStaffId ? staffList.find(s => String(s.id) === deliveryStaffId)?.name : undefined,
         deliveryStatus: orderType === 'Delivery' ? 'Order Placed' : undefined,
-        createdAt: serverOrder?.createdAtFormatted || (serverOrder?.createdAt ? formatOrderTime(serverOrder.createdAt) : formatOrderTime(new Date()))
+        createdAt: serverOrder?.createdAtFormatted || formatISTDateTime(serverOrder?.createdAt || new Date()),
+        rawCreatedAt: serverOrder?.createdAt || new Date().toISOString()
       };
 
       setRecentOrders(prev => {
-        const updated = [newOrderRecord, ...prev.filter(p => p.orderNumber !== orderNum)].slice(0, 10);
+        const updated = [newOrderRecord, ...prev.filter(p => p.orderNumber !== orderNum)].slice(0, 15);
         localStorage.setItem('pos_recent_orders', JSON.stringify(updated));
         return updated;
       });
+      setAllOrders(prev => [newOrderRecord, ...prev.filter(p => p.orderNumber !== orderNum)]);
 
       // Dispatch event for Dashboard to catch live updates
       window.dispatchEvent(new CustomEvent('neurolinx_order_placed', { detail: newOrderRecord }));
@@ -827,6 +925,14 @@ export default function RestaurantOrders() {
                     </span>
                   )}
                 </button>
+                <button onClick={() => setViewMode('History')} style={{ padding: '0.5rem 1rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: viewMode === 'History' ? 'white' : 'transparent', color: viewMode === 'History' ? '#0f172a' : '#64748b', boxShadow: viewMode === 'History' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Icons.History size={16} /> Order History
+                  {allOrders.length > 0 && (
+                    <span style={{ backgroundColor: '#0284c7', color: 'white', fontSize: '0.7rem', padding: '1px 6px', borderRadius: '10px', fontWeight: 800 }}>
+                      {allOrders.length}
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
             
@@ -839,6 +945,13 @@ export default function RestaurantOrders() {
                   placeholder="Search dishes..." 
                   style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', width: '250px' }}
                 />
+              </div>
+            )}
+            {viewMode === 'History' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', fontWeight: 700, color: '#0369a1', backgroundColor: '#e0f2fe', padding: '6px 12px', borderRadius: '8px' }}>
+                  <Icons.Clock size={13} /> IST (UTC+05:30)
+                </span>
               </div>
             )}
         </div>
@@ -1005,18 +1118,24 @@ export default function RestaurantOrders() {
                         <th style={{ padding: '0.65rem 1rem' }}>Total Amount</th>
                         <th style={{ padding: '0.65rem 1rem' }}>Payment</th>
                         <th style={{ padding: '0.65rem 1rem' }}>Status</th>
-                        <th style={{ padding: '0.65rem 1rem' }}>Time</th>
+                        <th style={{ padding: '0.65rem 1rem' }}>Time (IST)</th>
+                        <th style={{ padding: '0.65rem 1rem', textAlign: 'right' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {recentOrders.map((ord, idx) => (
                         <tr
                           key={ord.id ? `${ord.id}-${idx}` : idx}
+                          onClick={() => setSelectedOrderDetail(ord)}
                           style={{
                             borderBottom: '1px solid #f1f5f9',
                             backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa',
-                            transition: 'background 0.15s ease'
+                            transition: 'background 0.15s ease',
+                            cursor: 'pointer'
                           }}
+                          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f0f9ff')}
+                          onMouseLeave={e => (e.currentTarget.style.backgroundColor = idx % 2 === 0 ? 'white' : '#fafafa')}
+                          title="Click to view full order item details"
                         >
                           <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: '#0f172a' }}>
                             #{ord.orderNumber}
@@ -1030,13 +1149,18 @@ export default function RestaurantOrders() {
                               borderRadius: '6px',
                               fontSize: '0.75rem',
                               fontWeight: 600,
-                              backgroundColor: ord.orderType === 'Dine-In' ? '#eff6ff' : '#f1f5f9',
-                              color: ord.orderType === 'Dine-In' ? '#1d4ed8' : '#475569'
+                              backgroundColor: ord.orderType === 'Dine-In' ? '#eff6ff' : (ord.orderType === 'Delivery' ? '#ecfdf5' : '#f1f5f9'),
+                              color: ord.orderType === 'Dine-In' ? '#1d4ed8' : (ord.orderType === 'Delivery' ? '#15803d' : '#475569')
                             }}>
                               {ord.orderType === 'Dine-In' ? (
                                 <>
                                   <Icons.UtensilsCrossed size={12} />
                                   {ord.tableName ? ord.tableName : 'Dine-In'}
+                                </>
+                              ) : ord.orderType === 'Delivery' ? (
+                                <>
+                                  <Icons.Truck size={12} />
+                                  Delivery
                                 </>
                               ) : (
                                 <>
@@ -1046,11 +1170,44 @@ export default function RestaurantOrders() {
                               )}
                             </span>
                           </td>
-                          <td style={{ padding: '0.75rem 1rem', maxWidth: '280px', color: '#334155' }}>
-                            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ord.items.map(it => `${it.quantity}x ${it.name}`).join(', ')}>
-                              {ord.items.length > 0
-                                ? ord.items.map(it => `${it.quantity}x ${it.name}`).join(', ')
-                                : '—'}
+                          <td style={{ padding: '0.75rem 1rem', maxWidth: '300px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                              {ord.items && ord.items.length > 0 ? (
+                                <>
+                                  {ord.items.slice(0, 2).map((it, i) => (
+                                    <span
+                                      key={i}
+                                      style={{
+                                        backgroundColor: '#f1f5f9',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '4px',
+                                        padding: '2px 6px',
+                                        fontSize: '0.73rem',
+                                        fontWeight: 600,
+                                        color: '#334155'
+                                      }}
+                                    >
+                                      {it.quantity}x {it.name}
+                                    </span>
+                                  ))}
+                                  {ord.items.length > 2 && (
+                                    <span
+                                      style={{
+                                        fontSize: '0.7rem',
+                                        color: '#0284c7',
+                                        fontWeight: 700,
+                                        backgroundColor: '#e0f2fe',
+                                        padding: '2px 5px',
+                                        borderRadius: '4px'
+                                      }}
+                                    >
+                                      +{ord.items.length - 2} more
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>No items</span>
+                              )}
                             </div>
                           </td>
                           <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: '#0284c7' }}>
@@ -1080,8 +1237,50 @@ export default function RestaurantOrders() {
                               {ord.status}
                             </span>
                           </td>
-                          <td style={{ padding: '0.75rem 1rem', color: '#64748b', fontSize: '0.8rem' }}>
+                          <td style={{ padding: '0.75rem 1rem', color: '#64748b', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                             {ord.createdAt}
+                          </td>
+                          <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }} onClick={e => e.stopPropagation()}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                              <button
+                                onClick={() => setSelectedOrderDetail(ord)}
+                                title="View Order Line Items"
+                                style={{
+                                  border: '1px solid #cbd5e1',
+                                  backgroundColor: 'white',
+                                  borderRadius: '6px',
+                                  padding: '4px 8px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  color: '#0284c7',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Icons.Eye size={12} /> View
+                              </button>
+                              <button
+                                onClick={() => handlePrint(ord)}
+                                title="Print Bill"
+                                style={{
+                                  border: '1px solid #cbd5e1',
+                                  backgroundColor: 'white',
+                                  borderRadius: '6px',
+                                  padding: '4px 8px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  color: '#475569',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Icons.Printer size={12} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1752,167 +1951,556 @@ export default function RestaurantOrders() {
             <DeliveryManagement />
           </div>
         )}
-      </div>
 
-      {/* Right Order Sidebar */}
-      <div style={{ 
-        width: '350px', 
-        flexShrink: 0,
-        backgroundColor: 'white', 
-        borderRadius: '16px', 
-        padding: '1.5rem', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-        position: 'sticky',
-        top: 0,
-        maxHeight: 'calc(100vh - 120px)'
-      }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b', margin: '0 0 1.5rem 0' }}>Current Order</h2>
-        
-        {/* Order Type Toggle */}
-        <div style={{ display: 'flex', backgroundColor: '#f1f5f9', borderRadius: '8px', padding: '0.25rem', marginBottom: '1.5rem' }}>
-          <button 
-            onClick={() => setOrderType('Dine-In')}
-            style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Dine-In' ? 'white' : 'transparent', color: orderType === 'Dine-In' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Dine-In' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-            Dine-In
-          </button>
-          <button onClick={() => { setOrderType('Takeaway'); setSelectedTableId(null); setSelectedTableName(''); }} style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Takeaway' ? 'white' : 'transparent', color: orderType === 'Takeaway' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Takeaway' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>Takeaway</button>
-          <button onClick={() => { setOrderType('Delivery'); setSelectedTableId(null); setSelectedTableName(''); if (!deliveryCustomerName) setIsDeliveryModalOpen(true); }} style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Delivery' ? 'white' : 'transparent', color: orderType === 'Delivery' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Delivery' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>Delivery</button>
-        </div>
-        
-        {orderType === 'Dine-In' && (
-          <div style={{ marginBottom: '1.5rem', padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569' }}>Selected Table:</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.875rem', fontWeight: 700, color: selectedTableName ? '#0ea5e9' : '#94a3b8' }}>
-                {selectedTableName || 'None'}
-              </span>
-              {selectedTableName ? (
-                <Icons.X
-                  size={14}
-                  style={{ cursor: 'pointer', color: '#64748b' }}
-                  onClick={() => {
-                    setSelectedTableId(null);
-                    setSelectedTableName('');
-                  }}
-                />
-              ) : (
-                <button
-                  onClick={() => setViewMode('Tables')}
+        {viewMode === 'History' && (
+          <div style={{ flex: 1, backgroundColor: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Header & Controls */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Icons.History size={22} color="#0284c7" /> Order History & Items Audit
+                </h2>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                  Detailed record of all items ordered, quantities, taxes, and Indian Standard Time (IST) timestamps.
+                </p>
+              </div>
+
+              {/* Filters Bar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {/* Search */}
+                <div style={{ position: 'relative' }}>
+                  <Icons.Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <input
+                    type="text"
+                    value={historySearch}
+                    onChange={e => setHistorySearch(e.target.value)}
+                    placeholder="Search order #, item, customer..."
+                    style={{
+                      padding: '0.5rem 0.75rem 0.5rem 2.2rem',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.85rem',
+                      outline: 'none',
+                      width: '260px'
+                    }}
+                  />
+                  {historySearch && (
+                    <button
+                      onClick={() => setHistorySearch('')}
+                      style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8' }}
+                    >
+                      <Icons.X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Date Filter Pills */}
+                <div style={{ display: 'flex', backgroundColor: '#f1f5f9', borderRadius: '8px', padding: '0.2rem' }}>
+                  {[
+                    { id: 'all', label: 'All Time' },
+                    { id: 'today', label: 'Today (IST)' },
+                    { id: 'yesterday', label: 'Yesterday' },
+                    { id: 'week', label: 'Past 7 Days' }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setHistoryDateFilter(tab.id as any)}
+                      style={{
+                        padding: '0.4rem 0.75rem',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        backgroundColor: historyDateFilter === tab.id ? 'white' : 'transparent',
+                        color: historyDateFilter === tab.id ? '#0f172a' : '#64748b',
+                        boxShadow: historyDateFilter === tab.id ? '0 1px 2px rgba(0,0,0,0.08)' : 'none'
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Order Type Filter */}
+                <select
+                  value={historyTypeFilter}
+                  onChange={e => setHistoryTypeFilter(e.target.value)}
                   style={{
-                    border: 'none',
-                    backgroundColor: '#e0f2fe',
-                    color: '#0284c7',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    padding: '2px 6px',
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.85rem',
                     fontWeight: 600,
+                    color: '#334155',
+                    backgroundColor: 'white',
+                    outline: 'none',
                     cursor: 'pointer'
                   }}
                 >
-                  Choose
+                  <option value="all">All Types</option>
+                  <option value="Dine-In">Dine-In</option>
+                  <option value="Takeaway">Takeaway</option>
+                  <option value="Delivery">Delivery</option>
+                </select>
+              </div>
+            </div>
+
+            {/* KPI Cards & Table */}
+            {(() => {
+              const filteredHistory = allOrders.filter(o => {
+                if (historySearch.trim()) {
+                  const q = historySearch.toLowerCase();
+                  const matchOrderNo = o.orderNumber?.toLowerCase().includes(q);
+                  const matchCustomer = o.customerName?.toLowerCase().includes(q) || o.customerPhone?.toLowerCase().includes(q);
+                  const matchTable = o.tableName?.toLowerCase().includes(q);
+                  const matchItem = o.items?.some(it => it.name.toLowerCase().includes(q));
+                  if (!matchOrderNo && !matchCustomer && !matchTable && !matchItem) return false;
+                }
+                if (historyTypeFilter !== 'all' && o.orderType !== historyTypeFilter) return false;
+                if (historyDateFilter === 'today') return isTodayIST(o.rawCreatedAt || o.createdAt);
+                if (historyDateFilter === 'yesterday') return isYesterdayIST(o.rawCreatedAt || o.createdAt);
+                if (historyDateFilter === 'week') return isPastWeekIST(o.rawCreatedAt || o.createdAt);
+                return true;
+              });
+
+              const totalOrders = filteredHistory.length;
+              const totalRevenue = filteredHistory.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
+              const completedOrders = filteredHistory.filter(o => o.status === 'Completed').length;
+              const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
+
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                    <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ backgroundColor: '#e0f2fe', color: '#0284c7', padding: '10px', borderRadius: '10px' }}>
+                        <Icons.ShoppingBag size={22} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Total Orders</div>
+                        <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>{totalOrders}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ backgroundColor: '#ecfdf5', color: '#059669', padding: '10px', borderRadius: '10px' }}>
+                        <Icons.IndianRupee size={22} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Total Revenue</div>
+                        <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#059669' }}>₹{totalRevenue.toFixed(2)}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ backgroundColor: '#eff6ff', color: '#2563eb', padding: '10px', borderRadius: '10px' }}>
+                        <Icons.CheckCircle size={22} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Completed Orders</div>
+                        <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>{completedOrders}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ backgroundColor: '#fef3c7', color: '#d97706', padding: '10px', borderRadius: '10px' }}>
+                        <Icons.TrendingUp size={22} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Average Order Value</div>
+                        <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>₹{avgOrderValue.toFixed(2)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* History Table */}
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+                    <div style={{ overflowX: 'auto', maxHeight: '550px', overflowY: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', position: 'sticky', top: 0, zIndex: 5 }}>
+                            <th style={{ padding: '0.75rem 1rem' }}>Order #</th>
+                            <th style={{ padding: '0.75rem 1rem' }}>Time (IST)</th>
+                            <th style={{ padding: '0.75rem 1rem' }}>Type & Details</th>
+                            <th style={{ padding: '0.75rem 1rem' }}>Ordered Items (Click to Inspect)</th>
+                            <th style={{ padding: '0.75rem 1rem' }}>Amount</th>
+                            <th style={{ padding: '0.75rem 1rem' }}>Payment</th>
+                            <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredHistory.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Icons.Search size={36} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                                  <div style={{ fontWeight: 600, color: '#475569' }}>No orders found matching the selected filters.</div>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredHistory.map((ord, idx) => (
+                              <tr
+                                key={ord.id ? `${ord.id}-${idx}` : idx}
+                                onClick={() => setSelectedOrderDetail(ord)}
+                                style={{
+                                  borderBottom: '1px solid #f1f5f9',
+                                  backgroundColor: idx % 2 === 0 ? 'white' : '#fafafa',
+                                  cursor: 'pointer',
+                                  transition: 'background 0.15s'
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f0f9ff')}
+                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = idx % 2 === 0 ? 'white' : '#fafafa')}
+                                title="Click to inspect all ordered items"
+                              >
+                                <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                                  #{ord.orderNumber}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', color: '#475569', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                                  {ord.createdAt}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 600,
+                                      width: 'fit-content',
+                                      backgroundColor: ord.orderType === 'Dine-In' ? '#eff6ff' : (ord.orderType === 'Delivery' ? '#ecfdf5' : '#f1f5f9'),
+                                      color: ord.orderType === 'Dine-In' ? '#1d4ed8' : (ord.orderType === 'Delivery' ? '#15803d' : '#475569')
+                                    }}>
+                                      {ord.orderType === 'Dine-In' ? (
+                                        <>
+                                          <Icons.UtensilsCrossed size={12} />
+                                          {ord.tableName ? ord.tableName : 'Dine-In'}
+                                        </>
+                                      ) : ord.orderType === 'Delivery' ? (
+                                        <>
+                                          <Icons.Truck size={12} />
+                                          Delivery
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Icons.ShoppingBag size={12} />
+                                          Takeaway
+                                        </>
+                                      )}
+                                    </span>
+                                    {ord.customerName && (
+                                      <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                        {ord.customerName} {ord.customerPhone ? `(${ord.customerPhone})` : ''}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', maxWidth: '340px' }}>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                    {ord.items && ord.items.length > 0 ? (
+                                      <>
+                                        {ord.items.slice(0, 3).map((it, i) => (
+                                          <span
+                                            key={i}
+                                            style={{
+                                              backgroundColor: '#f1f5f9',
+                                              border: '1px solid #e2e8f0',
+                                              borderRadius: '4px',
+                                              padding: '2px 6px',
+                                              fontSize: '0.73rem',
+                                              fontWeight: 600,
+                                              color: '#334155'
+                                            }}
+                                          >
+                                            {it.quantity}x {it.name}
+                                          </span>
+                                        ))}
+                                        {ord.items.length > 3 && (
+                                          <span
+                                            style={{
+                                              fontSize: '0.7rem',
+                                              color: '#0284c7',
+                                              fontWeight: 700,
+                                              backgroundColor: '#e0f2fe',
+                                              padding: '2px 5px',
+                                              borderRadius: '4px'
+                                            }}
+                                          >
+                                            +{ord.items.length - 3} more
+                                          </span>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>No items recorded</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', fontWeight: 700, color: '#0284c7', whiteSpace: 'nowrap' }}>
+                                  ₹{Number(ord.totalAmount).toFixed(2)}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem' }}>
+                                  <span style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600,
+                                    color: '#475569',
+                                    backgroundColor: '#f1f5f9',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px'
+                                  }}>
+                                    {ord.paymentMethod || '—'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem' }}>
+                                  <span style={{
+                                    padding: '3px 8px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    backgroundColor: ord.status === 'Completed' ? '#ecfdf5' : '#fffbeb',
+                                    color: ord.status === 'Completed' ? '#059669' : '#d97706'
+                                  }}>
+                                    {ord.status}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }} onClick={e => e.stopPropagation()}>
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                                    <button
+                                      onClick={() => setSelectedOrderDetail(ord)}
+                                      title="View Line Items"
+                                      style={{
+                                        border: '1px solid #cbd5e1',
+                                        backgroundColor: 'white',
+                                        borderRadius: '6px',
+                                        padding: '4px 8px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 600,
+                                        color: '#0284c7',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}
+                                    >
+                                      <Icons.Eye size={12} /> View Items
+                                    </button>
+                                    <button
+                                      onClick={() => handlePrint(ord)}
+                                      title="Print Tax Bill"
+                                      style={{
+                                        border: '1px solid #cbd5e1',
+                                        backgroundColor: 'white',
+                                        borderRadius: '6px',
+                                        padding: '4px 8px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 600,
+                                        color: '#475569',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}
+                                    >
+                                      <Icons.Printer size={12} /> Bill
+                                    </button>
+                                    <button
+                                      onClick={() => handlePrintKOT(ord)}
+                                      title="Print KOT"
+                                      style={{
+                                        border: '1px solid #cbd5e1',
+                                        backgroundColor: 'white',
+                                        borderRadius: '6px',
+                                        padding: '4px 8px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 600,
+                                        color: '#0f172a',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}
+                                    >
+                                      <Icons.UtensilsCrossed size={12} /> KOT
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+
+      {/* Right Order Sidebar */}
+      {viewMode !== 'History' && (
+        <div style={{ 
+          width: '350px', 
+          flexShrink: 0,
+          backgroundColor: 'white', 
+          borderRadius: '16px', 
+          padding: '1.5rem', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+          position: 'sticky',
+          top: 0,
+          maxHeight: 'calc(100vh - 120px)'
+        }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b', margin: '0 0 1.5rem 0' }}>Current Order</h2>
+          
+          {/* Order Type Toggle */}
+          <div style={{ display: 'flex', backgroundColor: '#f1f5f9', borderRadius: '8px', padding: '0.25rem', marginBottom: '1.5rem' }}>
+            <button 
+              onClick={() => setOrderType('Dine-In')}
+              style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Dine-In' ? 'white' : 'transparent', color: orderType === 'Dine-In' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Dine-In' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              Dine-In
+            </button>
+            <button onClick={() => { setOrderType('Takeaway'); setSelectedTableId(null); setSelectedTableName(''); }} style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Takeaway' ? 'white' : 'transparent', color: orderType === 'Takeaway' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Takeaway' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>Takeaway</button>
+            <button onClick={() => { setOrderType('Delivery'); setSelectedTableId(null); setSelectedTableName(''); if (!deliveryCustomerName) setIsDeliveryModalOpen(true); }} style={{ flex: 1, padding: '0.5rem', border: 'none', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', backgroundColor: orderType === 'Delivery' ? 'white' : 'transparent', color: orderType === 'Delivery' ? '#1e293b' : '#64748b', boxShadow: orderType === 'Delivery' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>Delivery</button>
+          </div>
+          
+          {orderType === 'Dine-In' && (
+            <div style={{ marginBottom: '1.5rem', padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#475569' }}>Selected Table:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: selectedTableName ? '#0ea5e9' : '#94a3b8' }}>
+                  {selectedTableName || 'None'}
+                </span>
+                {selectedTableName ? (
+                  <Icons.X
+                    size={14}
+                    style={{ cursor: 'pointer', color: '#64748b' }}
+                    onClick={() => {
+                      setSelectedTableId(null);
+                      setSelectedTableName('');
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setViewMode('Tables')}
+                    style={{
+                      border: 'none',
+                      backgroundColor: '#e0f2fe',
+                      color: '#0284c7',
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      padding: '2px 6px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Choose
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {orderType === 'Delivery' && (
+            <div style={{ marginBottom: '1.25rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: deliveryCustomerName ? '0.4rem' : '0' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <Icons.Truck size={14} /> Delivery Details
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsDeliveryModalOpen(true)}
+                  style={{
+                    border: 'none',
+                    backgroundColor: '#dcfce7',
+                    color: '#15803d',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {deliveryCustomerName ? 'Edit' : '+ Add Details *'}
                 </button>
+              </div>
+              {deliveryCustomerName ? (
+                <div style={{ fontSize: '0.78rem', color: '#1e293b', lineHeight: 1.35 }}>
+                  <div style={{ fontWeight: 700 }}>{deliveryCustomerName} ({deliveryCustomerPhone})</div>
+                  <div style={{ color: '#475569', fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {deliveryAddress}{deliveryArea ? `, ${deliveryArea}` : ''}
+                  </div>
+                  <div style={{ color: '#15803d', fontSize: '0.7rem', marginTop: '2px', fontWeight: 600 }}>
+                    Ready ~{deliveryPrepMinutes}m | Transit ~{deliveryDurationMinutes}m
+                    {deliveryStaffId && ` | Driver: ${staffList.find(s => String(s.id) === deliveryStaffId)?.name || 'Assigned'}`}
+                  </div>
+                </div>
+              ) : (
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.72rem', color: '#e11d48', fontWeight: 600 }}>
+                  * Address & contact required before placing order
+                </p>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {orderType === 'Delivery' && (
-          <div style={{ marginBottom: '1.25rem', padding: '0.75rem', backgroundColor: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: deliveryCustomerName ? '0.4rem' : '0' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <Icons.Truck size={14} /> Delivery Details
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsDeliveryModalOpen(true)}
-                style={{
-                  border: 'none',
-                  backgroundColor: '#dcfce7',
-                  color: '#15803d',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  padding: '3px 8px',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
-                }}
-              >
-                {deliveryCustomerName ? 'Edit' : '+ Add Details *'}
+          {cart.length === 0 ? (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+              <Icons.ShoppingCart size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
+              <p>Your order is empty</p>
+            </div>
+          ) : (
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '0.5rem' }}>
+              {cart.map(item => (
+                <div key={item.dish.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.875rem' }}>{item.dish.name}</div>
+                    <div style={{ color: '#0284c7', fontWeight: 700, fontSize: '0.875rem' }}>₹{item.dish.price}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#f1f5f9', borderRadius: '8px', padding: '0.25rem' }}>
+                    <button onClick={() => updateQuantity(item.dish.id, -1)} style={{ padding: '0.25rem', border: 'none', backgroundColor: 'white', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.Minus size={14} /></button>
+                    <span style={{ fontWeight: 700, fontSize: '0.875rem', width: '20px', textAlign: 'center' }}>{item.quantity}</span>
+                    <button onClick={() => updateQuantity(item.dish.id, 1)} style={{ padding: '0.25rem', border: 'none', backgroundColor: 'white', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.Plus size={14} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <div style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '2px dashed #e2e8f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#64748b' }}>
+              <span>Subtotal</span>
+              <span>₹{subtotal.toFixed(2)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', fontSize: '0.875rem', color: '#64748b' }}>
+              <span>Tax ({taxRate}%)</span>
+              <span>₹{tax.toFixed(2)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+              <span>Total</span>
+              <span>₹{total.toFixed(2)}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button 
+                disabled={cart.length === 0}
+                onClick={() => placeOrder('Parked')}
+                style={{ flex: 1, padding: '0.75rem', backgroundColor: cart.length === 0 ? '#f8fafc' : 'white', color: cart.length === 0 ? '#cbd5e1' : '#64748b', border: cart.length === 0 ? '1px solid #f1f5f9' : '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 600, cursor: cart.length === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                <Icons.Clock size={18} />
+                Park Order
+              </button>
+              <button 
+                disabled={cart.length === 0}
+                onClick={() => setShowCheckout(true)}
+                style={{ flex: 1, padding: '0.75rem', backgroundColor: cart.length === 0 ? '#cbd5e1' : '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }}>
+                Place Order
               </button>
             </div>
-            {deliveryCustomerName ? (
-              <div style={{ fontSize: '0.78rem', color: '#1e293b', lineHeight: 1.35 }}>
-                <div style={{ fontWeight: 700 }}>{deliveryCustomerName} ({deliveryCustomerPhone})</div>
-                <div style={{ color: '#475569', fontSize: '0.72rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {deliveryAddress}{deliveryArea ? `, ${deliveryArea}` : ''}
-                </div>
-                <div style={{ color: '#15803d', fontSize: '0.7rem', marginTop: '2px', fontWeight: 600 }}>
-                  Ready ~{deliveryPrepMinutes}m | Transit ~{deliveryDurationMinutes}m
-                  {deliveryStaffId && ` | Driver: ${staffList.find(s => String(s.id) === deliveryStaffId)?.name || 'Assigned'}`}
-                </div>
-              </div>
-            ) : (
-              <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.72rem', color: '#e11d48', fontWeight: 600 }}>
-                * Address & contact required before placing order
-              </p>
-            )}
-          </div>
-        )}
-
-        {cart.length === 0 ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
-            <Icons.ShoppingCart size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-            <p>Your order is empty</p>
-          </div>
-        ) : (
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '0.5rem' }}>
-            {cart.map(item => (
-              <div key={item.dish.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.875rem' }}>{item.dish.name}</div>
-                  <div style={{ color: '#0284c7', fontWeight: 700, fontSize: '0.875rem' }}>₹{item.dish.price}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#f1f5f9', borderRadius: '8px', padding: '0.25rem' }}>
-                  <button onClick={() => updateQuantity(item.dish.id, -1)} style={{ padding: '0.25rem', border: 'none', backgroundColor: 'white', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.Minus size={14} /></button>
-                  <span style={{ fontWeight: 700, fontSize: '0.875rem', width: '20px', textAlign: 'center' }}>{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.dish.id, 1)} style={{ padding: '0.25rem', border: 'none', backgroundColor: 'white', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icons.Plus size={14} /></button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        
-        <div style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '2px dashed #e2e8f0' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#64748b' }}>
-            <span>Subtotal</span>
-            <span>₹{subtotal.toFixed(2)}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', fontSize: '0.875rem', color: '#64748b' }}>
-            <span>Tax ({taxRate}%)</span>
-            <span>₹{tax.toFixed(2)}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
-            <span>Total</span>
-            <span>₹{total.toFixed(2)}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button 
-              disabled={cart.length === 0}
-              onClick={() => placeOrder('Parked')}
-              style={{ flex: 1, padding: '0.75rem', backgroundColor: cart.length === 0 ? '#f8fafc' : 'white', color: cart.length === 0 ? '#cbd5e1' : '#64748b', border: cart.length === 0 ? '1px solid #f1f5f9' : '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 600, cursor: cart.length === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-              <Icons.Clock size={18} />
-              Park Order
-            </button>
-            <button 
-              disabled={cart.length === 0}
-              onClick={() => setShowCheckout(true)}
-              style={{ flex: 1, padding: '0.75rem', backgroundColor: cart.length === 0 ? '#cbd5e1' : '#0ea5e9', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }}>
-              Place Order
-            </button>
           </div>
         </div>
-      </div>
+      )}
 
 
       {/* Reservation Modal */}
@@ -2530,6 +3118,251 @@ export default function RestaurantOrders() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Order Line Items & Audit Details Modal */}
+      {selectedOrderDetail && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 1100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '16px',
+            width: '660px',
+            maxWidth: '100%',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            overflow: 'hidden',
+            border: '1px solid #e2e8f0'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid #f1f5f9',
+              backgroundColor: '#f8fafc',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ backgroundColor: '#0284c7', color: 'white', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+                  <Icons.Receipt size={22} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
+                      Order #{selectedOrderDetail.orderNumber}
+                    </h3>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      backgroundColor: selectedOrderDetail.status === 'Completed' ? '#ecfdf5' : '#fffbeb',
+                      color: selectedOrderDetail.status === 'Completed' ? '#059669' : '#d97706'
+                    }}>
+                      {selectedOrderDetail.status}
+                    </span>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      backgroundColor: selectedOrderDetail.orderType === 'Dine-In' ? '#eff6ff' : (selectedOrderDetail.orderType === 'Delivery' ? '#ecfdf5' : '#f1f5f9'),
+                      color: selectedOrderDetail.orderType === 'Dine-In' ? '#1d4ed8' : (selectedOrderDetail.orderType === 'Delivery' ? '#15803d' : '#475569')
+                    }}>
+                      {selectedOrderDetail.orderType}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
+                    <Icons.Clock size={13} color="#0284c7" />
+                    <span>IST Timestamp: <strong>{selectedOrderDetail.createdAt || formatISTDateTime(selectedOrderDetail.rawCreatedAt || new Date())}</strong></span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedOrderDetail(null)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', padding: '6px', borderRadius: '6px' }}
+              >
+                <Icons.X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Dine-In Table Info */}
+              {selectedOrderDetail.orderType === 'Dine-In' && (
+                <div style={{ padding: '0.75rem 1rem', backgroundColor: '#eff6ff', borderRadius: '10px', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <Icons.UtensilsCrossed size={18} color="#1d4ed8" />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1e40af' }}>
+                    Dine-In Table: <strong>{selectedOrderDetail.tableName || 'Unassigned Table'}</strong>
+                  </span>
+                </div>
+              )}
+
+              {/* Delivery Details Card */}
+              {selectedOrderDetail.orderType === 'Delivery' && (
+                <div style={{ padding: '1rem', backgroundColor: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#166534', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Icons.Truck size={16} /> Delivery Information
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.8rem' }}>
+                    <div>
+                      <span style={{ color: '#64748b' }}>Customer: </span>
+                      <strong style={{ color: '#0f172a' }}>{selectedOrderDetail.customerName || 'N/A'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: '#64748b' }}>Contact Phone: </span>
+                      <strong style={{ color: '#0f172a' }}>{selectedOrderDetail.customerPhone || 'N/A'}</strong>
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <span style={{ color: '#64748b' }}>Delivery Address: </span>
+                      <strong style={{ color: '#0f172a' }}>
+                        {selectedOrderDetail.deliveryAddress}
+                        {selectedOrderDetail.deliveryArea ? `, ${selectedOrderDetail.deliveryArea}` : ''}
+                        {selectedOrderDetail.deliveryCity ? `, ${selectedOrderDetail.deliveryCity}` : ''}
+                      </strong>
+                    </div>
+                    {selectedOrderDetail.deliveryStaffName && (
+                      <div>
+                        <span style={{ color: '#64748b' }}>Assigned Driver: </span>
+                        <strong style={{ color: '#0f172a' }}>{selectedOrderDetail.deliveryStaffName}</strong>
+                      </div>
+                    )}
+                    {selectedOrderDetail.deliveryStatus && (
+                      <div>
+                        <span style={{ color: '#64748b' }}>Delivery Status: </span>
+                        <span style={{ fontWeight: 700, color: '#166534' }}>{selectedOrderDetail.deliveryStatus}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Items Ordered Table */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Icons.ShoppingBag size={15} color="#0284c7" /> Items in Order ({selectedOrderDetail.items?.length || 0})
+                  </h4>
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                      <th style={{ padding: '0.5rem 0.75rem', textAlign: 'left' }}>Item Description</th>
+                      <th style={{ padding: '0.5rem 0.75rem', textAlign: 'center', width: '60px' }}>Qty</th>
+                      <th style={{ padding: '0.5rem 0.75rem', textAlign: 'right', width: '90px' }}>Unit Price</th>
+                      <th style={{ padding: '0.5rem 0.75rem', textAlign: 'right', width: '100px' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedOrderDetail.items && selectedOrderDetail.items.length > 0 ? (
+                      selectedOrderDetail.items.map((it, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '0.65rem 0.75rem', fontWeight: 600, color: '#0f172a' }}>
+                            <div>{it.name}</div>
+                            {it.notes && (
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', fontStyle: 'italic', marginTop: '2px' }}>
+                                Note: {it.notes}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', textAlign: 'center', fontWeight: 700, color: '#334155' }}>
+                            <span style={{ backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>
+                              {it.quantity}
+                            </span>
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', color: '#64748b' }}>
+                            ₹{Number(it.price || 0).toFixed(2)}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.75rem', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
+                            ₹{(Number(it.price || 0) * Number(it.quantity || 1)).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} style={{ padding: '1.25rem', textAlign: 'center', color: '#94a3b8' }}>
+                          No line items found for this order.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Financial Calculation Box */}
+              <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
+                  <span>Subtotal</span>
+                  <span>₹{(Number(selectedOrderDetail.subtotal) || (Number(selectedOrderDetail.totalAmount) - (Number(selectedOrderDetail.taxApplied) || 0))).toFixed(2)}</span>
+                </div>
+                {Number(selectedOrderDetail.taxApplied || 0) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#64748b', marginBottom: '0.35rem' }}>
+                    <span>Tax / GST</span>
+                    <span>₹{Number(selectedOrderDetail.taxApplied).toFixed(2)}</span>
+                  </div>
+                )}
+                {Number(selectedOrderDetail.discountApplied || 0) > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#059669', marginBottom: '0.35rem' }}>
+                    <span>Discount</span>
+                    <span>-₹{Number(selectedOrderDetail.discountApplied).toFixed(2)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', paddingTop: '0.5rem', marginTop: '0.35rem', borderTop: '1px dashed #cbd5e1' }}>
+                  <span>Grand Total</span>
+                  <span style={{ color: '#0284c7' }}>₹{Number(selectedOrderDetail.totalAmount || 0).toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
+                  <span>Payment Method: <strong>{selectedOrderDetail.paymentMethod || 'UPI'}</strong></span>
+                  <span>Kitchen Status: <strong>{selectedOrderDetail.kitchenStatus || 'Pending'}</strong></span>
+                </div>
+                {selectedOrderDetail.notes && (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#475569', backgroundColor: '#f1f5f9', padding: '6px 10px', borderRadius: '6px' }}>
+                    <strong>Special Instructions:</strong> {selectedOrderDetail.notes}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #f1f5f9', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
+              <button
+                onClick={() => setSelectedOrderDetail(null)}
+                style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#475569', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+              >
+                Close
+              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={() => handlePrintKOT(selectedOrderDetail)}
+                  style={{ padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: 'white', color: '#0f172a', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  <Icons.UtensilsCrossed size={15} /> Print KOT
+                </button>
+                <button
+                  onClick={() => handlePrint(selectedOrderDetail)}
+                  style={{ padding: '0.65rem 1.25rem', borderRadius: '8px', border: 'none', backgroundColor: '#0284c7', color: 'white', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)' }}
+                >
+                  <Icons.Printer size={15} /> Print Tax Bill
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

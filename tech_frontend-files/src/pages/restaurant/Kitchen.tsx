@@ -56,6 +56,7 @@ export default function KitchenDisplay() {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [, setTicker] = useState<number>(Date.now());
 
+
   const getElapsedMinutes = (dateVal: any): number => {
     const d = parseOrderDate(dateVal);
     const diff = Date.now() - d.getTime();

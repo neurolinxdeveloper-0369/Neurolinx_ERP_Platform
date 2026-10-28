@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiFetch, formatOrderTime } from '../../api';
+import { apiFetch } from '../../api';
 import {
   IndianRupee,
   ShoppingBag,
@@ -23,6 +23,7 @@ import {
   Sparkles,
   AlertCircle
 } from 'lucide-react';
+import { formatISTTime } from '../../utils/timeUtils';
 
 interface ResStats {
   todayRevenue: number;
@@ -208,7 +209,7 @@ export default function Dashboard() {
             orderNumber: o.orderNumber || o.id,
             table: tableName,
             orderType: o.orderType || 'Dine-In',
-            time: o.createdAtFormatted || (o.createdAt ? formatOrderTime(o.createdAt) : 'Today'),
+            time: o.createdAtFormatted || (o.createdAt ? formatISTTime(o.createdAt) : 'Today'),
             amount: Number(o.totalAmount || 0),
             status: o.status || 'Completed',
             paymentMethod: o.paymentMethod || 'UPI'
@@ -516,7 +517,7 @@ export default function Dashboard() {
         totalAmount: cartTotal,
         paymentMethod: status === 'Parked' ? 'Unpaid' : paymentMethod,
         status: status,
-        createdAt: createdOrder?.createdAtFormatted || (createdOrder?.createdAt ? formatOrderTime(createdOrder.createdAt) : formatOrderTime(new Date()))
+        createdAt: createdOrder?.createdAtFormatted || (createdOrder?.createdAt ? formatISTTime(createdOrder.createdAt) : formatISTTime(new Date()))
       };
 
       // Store locally so it syncs immediately with Orders and Dashboard

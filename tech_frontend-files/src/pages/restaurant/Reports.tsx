@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { apiFetch, parseOrderDate, formatOrderDateTime } from '../../api';
+import { apiFetch } from '../../api';
 import * as Icons from 'lucide-react';
+import { formatISTDateTime, isTodayIST, isThisMonthIST } from '../../utils/timeUtils';
 
 export default function Reports() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -27,20 +28,20 @@ export default function Reports() {
     return () => window.removeEventListener('branch_changed', handleBranchChange);
   }, []);
 
-  // Filter orders by date range
+  // Filter orders by date range in IST
   const safeOrders = Array.isArray(orders) ? orders : [];
   const filteredOrders = safeOrders.filter(o => {
     if (!o.createdAt) return false;
-    const d = parseOrderDate(o.createdAt);
-    const now = new Date();
     
     if (dateRange === 'today') {
-      return d.toDateString() === now.toDateString();
+      return isTodayIST(o.createdAt);
     } else if (dateRange === 'this_week') {
+      const d = new Date(o.createdAt);
+      const now = new Date();
       const firstDay = new Date(now.setDate(now.getDate() - now.getDay()));
       return d >= firstDay;
     } else if (dateRange === 'this_month') {
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      return isThisMonthIST(o.createdAt);
     }
     return true; // all_time
   });
@@ -49,10 +50,10 @@ export default function Reports() {
     let csvContent = "data:text/csv;charset=utf-8,";
     
     if (reportType === 'sales_summary') {
-      csvContent += "Order No,Date,Type,Payment,Subtotal,Tax,Total\n";
+      csvContent += "Order No,Date & Time (IST),Type,Payment,Subtotal,Tax,Total\n";
       filteredOrders.forEach(o => {
         const subtotal = o.totalAmount - (o.taxApplied || 0);
-        csvContent += `${o.orderNumber},${formatOrderDateTime(o.createdAt)},${o.orderType},${o.paymentMethod},${subtotal.toFixed(2)},${(o.taxApplied || 0).toFixed(2)},${o.totalAmount.toFixed(2)}\n`;
+        csvContent += `${o.orderNumber},"${formatISTDateTime(o.createdAt)}",${o.orderType},${o.paymentMethod},${subtotal.toFixed(2)},${(o.taxApplied || 0).toFixed(2)},${o.totalAmount.toFixed(2)}\n`;
       });
     } else if (reportType === 'item_sales') {
       csvContent += "Item Name,Quantity Sold,Revenue Generated\n";
@@ -146,7 +147,7 @@ export default function Reports() {
                     {filteredOrders.slice(0, 50).map((o, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '1rem', fontWeight: 600 }}>{o.orderNumber}</td>
-                        <td style={{ padding: '1rem', color: '#64748b' }}>{formatOrderDateTime(o.createdAt)}</td>
+                        <td style={{ padding: '1rem', color: '#64748b' }}>{formatISTDateTime(o.createdAt)}</td>
                         <td style={{ padding: '1rem' }}>{o.orderType}</td>
                         <td style={{ padding: '1rem' }}>{o.paymentMethod}</td>
                         <td style={{ padding: '1rem', textAlign: 'right' }}>₹{(o.taxApplied || 0).toFixed(2)}</td>

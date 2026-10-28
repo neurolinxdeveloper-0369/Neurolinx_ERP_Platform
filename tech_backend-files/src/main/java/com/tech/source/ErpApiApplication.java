@@ -19,11 +19,13 @@ public class ErpApiApplication {
 
 	@PostConstruct
 	public void initTimeZone() {
+		// Enforce Indian Standard Time (IST, UTC+05:30) across the entire JVM runtime
 		TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));
 		System.out.println("JVM Default TimeZone set to: " + TimeZone.getDefault().getID() + " (" + new java.util.Date() + ")");
 	}
 
 	public static void main(String[] args) {
+		TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));
 		SpringApplication.run(ErpApiApplication.class, args);
 	}
 

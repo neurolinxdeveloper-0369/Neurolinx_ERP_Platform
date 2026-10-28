@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { apiFetch, parseOrderDate, formatOrderTime } from '../../api';
+import { apiFetch, parseOrderDate } from '../../api';
 import * as Icons from 'lucide-react';
+import { formatISTTime } from '../../utils/timeUtils';
 
 export interface DeliveryOrder {
   id: number;
@@ -84,7 +85,7 @@ export default function DeliveryManagement() {
 
   const formatTime = (dateVal: any): string => {
     if (!dateVal) return '--:--';
-    return formatOrderTime(dateVal) || '--:--';
+    return formatISTTime(dateVal) || '--:--';
   };
 
   const getElapsedMinutes = (dateVal: any): number => {
