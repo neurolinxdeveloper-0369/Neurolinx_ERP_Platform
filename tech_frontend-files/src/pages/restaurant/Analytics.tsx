@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiFetch } from '../../api';
+import { apiFetch, parseOrderDate } from '../../api';
 import * as Icons from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -54,7 +54,7 @@ export default function Analytics() {
   
   safeOrders.forEach(o => {
     if (o.createdAt) {
-      const d = new Date(o.createdAt);
+      const d = parseOrderDate(o.createdAt);
       const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       if (last7DaysData[dateStr] !== undefined) {
         last7DaysData[dateStr] += (o.totalAmount || 0);
@@ -84,7 +84,7 @@ export default function Analytics() {
   };
   safeOrders.forEach(o => {
     if (o.createdAt) {
-      const hour = new Date(o.createdAt).getHours();
+      const hour = parseOrderDate(o.createdAt).getHours();
       if (hour >= 6 && hour < 12) salesByTime['Morning'] += o.totalAmount || 0;
       else if (hour >= 12 && hour < 17) salesByTime['Afternoon'] += o.totalAmount || 0;
       else if (hour >= 17 && hour < 22) salesByTime['Evening'] += o.totalAmount || 0;

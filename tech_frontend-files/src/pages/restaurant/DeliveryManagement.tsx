@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { apiFetch } from '../../api';
+import { apiFetch, parseOrderDate, formatOrderTime } from '../../api';
 import * as Icons from 'lucide-react';
 
 export interface DeliveryOrder {
@@ -30,6 +30,7 @@ export interface DeliveryOrder {
   totalAmount?: number;
   paymentMethod?: string;
   createdAt?: string;
+  createdAtFormatted?: string;
   items?: Array<{
     id?: number;
     quantity: number;
@@ -81,19 +82,9 @@ export default function DeliveryManagement() {
     setTimeout(() => setSuccessToast(null), 3500);
   };
 
-  const parseOrderDate = (dateVal: any): Date => {
-    if (!dateVal) return new Date();
-    if (Array.isArray(dateVal)) {
-      return new Date(dateVal[0], (dateVal[1] || 1) - 1, dateVal[2] || 1, dateVal[3] || 0, dateVal[4] || 0, dateVal[5] || 0);
-    }
-    const d = new Date(dateVal);
-    return isNaN(d.getTime()) ? new Date() : d;
-  };
-
   const formatTime = (dateVal: any): string => {
     if (!dateVal) return '--:--';
-    const d = parseOrderDate(dateVal);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatOrderTime(dateVal) || '--:--';
   };
 
   const getElapsedMinutes = (dateVal: any): number => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { apiFetch } from '../../api';
+import { apiFetch, parseOrderDate, formatOrderTime } from '../../api';
 import * as Icons from 'lucide-react';
 
 interface OrderItem {
@@ -36,6 +36,7 @@ interface CustomerOrder {
   expectedReadyTime?: string;
   estimatedPrepMinutes?: number;
   createdAt: string;
+  createdAtFormatted?: string;
   notes?: string;
   tableName?: string;
   totalAmount?: number;
@@ -54,21 +55,6 @@ export default function KitchenDisplay() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [, setTicker] = useState<number>(Date.now());
-
-  // Parse date safely
-  const parseOrderDate = (dateVal: any): Date => {
-    if (!dateVal) return new Date();
-    if (Array.isArray(dateVal)) {
-      return new Date(dateVal[0], (dateVal[1] || 1) - 1, dateVal[2] || 1, dateVal[3] || 0, dateVal[4] || 0, dateVal[5] || 0);
-    }
-    const d = new Date(dateVal);
-    return isNaN(d.getTime()) ? new Date() : d;
-  };
-
-  const formatOrderTime = (dateVal: any): string => {
-    const d = parseOrderDate(dateVal);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
 
   const getElapsedMinutes = (dateVal: any): number => {
     const d = parseOrderDate(dateVal);
@@ -627,7 +613,7 @@ export default function KitchenDisplay() {
             const currentStatus = order.kitchenStatus || 'Pending';
             const theme = getStatusTheme(currentStatus);
             const elapsed = getElapsedMinutes(order.createdAt);
-            const orderTimeStr = formatOrderTime(order.createdAt);
+            const orderTimeStr = order.createdAtFormatted || formatOrderTime(order.createdAt);
             const tableText = getTableDisplay(order);
             const isOrderUpdating = updatingOrderId === order.id;
 

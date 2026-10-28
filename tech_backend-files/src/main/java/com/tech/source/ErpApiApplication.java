@@ -4,6 +4,7 @@ import com.tech.source.model.Company;
 import com.tech.source.model.RestaurantTable;
 import com.tech.source.repository.CompanyRepository;
 import com.tech.source.repository.RestaurantTableRepository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -11,9 +12,16 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
+import java.util.TimeZone;
 
 @SpringBootApplication
 public class ErpApiApplication {
+
+	@PostConstruct
+	public void initTimeZone() {
+		TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));
+		System.out.println("JVM Default TimeZone set to: " + TimeZone.getDefault().getID() + " (" + new java.util.Date() + ")");
+	}
 
 	public static void main(String[] args) {
 		SpringApplication.run(ErpApiApplication.class, args);

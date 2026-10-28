@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiFetch } from '../../api';
+import { apiFetch, formatOrderTime } from '../../api';
 import {
   IndianRupee,
   ShoppingBag,
@@ -208,7 +208,7 @@ export default function Dashboard() {
             orderNumber: o.orderNumber || o.id,
             table: tableName,
             orderType: o.orderType || 'Dine-In',
-            time: o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today',
+            time: o.createdAtFormatted || (o.createdAt ? formatOrderTime(o.createdAt) : 'Today'),
             amount: Number(o.totalAmount || 0),
             status: o.status || 'Completed',
             paymentMethod: o.paymentMethod || 'UPI'
@@ -516,7 +516,7 @@ export default function Dashboard() {
         totalAmount: cartTotal,
         paymentMethod: status === 'Parked' ? 'Unpaid' : paymentMethod,
         status: status,
-        createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        createdAt: createdOrder?.createdAtFormatted || (createdOrder?.createdAt ? formatOrderTime(createdOrder.createdAt) : formatOrderTime(new Date()))
       };
 
       // Store locally so it syncs immediately with Orders and Dashboard

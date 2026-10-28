@@ -45,6 +45,7 @@ export default function RestaurantInventory() {
   // Dish Form State
   const [dishForm, setDishForm] = useState({ id: 0, name: '', price: '', categoryId: '', imageBase64: '', isTodaysSpecial: false });
   const [isEditingDish, setIsEditingDish] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const fetchData = () => {
     setIsLoading(true);
@@ -105,6 +106,17 @@ export default function RestaurantInventory() {
 
   const handleSaveDish = (e: React.FormEvent) => {
     e.preventDefault();
+    if (dishForm.imageBase64) {
+      const commaIdx = dishForm.imageBase64.indexOf(',');
+      const base64Data = commaIdx >= 0 ? dishForm.imageBase64.slice(commaIdx + 1) : dishForm.imageBase64;
+      const approxBytes = Math.ceil((base64Data.length * 3) / 4);
+      if (approxBytes > 5 * 1024 * 1024) {
+        alert('Dish image exceeds 5MB limit. Please upload an image smaller than 5MB.');
+        setImageError('Dish image exceeds 5MB limit. Please select a smaller image.');
+        return;
+      }
+    }
+
     const endpoint = isEditingDish ? `https://erp-api.neurolinx.in/api/pos/dishes/${dishForm.id}` : 'https://erp-api.neurolinx.in/api/pos/dishes';
     const method = isEditingDish ? 'PUT' : 'POST';
     
@@ -118,14 +130,22 @@ export default function RestaurantInventory() {
         imageBase64: dishForm.imageBase64,
         isTodaysSpecial: dishForm.isTodaysSpecial
       })
-    }).then(() => {
+    }).then(async res => {
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        alert(errorData.message || 'Failed to save dish');
+        return;
+      }
       resetDishForm();
       fetchData();
+    }).catch(err => {
+      alert('Error saving dish: ' + err.message);
     });
   };
 
   const resetDishForm = () => {
     setDishForm({ id: 0, name: '', price: '', categoryId: '', imageBase64: '', isTodaysSpecial: false });
+    setImageError(null);
     setIsEditingDish(false);
     setShowForm(false);
   };
@@ -139,6 +159,7 @@ export default function RestaurantInventory() {
       imageBase64: dish.imageBase64 || '',
       isTodaysSpecial: dish.isTodaysSpecial || false
     });
+    setImageError(null);
     setIsEditingDish(true);
     setShowForm(true);
   };
@@ -146,9 +167,18 @@ export default function RestaurantInventory() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+      if (file.size > MAX_SIZE_BYTES) {
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        alert(`Image size (${sizeMb} MB) exceeds the 5MB limit. Please upload an image smaller than 5MB.`);
+        setImageError(`Selected image is ${sizeMb} MB. Maximum allowed size is 5MB.`);
+        e.target.value = '';
+        return;
+      }
+      setImageError(null);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setDishForm({ ...dishForm, imageBase64: reader.result as string });
+        setDishForm(prev => ({ ...prev, imageBase64: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
@@ -361,16 +391,54 @@ export default function RestaurantInventory() {
               
               <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#475569', marginBottom: '0.5rem' }}>Dish Image</label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                    <label style={{ fontSize: '0.875rem', fontWeight: 500, color: '#475569' }}>Dish Image</label>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>(Max 5MB)</span>
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     {dishForm.imageBase64 && (
-                      <img src={dishForm.imageBase64} alt="Preview" style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <img src={dishForm.imageBase64} alt="Preview" style={{ width: '60px', height: '60px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0' }} />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDishForm(prev => ({ ...prev, imageBase64: '' }));
+                            setImageError(null);
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            background: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            lineHeight: 1,
+                            padding: 0
+                          }}
+                          title="Remove Image"
+                        >
+                          ×
+                        </button>
+                      </div>
                     )}
                     <label style={{ padding: '0.5rem 1rem', backgroundColor: '#f1f5f9', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontWeight: 500, fontSize: '0.875rem', border: '1px dashed #cbd5e1' }}>
-                      <Icons.Upload size={16} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} /> Upload Image
+                      <Icons.Upload size={16} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} /> {dishForm.imageBase64 ? 'Change Image' : 'Upload Image'}
                       <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
                     </label>
                   </div>
+                  {imageError && (
+                    <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.35rem', fontWeight: 500 }}>
+                      ⚠️ {imageError}
+                    </div>
+                  )}
                 </div>
                 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>

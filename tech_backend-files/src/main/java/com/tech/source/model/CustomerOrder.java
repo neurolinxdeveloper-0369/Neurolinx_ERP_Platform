@@ -1,10 +1,14 @@
 package com.tech.source.model;
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 @Entity
 @Table(name = "customer_orders")
@@ -67,18 +71,23 @@ public class CustomerOrder {
     @Column(length = 100)
     private String deliveryAssignedBy;
 
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime deliveryAssignedAt;
 
     private Integer estimatedPrepMinutes;
 
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime expectedReadyTime;
 
     private Integer estimatedDeliveryMinutes;
 
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime expectedDeliveryTime;
 
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime dispatchedAt;
 
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime deliveredAt;
     private Boolean inventoryDeducted = false;
     private Boolean inventoryRestored = false;
@@ -92,7 +101,15 @@ public class CustomerOrder {
     private Branch branch;
 
     @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
+        }
+    }
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "table_id")
@@ -122,6 +139,16 @@ public class CustomerOrder {
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    @Transient
+    public String getCreatedAtFormatted() {
+        if (createdAt == null) return "";
+        try {
+            return createdAt.format(DateTimeFormatter.ofPattern("hh:mm a", Locale.ENGLISH));
+        } catch (Exception e) {
+            return "";
+        }
+    }
     public RestaurantTable getRestaurantTable() { return restaurantTable; }
     public void setRestaurantTable(RestaurantTable restaurantTable) { this.restaurantTable = restaurantTable; }
     public Company getCompany() { return company; }

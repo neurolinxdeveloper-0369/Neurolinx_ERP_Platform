@@ -245,7 +245,7 @@ public class PosController {
             
             CustomerOrder order = new CustomerOrder();
             order.setCompany(company);
-            order.setCreatedAt(java.time.LocalDateTime.now());
+            order.setCreatedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")));
             order.setOrderNumber(generateUniqueOrderNumber(company));
 
             String orderType = (String) payload.getOrDefault("orderType", "Dine-In");
@@ -329,7 +329,7 @@ public class PosController {
                     try { prepMins = Integer.parseInt(payload.get("estimatedPrepMinutes").toString()); } catch (Exception ignored) {}
                 }
                 order.setEstimatedPrepMinutes(prepMins);
-                java.time.LocalDateTime readyTime = java.time.LocalDateTime.now().plusMinutes(prepMins);
+                java.time.LocalDateTime readyTime = (order.getCreatedAt() != null ? order.getCreatedAt() : java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata"))).plusMinutes(prepMins);
                 order.setExpectedReadyTime(readyTime);
 
                 int delivMins = 30;
@@ -349,7 +349,7 @@ public class PosController {
                             order.setDeliveryStaffName(emp.getName());
                             order.setDeliveryStaffPhone(emp.getPhone());
                             order.setDeliveryAssignedBy(SecurityContextHolder.getContext().getAuthentication().getName());
-                            order.setDeliveryAssignedAt(java.time.LocalDateTime.now());
+                            order.setDeliveryAssignedAt(order.getCreatedAt());
                         }
                     } catch (Exception ignored) {}
                 }
@@ -512,7 +512,7 @@ public class PosController {
                     order.setDeliveryStaffName(emp.getName());
                     order.setDeliveryStaffPhone(emp.getPhone());
                     order.setDeliveryAssignedBy(SecurityContextHolder.getContext().getAuthentication().getName());
-                    order.setDeliveryAssignedAt(java.time.LocalDateTime.now());
+                    order.setDeliveryAssignedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")));
                 } catch (Exception e) {
                     return ResponseEntity.badRequest().body(java.util.Map.of("message", "Invalid staff ID"));
                 }
@@ -569,14 +569,14 @@ public class PosController {
                                 order.setDeliveryStaffName(emp.getName());
                                 order.setDeliveryStaffPhone(emp.getPhone());
                                 order.setDeliveryAssignedBy(SecurityContextHolder.getContext().getAuthentication().getName());
-                                order.setDeliveryAssignedAt(java.time.LocalDateTime.now());
+                                order.setDeliveryAssignedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")));
                             });
                         } catch (Exception ignored) {}
                     }
                     order.setDeliveryStatus("Out for Delivery");
                     order.setKitchenStatus("Completed");
                     if (order.getDispatchedAt() == null) {
-                        order.setDispatchedAt(java.time.LocalDateTime.now());
+                        order.setDispatchedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")));
                     }
                     break;
                 case "Delivered":
@@ -584,7 +584,7 @@ public class PosController {
                     order.setKitchenStatus("Completed");
                     order.setStatus("Completed");
                     if (order.getDeliveredAt() == null) {
-                        order.setDeliveredAt(java.time.LocalDateTime.now());
+                        order.setDeliveredAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")));
                     }
                     break;
                 case "Cancelled":
@@ -617,7 +617,7 @@ public class PosController {
                 try {
                     int prepMins = Integer.parseInt(payload.get("estimatedPrepMinutes").toString());
                     order.setEstimatedPrepMinutes(prepMins);
-                    java.time.LocalDateTime base = order.getCreatedAt() != null ? order.getCreatedAt() : java.time.LocalDateTime.now();
+                    java.time.LocalDateTime base = order.getCreatedAt() != null ? order.getCreatedAt() : java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
                     order.setExpectedReadyTime(base.plusMinutes(prepMins));
                 } catch (Exception ignored) {}
             }
@@ -625,7 +625,7 @@ public class PosController {
                 try {
                     int delivMins = Integer.parseInt(payload.get("estimatedDeliveryMinutes").toString());
                     order.setEstimatedDeliveryMinutes(delivMins);
-                    java.time.LocalDateTime readyBase = order.getExpectedReadyTime() != null ? order.getExpectedReadyTime() : java.time.LocalDateTime.now();
+                    java.time.LocalDateTime readyBase = order.getExpectedReadyTime() != null ? order.getExpectedReadyTime() : java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
                     order.setExpectedDeliveryTime(readyBase.plusMinutes(delivMins));
                 } catch (Exception ignored) {}
             }
@@ -680,7 +680,18 @@ public class PosController {
         }
         dish.setCompany(company);
         
-        if (payload.containsKey("imageBase64")) dish.setImageBase64((String) payload.get("imageBase64"));
+        if (payload.containsKey("imageBase64") && payload.get("imageBase64") != null) {
+            String img = payload.get("imageBase64").toString();
+            if (!img.isBlank()) {
+                int commaIdx = img.indexOf(",");
+                String base64Data = (commaIdx >= 0) ? img.substring(commaIdx + 1) : img;
+                long approxBytes = ((long) base64Data.length() * 3L) / 4L;
+                if (approxBytes > 5L * 1024L * 1024L) {
+                    return ResponseEntity.badRequest().body(Map.of("message", "Dish image cannot exceed 5MB. Please upload an image smaller than 5MB."));
+                }
+                dish.setImageBase64(img);
+            }
+        }
         if (payload.containsKey("isTodaysSpecial")) dish.setIsTodaysSpecial((Boolean) payload.get("isTodaysSpecial"));
         if (payload.containsKey("discountPercentage")) dish.setDiscountPercentage(new BigDecimal(payload.get("discountPercentage").toString()));
         
@@ -728,7 +739,20 @@ public class PosController {
                     dish.setCategory(categoryRepo.findById(catId).orElse(null));
                 } catch (Exception e) {}
             }
-            if (payload.containsKey("imageBase64")) dish.setImageBase64((String) payload.get("imageBase64"));
+            if (payload.containsKey("imageBase64")) {
+                if (payload.get("imageBase64") == null || payload.get("imageBase64").toString().isBlank()) {
+                    dish.setImageBase64(null);
+                } else {
+                    String img = payload.get("imageBase64").toString();
+                    int commaIdx = img.indexOf(",");
+                    String base64Data = (commaIdx >= 0) ? img.substring(commaIdx + 1) : img;
+                    long approxBytes = ((long) base64Data.length() * 3L) / 4L;
+                    if (approxBytes > 5L * 1024L * 1024L) {
+                        return ResponseEntity.badRequest().body(Map.of("message", "Dish image cannot exceed 5MB. Please upload an image smaller than 5MB."));
+                    }
+                    dish.setImageBase64(img);
+                }
+            }
             if (payload.containsKey("isTodaysSpecial")) dish.setIsTodaysSpecial((Boolean) payload.get("isTodaysSpecial"));
             if (payload.containsKey("discountPercentage")) dish.setDiscountPercentage(new BigDecimal(payload.get("discountPercentage").toString()));
             return ResponseEntity.ok(dishRepo.save(dish));

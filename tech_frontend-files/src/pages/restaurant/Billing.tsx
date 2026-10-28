@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiFetch } from '../../api';
+import { apiFetch, parseOrderDate, formatOrderDateTime } from '../../api';
 import * as Icons from 'lucide-react';
 
 export default function RestaurantBilling() {
@@ -65,7 +65,7 @@ export default function RestaurantBilling() {
         <div class="header">
           <h2>RESTAURANT</h2>
           <p>Order #${order.orderNumber}</p>
-          <p>${new Date(order.createdAt).toLocaleString()}</p>
+          <p>${formatOrderDateTime(order.createdAt)}</p>
           <p>${order.orderType}${order.tableName ? ' - ' + order.tableName : ''}</p>
           ${order.orderType === 'Delivery' ? `
             <div style="font-size:12px; margin-top: 6px; text-align: left; background: #f8fafc; padding: 6px; border: 1px dashed #ccc;">
@@ -91,7 +91,7 @@ export default function RestaurantBilling() {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safePurchases = Array.isArray(purchases) ? purchases : [];
 
-  const todayOrders = safeOrders.filter(o => o && o.createdAt && new Date(o.createdAt).toDateString() === new Date().toDateString());
+  const todayOrders = safeOrders.filter(o => o && o.createdAt && parseOrderDate(o.createdAt).toDateString() === new Date().toDateString());
   const todayPurchases = safePurchases.filter(p => p && p.orderDate && new Date(p.orderDate).toDateString() === new Date().toDateString());
 
   const totalCashSales = todayOrders.filter(o => o.paymentMethod === 'Cash').reduce((sum, o) => sum + o.totalAmount, 0);
@@ -159,7 +159,7 @@ export default function RestaurantBilling() {
                         </div>
                       )}
                     </td>
-                    <td style={{ padding: '1rem', color: '#64748b' }}>{new Date(ord.createdAt).toLocaleString()}</td>
+                    <td style={{ padding: '1rem', color: '#64748b' }}>{formatOrderDateTime(ord.createdAt)}</td>
                     <td style={{ padding: '1rem', fontWeight: 600 }}>₹{ord.totalAmount?.toFixed(2)}</td>
                     <td style={{ padding: '1rem' }}>
                       <span style={{ padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.875rem', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 500 }}>

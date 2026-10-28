@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiFetch } from '../../api';
+import { apiFetch, parseOrderDate, formatOrderDateTime } from '../../api';
 import * as Icons from 'lucide-react';
 
 export default function Reports() {
@@ -31,7 +31,7 @@ export default function Reports() {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const filteredOrders = safeOrders.filter(o => {
     if (!o.createdAt) return false;
-    const d = new Date(o.createdAt);
+    const d = parseOrderDate(o.createdAt);
     const now = new Date();
     
     if (dateRange === 'today') {
@@ -52,7 +52,7 @@ export default function Reports() {
       csvContent += "Order No,Date,Type,Payment,Subtotal,Tax,Total\n";
       filteredOrders.forEach(o => {
         const subtotal = o.totalAmount - (o.taxApplied || 0);
-        csvContent += `${o.orderNumber},${new Date(o.createdAt).toLocaleString()},${o.orderType},${o.paymentMethod},${subtotal.toFixed(2)},${(o.taxApplied || 0).toFixed(2)},${o.totalAmount.toFixed(2)}\n`;
+        csvContent += `${o.orderNumber},${formatOrderDateTime(o.createdAt)},${o.orderType},${o.paymentMethod},${subtotal.toFixed(2)},${(o.taxApplied || 0).toFixed(2)},${o.totalAmount.toFixed(2)}\n`;
       });
     } else if (reportType === 'item_sales') {
       csvContent += "Item Name,Quantity Sold,Revenue Generated\n";
@@ -146,7 +146,7 @@ export default function Reports() {
                     {filteredOrders.slice(0, 50).map((o, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '1rem', fontWeight: 600 }}>{o.orderNumber}</td>
-                        <td style={{ padding: '1rem', color: '#64748b' }}>{new Date(o.createdAt).toLocaleString()}</td>
+                        <td style={{ padding: '1rem', color: '#64748b' }}>{formatOrderDateTime(o.createdAt)}</td>
                         <td style={{ padding: '1rem' }}>{o.orderType}</td>
                         <td style={{ padding: '1rem' }}>{o.paymentMethod}</td>
                         <td style={{ padding: '1rem', textAlign: 'right' }}>₹{(o.taxApplied || 0).toFixed(2)}</td>

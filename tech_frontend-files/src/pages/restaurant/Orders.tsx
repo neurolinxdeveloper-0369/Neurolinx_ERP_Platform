@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
-import { apiFetch } from '../../api';
+import { apiFetch, formatOrderTime } from '../../api';
 import { usePrinter } from '../../context/PrinterContext';
 import FloorTableLayout, { type RestaurantTableData } from '../../components/restaurant/FloorTableLayout';
 import DeliveryManagement from './DeliveryManagement';
@@ -361,7 +361,7 @@ export default function RestaurantOrders() {
               deliveryStaffName: o.deliveryStaffName,
               deliveryStatus: o.deliveryStatus,
               expectedDeliveryTime: o.expectedDeliveryTime,
-              createdAt: o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+              createdAt: o.createdAtFormatted || (o.createdAt ? formatOrderTime(o.createdAt) : '')
             }));
             setRecentOrders(mapped.slice(0, 10));
             localStorage.setItem('pos_recent_orders', JSON.stringify(mapped.slice(0, 10)));
@@ -592,7 +592,7 @@ export default function RestaurantOrders() {
           <div class="header">
             <h2>RESTAURANT</h2>
             <p>Order #${order.orderNumber}</p>
-            <p>${order.createdAt}</p>
+            <p>${formatOrderTime(order.createdAt) || order.createdAt}</p>
             <p>${order.orderType}${order.tableName ? ' - ' + order.tableName : ''}</p>
             ${order.orderType === 'Delivery' ? `<p style="font-size:12px;margin:2px 0;"><strong>Customer:</strong> ${order.customerName || ''} (${order.customerPhone || ''})<br/><strong>Address:</strong> ${order.deliveryAddress || ''}</p>` : ''}
           </div>
@@ -643,7 +643,7 @@ export default function RestaurantOrders() {
         deliveryInstructions: orderType === 'Delivery' ? deliveryInstructions.trim() : undefined,
         deliveryStaffName: orderType === 'Delivery' && deliveryStaffId ? staffList.find(s => String(s.id) === deliveryStaffId)?.name : undefined,
         deliveryStatus: orderType === 'Delivery' ? 'Order Placed' : undefined,
-        createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        createdAt: serverOrder?.createdAtFormatted || (serverOrder?.createdAt ? formatOrderTime(serverOrder.createdAt) : formatOrderTime(new Date()))
       };
 
       setRecentOrders(prev => {
