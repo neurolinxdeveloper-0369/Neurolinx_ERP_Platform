@@ -621,14 +621,7 @@ export default function DeliveryManagement() {
         {/* Status Filter Tabs */}
         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
           {[
-            { id: 'ALL_ACTIVE', label: 'All Active' },
-            { id: 'Order Placed', label: 'Order Placed' },
-            { id: 'Preparing', label: 'Preparing' },
-            { id: 'Ready for Dispatch', label: 'Ready for Dispatch' },
-            { id: 'Out for Delivery', label: 'Out for Delivery' },
-            { id: 'Delivered', label: 'Delivered' },
-            { id: 'Cancelled', label: 'Cancelled' },
-            { id: 'ALL', label: 'All History' }
+            { id: 'ALL_ACTIVE', label: 'All Active' }
           ].map(tab => (
             <button
               key={tab.id}

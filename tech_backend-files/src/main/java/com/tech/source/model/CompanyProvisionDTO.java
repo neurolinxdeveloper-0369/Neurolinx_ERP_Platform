@@ -27,6 +27,10 @@ public class CompanyProvisionDTO {
     private String kitchenSetup;
 
     private List<Map<String, String>> branches;
+    private List<Map<String, Object>> floorTables;
+
+    public List<Map<String, Object>> getFloorTables() { return floorTables; }
+    public void setFloorTables(List<Map<String, Object>> floorTables) { this.floorTables = floorTables; }
 
     public String getCompanyName() { return companyName; }
     public void setCompanyName(String companyName) { this.companyName = companyName; }

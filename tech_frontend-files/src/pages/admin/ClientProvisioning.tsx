@@ -23,8 +23,11 @@ export default function ClientProvisioning() {
   const [contactNumber, setContactNumber] = useState('');
   const [address, setAddress] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
-  const [totalTables, setTotalTables] = useState<number | ''>('');
-  const [totalFloors, setTotalFloors] = useState<number | ''>('');
+  const [totalTables, setTotalTables] = useState<number | ''>(5);
+  const [totalFloors, setTotalFloors] = useState<number | ''>(1);
+  const [floorConfigs, setFloorConfigs] = useState<{ floor: number; tableCount: number }[]>([
+    { floor: 1, tableCount: 5 }
+  ]);
   const [gstin, setGstin] = useState('');
   const [panNumber, setPanNumber] = useState('');
   const [registrationNumber, setRegistrationNumber] = useState('');
@@ -157,6 +160,35 @@ export default function ClientProvisioning() {
     }
   };
 
+  const handleAddAnotherFloor = () => {
+    setFloorConfigs(prev => {
+      const nextFloor = prev.length + 1;
+      const updated = [...prev, { floor: nextFloor, tableCount: 5 }];
+      setTotalFloors(updated.length);
+      setTotalTables(updated.reduce((sum, f) => sum + (f.tableCount || 0), 0));
+      return updated;
+    });
+  };
+
+  const handleRemoveFloor = (floorNum: number) => {
+    if (floorConfigs.length <= 1) return;
+    setFloorConfigs(prev => {
+      const filtered = prev.filter(f => f.floor !== floorNum);
+      const renumbered = filtered.map((f, idx) => ({ ...f, floor: idx + 1 }));
+      setTotalFloors(renumbered.length);
+      setTotalTables(renumbered.reduce((sum, f) => sum + (f.tableCount || 0), 0));
+      return renumbered;
+    });
+  };
+
+  const handleFloorTableCountChange = (floor: number, count: number) => {
+    setFloorConfigs(prev => {
+      const updated = prev.map(p => p.floor === floor ? { ...p, tableCount: Math.max(0, count) } : p);
+      setTotalTables(updated.reduce((sum, f) => sum + (f.tableCount || 0), 0));
+      return updated;
+    });
+  };
+
   const openCreateModal = () => {
     setEditingId(null);
     setCompanyName('');
@@ -166,8 +198,9 @@ export default function ClientProvisioning() {
     setContactNumber('');
     setAddress('');
     setWebsiteUrl('');
-    setTotalTables('');
-    setTotalFloors('');
+    setTotalTables(5);
+    setTotalFloors(1);
+    setFloorConfigs([{ floor: 1, tableCount: 5 }]);
     setGstin('');
     setPanNumber('');
     setRegistrationNumber('');
@@ -200,8 +233,27 @@ export default function ClientProvisioning() {
         setContactNumber(fullComp.contactNumber || '');
         setAddress(fullComp.address || '');
         setWebsiteUrl(fullComp.websiteUrl || '');
-        setTotalTables(fullComp.totalTables || '');
-        setTotalFloors(fullComp.totalFloors || '');
+
+        const floors = fullComp.totalFloors || (fullComp.floorTables?.length || 1);
+        setTotalFloors(floors);
+        setTotalTables(fullComp.totalTables || 0);
+
+        if (fullComp.floorTables && Array.isArray(fullComp.floorTables) && fullComp.floorTables.length > 0) {
+          setFloorConfigs(fullComp.floorTables.map((ft: any) => ({
+            floor: ft.floor,
+            tableCount: ft.tableCount || 0
+          })));
+        } else {
+          const configs: { floor: number; tableCount: number }[] = [];
+          for (let f = 1; f <= floors; f++) {
+            configs.push({
+              floor: f,
+              tableCount: f === 1 ? (fullComp.totalTables || 5) : 0
+            });
+          }
+          setFloorConfigs(configs);
+        }
+
         setGstin(fullComp.gstin || '');
         setPanNumber(fullComp.panNumber || '');
         setRegistrationNumber(fullComp.registrationNumber || '');
@@ -350,9 +402,25 @@ export default function ClientProvisioning() {
       : 'https://erp-api.neurolinx.in/api/admin/companies';
       
     const method = editingId ? 'PUT' : 'POST';
+    const isHospitality = industryType === 'Restaurant' || industryType === 'Hotel' || industryType === 'Hybrid (Hotel & Restaurant)';
+    const calculatedTotalFloors = isHospitality ? (totalFloors === '' ? 1 : Math.max(1, Number(totalFloors))) : (totalFloors === '' ? null : totalFloors);
+    const calculatedTotalTables = isHospitality ? floorConfigs.reduce((acc, curr) => acc + (curr.tableCount || 0), 0) : (totalTables === '' ? null : totalTables);
+
     const payload = editingId 
-      ? { name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, totalFloors: totalFloors === '' ? null : totalFloors, gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup }
-      : { companyName, clientName, industryType, email, password, logoBase64, contactNumber, address, websiteUrl, totalTables: totalTables === '' ? null : totalTables, totalFloors: totalFloors === '' ? null : totalFloors, branches, gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup };
+      ? { 
+          name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address, websiteUrl, 
+          totalTables: calculatedTotalTables, 
+          totalFloors: calculatedTotalFloors, 
+          gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup,
+          floorTables: isHospitality ? floorConfigs : []
+        }
+      : { 
+          companyName, clientName, industryType, email, password, logoBase64, contactNumber, address, websiteUrl, 
+          totalTables: calculatedTotalTables, 
+          totalFloors: calculatedTotalFloors, 
+          branches, gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup,
+          floorTables: isHospitality ? floorConfigs : []
+        };
     
     try {
       const res = await apiFetch(url, {
@@ -719,54 +787,123 @@ export default function ClientProvisioning() {
               </div>
 
               {(industryType === 'Restaurant' || industryType === 'Hotel' || industryType === 'Hybrid (Hotel & Restaurant)') && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                <input 
-                  type="number" 
-                  value={totalTables}
-                  onChange={e => setTotalTables(e.target.value ? parseInt(e.target.value) : '')}
-                  placeholder="Total Tables"
-                  style={{ flex: 1, padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }}
-                  onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
-                />
-                <input 
-                  type="number" 
-                  value={totalFloors}
-                  onChange={e => setTotalFloors(e.target.value ? parseInt(e.target.value) : '')}
-                  placeholder="Total Floors"
-                  style={{ flex: 1, padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', transition: 'border-color 0.2s' }}
-                  onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
-                  onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
-                />
-              </div>
-
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <div style={{ flex: 1 }}>
-                    <select 
-                      value={serviceModel} 
-                      onChange={e => setServiceModel(e.target.value)}
-                      style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', backgroundColor: 'white', appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
-                    >
-                      <option value="Quick Service (QSR)">Quick Service (QSR)</option>
-                      <option value="Fine Dining">Fine Dining</option>
-                      <option value="Casual Dining">Casual Dining</option>
-                      <option value="Buffet">Buffet</option>
-                    </select>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label style={{ fontSize: '0.8125rem', color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Floors & Tables Configuration
+                    </label>
+                    <span style={{ fontSize: '0.8125rem', color: '#2563eb', fontWeight: 700 }}>
+                      Total: {floorConfigs.length} {floorConfigs.length === 1 ? 'Floor' : 'Floors'} • {floorConfigs.reduce((acc, f) => acc + (f.tableCount || 0), 0)} Tables
+                    </span>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <select 
-                      value={kitchenSetup} 
-                      onChange={e => setKitchenSetup(e.target.value)}
-                      style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', backgroundColor: 'white', appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
+
+                  {/* Floor List */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    {floorConfigs.map((fc, idx) => (
+                      <div key={fc.floor} style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                        <div style={{ flex: 1, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1e293b', minWidth: '65px' }}>
+                            Floor {fc.floor}:
+                          </span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={fc.tableCount === 0 ? '' : fc.tableCount}
+                            onChange={e => handleFloorTableCountChange(fc.floor, e.target.value === '' ? 0 : parseInt(e.target.value))}
+                            placeholder={`Total Tables for Floor ${fc.floor}`}
+                            style={{ 
+                              flex: 1, 
+                              padding: '0.75rem 1rem', 
+                              border: '1px solid #cbd5e1', 
+                              borderRadius: '8px', 
+                              boxSizing: 'border-box', 
+                              outline: 'none', 
+                              fontSize: '0.9375rem',
+                              transition: 'border-color 0.2s' 
+                            }}
+                            onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
+                            onBlur={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+                          />
+                        </div>
+
+                        {idx > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFloor(fc.floor)}
+                            title={`Delete Floor ${fc.floor}`}
+                            style={{
+                              background: '#fee2e2',
+                              border: '1px solid #fecaca',
+                              borderRadius: '8px',
+                              color: '#dc2626',
+                              padding: '0.65rem 0.75rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'background 0.15s'
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* + Add Another Floor Option */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleAddAnotherFloor}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        padding: '0.55rem 0.95rem',
+                        backgroundColor: '#eff6ff',
+                        color: '#2563eb',
+                        border: '1px dashed #60a5fa',
+                        borderRadius: '8px',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = '#dbeafe'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = '#eff6ff'}
                     >
-                      <option value="KDS">Kitchen Display System (KDS)</option>
-                      <option value="Printed KOTs">Printed KOTs</option>
-                      <option value="Both">Both (KDS & KOTs)</option>
-                    </select>
+                      <Plus size={16} /> Add Another Floor
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <select 
+                        value={serviceModel} 
+                        onChange={e => setServiceModel(e.target.value)}
+                        style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', backgroundColor: 'white', appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
+                      >
+                        <option value="Quick Service (QSR)">Quick Service (QSR)</option>
+                        <option value="Fine Dining">Fine Dining</option>
+                        <option value="Casual Dining">Casual Dining</option>
+                        <option value="Buffet">Buffet</option>
+                      </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <select 
+                        value={kitchenSetup} 
+                        onChange={e => setKitchenSetup(e.target.value)}
+                        style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #cbd5e1', borderRadius: '8px', boxSizing: 'border-box', outline: 'none', fontSize: '0.9375rem', backgroundColor: 'white', appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1em' }}
+                      >
+                        <option value="KDS">Kitchen Display System (KDS)</option>
+                        <option value="Printed KOTs">Printed KOTs</option>
+                        <option value="Both">Both (KDS & KOTs)</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
               )}
 
               <div style={{ display: 'flex', gap: '1rem' }}>
