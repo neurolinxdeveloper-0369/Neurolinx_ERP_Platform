@@ -22,6 +22,36 @@ const DEFAULT_RESTAURANT_MENUS = [
   { id: 2015, name: "Settings", route: "/res-settings", icon: "settings", parentId: 0 },
 ];
 
+export const getPredefinedMenuOrder = (menu: any): number => {
+  if (!menu) return 9999;
+  const name = (menu.name || '').trim().toLowerCase();
+  const route = (menu.route || menu.frontendRoute || '').trim().toLowerCase();
+
+  if (name === 'dashboard' || route === '/res-dashboard' || route === '/dashboard') return 10;
+  if (name === 'clients' || route === '/clients') return 15;
+  if (name.includes('approval') || route === '/approvals') return 18;
+  if (name === 'orders' || route === '/res-orders') return 20;
+  if (name.includes('kitchen') || name.includes('kds') || route === '/res-kitchen') return 30;
+  if (name === 'inventory' || route === '#' || (route === '/res-inventory' && (!menu.parentId || menu.parentId === 0))) return 40;
+  if (name.includes('menu management')) return 41;
+  if (name.includes('waste')) return 42;
+  if (name.includes('vendor')) return 43;
+  if (name.includes('raw')) return 44;
+  if (name.includes('recipe')) return 45;
+  if (name.includes('billing') || route === '/res-billing') return 50;
+  if (name.includes('analytics') || route === '/res-analytics') return 60;
+  if (name.includes('report') || route === '/res-reports') return 70;
+  if (name.includes('document') || route === '/res-documents') return 80;
+  if (name.includes('staff') || route === '/res-staff') return 90;
+  if (name.includes('support') || route === '/res-support') return 100;
+  if (name.includes('printer') || route === '/res-printers') return 110;
+  if (name.includes('branch') || route === '/res-branches') return 120;
+  if (name.includes('global') || (name.includes('setting') && (route === '/settings' || route === '/res-settings'))) return 130;
+  if (name.includes('qr') || route === '/res-qrordering' || route === '/res-qr-ordering') return 140;
+
+  return typeof menu.id === 'number' ? 1000 + menu.id : 9999;
+};
+
 export default function MasterLayout() {
   const [menus, setMenus] = useState<any[]>([]);
   const [expanded, setExpanded] = useState<Record<string | number, boolean>>({});
@@ -76,6 +106,7 @@ export default function MasterLayout() {
             });
           }
 
+          filtered.sort((a: any, b: any) => getPredefinedMenuOrder(a) - getPredefinedMenuOrder(b));
           setMenus(filtered);
         })
         .catch(err => {
@@ -135,6 +166,7 @@ export default function MasterLayout() {
     if (inventorySubRoutes.includes(m.route) || m.name === 'Menu Management') return false;
     return !m.parentId || m.parentId === 0 || m.parentId === '0';
   });
+  parentMenus.sort((a, b) => getPredefinedMenuOrder(a) - getPredefinedMenuOrder(b));
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f9fafb' }}>
@@ -165,6 +197,7 @@ export default function MasterLayout() {
                 });
             } else {
               const directChildren = menus.filter(m => String(m.parentId) === String(menu.id));
+              directChildren.sort((a, b) => getPredefinedMenuOrder(a) - getPredefinedMenuOrder(b));
               allChildItems = [...directChildren];
               if (directChildren.length > 0 && menu.route && menu.route !== '#' && !allChildItems.some(c => c.route === menu.route)) {
                 allChildItems.unshift({

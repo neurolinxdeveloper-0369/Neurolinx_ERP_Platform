@@ -83,10 +83,11 @@ public class MenuController {
             }
         }
 
-        // Filter only active master menus and map to a null-safe DTO structure
+        // Filter only active master menus, sort by predefined fixed order, and map to a null-safe DTO structure
         var menus = privileges.stream()
                 .filter(p -> p.getMenuItem() != null && Boolean.TRUE.equals(p.getMenuItem().getIsMasterEnabled()))
                 .filter(p -> Boolean.TRUE.equals(p.getCanRead()))
+                .sorted(java.util.Comparator.comparingInt(p -> getPredefinedMenuOrder(p.getMenuItem())))
                 .map(p -> {
                     java.util.Map<String, Object> map = new java.util.HashMap<>();
                     map.put("id", p.getMenuItem().getId());
@@ -99,5 +100,33 @@ public class MenuController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(menus);
+    }
+
+    public static int getPredefinedMenuOrder(MenuItem item) {
+        if (item == null) return 9999;
+        String name = item.getName() != null ? item.getName().trim().toLowerCase() : "";
+        String route = item.getFrontendRoute() != null ? item.getFrontendRoute().trim().toLowerCase() : "";
+
+        if (name.equals("dashboard") || route.contains("dashboard")) return 10;
+        if (name.equals("orders") || route.contains("orders")) return 20;
+        if (name.contains("kitchen") || name.contains("kds") || route.contains("kitchen")) return 30;
+        if (name.equals("inventory") || route.equals("#") || (route.contains("inventory") && item.getParentId() == null)) return 40;
+        if (name.contains("menu management")) return 41;
+        if (name.contains("waste")) return 42;
+        if (name.contains("vendor")) return 43;
+        if (name.contains("raw")) return 44;
+        if (name.contains("recipe")) return 45;
+        if (name.contains("billing") || route.contains("billing")) return 50;
+        if (name.contains("analytic") || route.contains("analytic")) return 60;
+        if (name.contains("report") || route.contains("report")) return 70;
+        if (name.contains("document") || route.contains("document")) return 80;
+        if (name.contains("staff") || route.contains("staff")) return 90;
+        if (name.contains("support") || route.contains("support")) return 100;
+        if (name.contains("printer") || route.contains("printer")) return 110;
+        if (name.contains("branch") || route.contains("branch")) return 120;
+        if (name.contains("setting") || route.contains("setting")) return 130;
+        if (name.contains("qr") || route.contains("qr")) return 140;
+
+        return item.getId() != null ? 1000 + item.getId().intValue() : 9999;
     }
 }

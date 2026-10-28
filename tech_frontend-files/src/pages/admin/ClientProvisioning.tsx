@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Users, Settings, Building2, X, Edit2, Trash2, CheckSquare, Square, CheckCircle, Layers } from 'lucide-react';
 import { apiFetch } from '../../api';
+import { getPredefinedMenuOrder } from '../../components/MasterLayout';
 
 export default function ClientProvisioning() {
   const [companies, setCompanies] = useState<any[]>([]);
@@ -376,10 +377,15 @@ export default function ClientProvisioning() {
   const handleSaveModules = async () => {
     setIsSubmitting(true);
     try {
+      const sortedModuleIds = [...assignedModuleIds].sort((a, b) => {
+        const modA = allModules.find(m => m.id === a);
+        const modB = allModules.find(m => m.id === b);
+        return getPredefinedMenuOrder(modA || { id: a }) - getPredefinedMenuOrder(modB || { id: b });
+      });
       const res = await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${editingId}/modules`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(assignedModuleIds)
+        body: JSON.stringify(sortedModuleIds)
       });
       if (res.ok) {
         setShowModulesModal(false);
@@ -404,6 +410,7 @@ export default function ClientProvisioning() {
 
     const availableModules = getAvailableModules(type);
     const parentModules = availableModules.filter(m => !m.parentId || m.parentId === 0);
+    parentModules.sort((a, b) => getPredefinedMenuOrder(a) - getPredefinedMenuOrder(b));
 
     if (parentModules.length === 0) {
       return (
@@ -415,6 +422,7 @@ export default function ClientProvisioning() {
 
     return parentModules.map(mod => {
       const children = availableModules.filter(m => m.parentId === mod.id);
+      children.sort((a, b) => getPredefinedMenuOrder(a) - getPredefinedMenuOrder(b));
       const isChecked = assignedModuleIds.includes(mod.id);
       const checkedChildrenCount = children.filter(c => assignedModuleIds.includes(c.id)).length;
 
@@ -591,20 +599,28 @@ export default function ClientProvisioning() {
     const calculatedTotalFloors = isHospitality ? (totalFloors === '' ? 1 : Math.max(1, Number(totalFloors))) : (totalFloors === '' ? null : totalFloors);
     const calculatedTotalTables = isHospitality ? floorConfigs.reduce((acc, curr) => acc + (curr.tableCount || 0), 0) : (totalTables === '' ? null : totalTables);
 
+    const sortedModuleIds = [...assignedModuleIds].sort((a, b) => {
+      const modA = allModules.find(m => m.id === a);
+      const modB = allModules.find(m => m.id === b);
+      return getPredefinedMenuOrder(modA || { id: a }) - getPredefinedMenuOrder(modB || { id: b });
+    });
+
     const payload = editingId 
       ? { 
           name: companyName, clientName, industryType, isActive, logoBase64, contactNumber, address, websiteUrl, 
           totalTables: calculatedTotalTables, 
           totalFloors: calculatedTotalFloors, 
           gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup,
-          floorTables: isHospitality ? floorConfigs : []
+          floorTables: isHospitality ? floorConfigs : [],
+          moduleIds: sortedModuleIds
         }
       : { 
           companyName, clientName, industryType, email, password, logoBase64, contactNumber, address, websiteUrl, 
           totalTables: calculatedTotalTables, 
           totalFloors: calculatedTotalFloors, 
           branches, gstin, panNumber, registrationNumber, foodLicense, operatingHours, serviceModel, kitchenSetup,
-          floorTables: isHospitality ? floorConfigs : []
+          floorTables: isHospitality ? floorConfigs : [],
+          moduleIds: sortedModuleIds
         };
     
     try {
@@ -615,6 +631,19 @@ export default function ClientProvisioning() {
       });
       
       if (res.ok) {
+        const savedCompany = await res.json().catch(() => null);
+        const targetId = editingId || savedCompany?.id;
+        if (targetId && sortedModuleIds.length > 0) {
+          try {
+            await apiFetch(`https://erp-api.neurolinx.in/api/admin/companies/${targetId}/modules`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(sortedModuleIds)
+            });
+          } catch (syncErr) {
+            console.error("Failed to sync module assignments:", syncErr);
+          }
+        }
         fetchCompanies();
         setShowModal(false);
       } else {

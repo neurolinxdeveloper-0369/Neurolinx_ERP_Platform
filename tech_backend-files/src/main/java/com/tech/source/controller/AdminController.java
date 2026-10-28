@@ -48,7 +48,9 @@ public class AdminController {
     
     @GetMapping("/menu-items")
     public ResponseEntity<List<MenuItem>> getAllMenuItems() {
-        return ResponseEntity.ok(menuItemRepository.findAll());
+        List<MenuItem> items = menuItemRepository.findAll();
+        items.sort(java.util.Comparator.comparingInt(MenuController::getPredefinedMenuOrder));
+        return ResponseEntity.ok(items);
     }
 
     @PostMapping("/menu-items")
@@ -451,11 +453,12 @@ public class AdminController {
         List<RolePrivilege> existing = rolePrivilegeRepository.findByRole(adminRole);
         rolePrivilegeRepository.deleteAll(existing);
 
-        for (Long moduleId : moduleIds) {
-            menuItemRepository.findById(moduleId).ifPresent(menuItem -> {
-                RolePrivilege rp = new RolePrivilege(adminRole, menuItem, true, true, true);
-                rolePrivilegeRepository.save(rp);
-            });
+        List<MenuItem> itemsToSave = menuItemRepository.findAllById(moduleIds);
+        itemsToSave.sort(java.util.Comparator.comparingInt(MenuController::getPredefinedMenuOrder));
+
+        for (MenuItem item : itemsToSave) {
+            RolePrivilege rp = new RolePrivilege(adminRole, item, true, true, true);
+            rolePrivilegeRepository.save(rp);
         }
     }
 }
