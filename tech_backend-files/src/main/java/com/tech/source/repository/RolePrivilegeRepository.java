@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface RolePrivilegeRepository extends JpaRepository<RolePrivilege, Long> {
     List<RolePrivilege> findByRole(Role role);
+    List<RolePrivilege> findByMenuItem(com.tech.source.model.MenuItem menuItem);
+    void deleteByMenuItem(com.tech.source.model.MenuItem menuItem);
 }

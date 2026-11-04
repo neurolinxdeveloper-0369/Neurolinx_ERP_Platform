@@ -169,9 +169,13 @@ export default function GlobalModules() {
       const res = await apiFetch('https://erp-api.neurolinx.in/api/admin/menu-items/' + id, { method: 'DELETE' });
       if (res.ok) {
         fetchModules();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message || 'Failed to delete module.');
       }
     } catch (err) {
       console.error(err);
+      alert('Network error while deleting module.');
     }
   };
 

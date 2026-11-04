@@ -72,9 +72,18 @@ public class AdminController {
     }
 
     @DeleteMapping("/menu-items/{id}")
+    @Transactional
     public ResponseEntity<?> deleteMenuItem(@PathVariable Long id) {
-        menuItemRepository.deleteById(id);
-        return ResponseEntity.ok().build();
+        return menuItemRepository.findById(id).map(item -> {
+            List<MenuItem> children = menuItemRepository.findByParentId(id);
+            for (MenuItem child : children) {
+                rolePrivilegeRepository.deleteByMenuItem(child);
+                menuItemRepository.delete(child);
+            }
+            rolePrivilegeRepository.deleteByMenuItem(item);
+            menuItemRepository.delete(item);
+            return ResponseEntity.ok().build();
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     // --- COMPANIES (Clients) ---

@@ -755,7 +755,10 @@ export default function RestaurantOrders() {
       window.dispatchEvent(new Event('storage'));
 
       if (status === 'Completed') {
-        handlePrint(newOrderRecord);
+        // Only open system/PDF print popup if no hardware (Bluetooth/Serial) printer is paired
+        if (!connectedDevice) {
+          handlePrint(newOrderRecord);
+        }
       }
 
       return newOrderRecord;

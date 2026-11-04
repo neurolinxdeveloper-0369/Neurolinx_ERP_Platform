@@ -168,16 +168,29 @@ export function PrinterProvider({ children }: { children: ReactNode }) {
 
   const sendEscPos = async (payload: Uint8Array) => {
     if (connectionType === 'SERIAL' && serialPort && serialPort.writable) {
+      let writer: any = null;
       try {
-        const writer = serialPort.writable.getWriter();
+        let waited = 0;
+        while (serialPort.writable.locked && waited < 3000) {
+          await new Promise(r => setTimeout(r, 100));
+          waited += 100;
+        }
+        writer = serialPort.writable.getWriter();
         await writer.write(payload);
-        writer.releaseLock();
         addLog("✅ Print job transmitted successfully via USB / Serial!");
         return;
       } catch (error: any) {
         addLog(`❌ Serial printing failed: ${error.message}`);
         alert(`Serial printing failed: ${error.message}`);
         return;
+      } finally {
+        if (writer) {
+          try {
+            writer.releaseLock();
+          } catch (e) {
+            console.warn("Failed to release writer lock:", e);
+          }
+        }
       }
     }
 
