@@ -71,8 +71,22 @@ export interface ReservationData {
 
 export default function RestaurantOrders() {
   const { sendEscPos, connectedDevice } = usePrinter();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [dishes, setDishes] = useState<Dish[]>([]);
+  const [categories, setCategories] = useState<Category[]>(() => {
+    try {
+      const cached = localStorage.getItem('pos_categories');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [dishes, setDishes] = useState<Dish[]>(() => {
+    try {
+      const cached = localStorage.getItem('pos_dishes');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -89,8 +103,22 @@ export default function RestaurantOrders() {
   const [tables, setTables] = useState<RestaurantTableData[]>([]);
   const [selectedFloor, setSelectedFloor] = useState<number>(1);
   const [loadingTables, setLoadingTables] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [settings, setSettings] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(() => {
+    try {
+      const cachedDishes = localStorage.getItem('pos_dishes');
+      return !(cachedDishes && JSON.parse(cachedDishes).length > 0);
+    } catch {
+      return true;
+    }
+  });
+  const [settings, setSettings] = useState<any>(() => {
+    try {
+      const cached = localStorage.getItem('pos_settings');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [recentOrders, setRecentOrders] = useState<PlacedOrder[]>(() => {
     const cached = localStorage.getItem('pos_recent_orders');
     if (cached) {
@@ -326,18 +354,33 @@ export default function RestaurantOrders() {
   };
 
   useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
     Promise.all([
-      apiFetch('https://erp-api.neurolinx.in/api/pos/categories').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/pos/dishes').then(res => res.json()),
-      apiFetch('https://erp-api.neurolinx.in/api/settings').then(res => res.json()),
+      apiFetch('https://erp-api.neurolinx.in/api/pos/categories').then(res => res.ok ? res.json() : []).catch(() => []),
+      apiFetch('https://erp-api.neurolinx.in/api/pos/dishes').then(res => res.ok ? res.json() : []).catch(() => []),
+      apiFetch('https://erp-api.neurolinx.in/api/settings').then(res => res.ok ? res.json() : {}).catch(() => ({})),
       apiFetch('https://erp-api.neurolinx.in/api/staff/employees').then(res => res.ok ? res.json() : []).catch(() => [])
     ]).then(([cats, items, sets, staff]) => {
-      setCategories(Array.isArray(cats) ? cats : []);
-      setDishes(Array.isArray(items) ? items : []);
-      setSettings(sets);
+      clearTimeout(safetyTimer);
+      if (Array.isArray(cats) && cats.length > 0) {
+        setCategories(cats);
+        try { localStorage.setItem('pos_categories', JSON.stringify(cats)); } catch (e) {}
+      }
+      if (Array.isArray(items) && items.length > 0) {
+        setDishes(items);
+        try { localStorage.setItem('pos_dishes', JSON.stringify(items)); } catch (e) {}
+      }
+      if (sets && typeof sets === 'object') {
+        setSettings(sets);
+        try { localStorage.setItem('pos_settings', JSON.stringify(sets)); } catch (e) {}
+      }
       if (Array.isArray(staff)) setStaffList(staff.filter((s: any) => s.isActive !== false));
       setIsLoading(false);
     }).catch(err => {
+      clearTimeout(safetyTimer);
       console.error(err);
       setIsLoading(false);
     });
@@ -401,7 +444,10 @@ export default function RestaurantOrders() {
 
     fetchRecentOrders();
     const interval = setInterval(fetchRecentOrders, 8000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(safetyTimer);
+      clearInterval(interval);
+    };
   }, []);
 
   const addToCart = (dish: Dish) => {
